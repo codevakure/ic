@@ -26,11 +26,15 @@ export const webSearchAuth = {
   },
   rerankers: {
     jina: {
-      jinaApiKey: 1 as const,
+      /** Optional (0) - not required when rerankerType not specified */
+      jinaApiKey: 0 as const,
       /** Optional (0) */
       jinaApiUrl: 0 as const,
     },
-    cohere: { cohereApiKey: 1 as const },
+    cohere: { 
+      /** Optional (0) - not required when rerankerType not specified */
+      cohereApiKey: 0 as const 
+    },
   },
 };
 

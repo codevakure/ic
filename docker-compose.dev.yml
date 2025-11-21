@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: librechat-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: LibreChat
+    networks:
+      - librechat-network
+
+  # MeiliSearch for conversation search
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: librechat-meilisearch
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    environment:
+      MEILI_MASTER_KEY: DrhYf7zENyR6AlUCKmnz0eYASOQdl6zxH7s7MKFSfFCt
+      MEILI_NO_ANALYTICS: true
+    networks:
+      - librechat-network
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: librechat-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - librechat-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  meilisearch_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  librechat-network:
+    driver: bridge

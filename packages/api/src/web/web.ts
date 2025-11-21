@@ -1,12 +1,12 @@
 import {
   AuthType,
+  RerankerTypes,
   SafeSearchTypes,
   SearchCategories,
   extractVariableName,
 } from 'librechat-data-provider';
 import { webSearchAuth } from '@librechat/data-schemas';
 import type {
-  RerankerTypes,
   TCustomConfig,
   SearchProviders,
   ScraperProviders,
@@ -177,10 +177,14 @@ export async function loadWebSearchAuth({
     return [false, isUserProvided];
   }
 
+  // Only check rerankers if a valid reranker type requiring API keys is specified
+  const shouldCheckRerankers = webSearchConfig?.rerankerType && 
+    (webSearchConfig.rerankerType === RerankerTypes.JINA || webSearchConfig.rerankerType === RerankerTypes.COHERE);
+    
   const categories = [
     SearchCategories.PROVIDERS,
     SearchCategories.SCRAPERS,
-    SearchCategories.RERANKERS,
+    ...(shouldCheckRerankers ? [SearchCategories.RERANKERS] : []),
   ] as const;
   const authTypes: [TWebSearchCategories, AuthType][] = [];
   for (const category of categories) {
@@ -197,6 +201,9 @@ export async function loadWebSearchAuth({
   authResult.scraperTimeout =
     webSearchConfig?.scraperTimeout ?? webSearchConfig?.firecrawlOptions?.timeout ?? 7500;
   authResult.firecrawlOptions = webSearchConfig?.firecrawlOptions;
+
+  // If no rerankerType was found through authentication, don't set any rerankerType
+  // The absence of rerankerType will indicate that reranking should be disabled
 
   return {
     authTypes,

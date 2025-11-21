@@ -32,7 +32,7 @@ const useAuthSearchTool = (options?: { isEntityTool: boolean }) => {
               ? [
                   ['providers', AuthType.USER_PROVIDED],
                   ['scrapers', AuthType.USER_PROVIDED],
-                  ['rerankers', AuthType.USER_PROVIDED],
+                  // Rerankers are now optional and will be added dynamically based on provided keys
                 ]
               : [],
         };
@@ -66,6 +66,18 @@ const useAuthSearchTool = (options?: { isEntityTool: boolean }) => {
         },
         {} as Record<string, string>,
       );
+
+      // Determine auth types based on which keys are provided
+      const authTypes = [
+        ['providers', AuthType.USER_PROVIDED],
+        ['scrapers', AuthType.USER_PROVIDED],
+      ];
+      
+      // Only include rerankers in auth types if API keys are provided
+      const hasRerankerKey = data.jinaApiKey || data.cohereApiKey;
+      if (hasRerankerKey) {
+        authTypes.push(['rerankers', AuthType.USER_PROVIDED]);
+      }
 
       updateUserPlugins.mutate({
         pluginKey: Tools.web_search,

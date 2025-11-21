@@ -43,7 +43,7 @@ export default function ApiKeyDialog({
     config?.webSearch?.searchProvider || SearchProviders.SERPER,
   );
   const [selectedReranker, setSelectedReranker] = useState(
-    config?.webSearch?.rerankerType || RerankerTypes.JINA,
+    config?.webSearch?.rerankerType || ('none' as RerankerTypes),
   );
   const [selectedScraper, setSelectedScraper] = useState(
     config?.webSearch?.scraperProvider || ScraperProviders.FIRECRAWL,
@@ -81,6 +81,11 @@ export default function ApiKeyDialog({
   ];
 
   const rerankerOptions: DropdownOption[] = [
+    {
+      key: 'none' as RerankerTypes,
+      label: localize('com_ui_web_search_reranker_none'),
+      inputs: {},
+    },
     {
       key: RerankerTypes.JINA,
       label: localize('com_ui_web_search_reranker_jina'),
@@ -224,22 +229,20 @@ export default function ApiKeyDialog({
                 />
               )}
 
-              {/* Reranker Section */}
-              {rerankerAuthType !== AuthType.SYSTEM_DEFINED && (
-                <InputSection
-                  title={localize('com_ui_web_search_reranker')}
-                  selectedKey={selectedReranker}
-                  onSelectionChange={handleRerankerChange}
-                  dropdownOptions={rerankerOptions}
-                  showDropdown={!config?.webSearch?.rerankerType}
-                  register={register}
-                  dropdownOpen={dropdownOpen.reranker}
-                  setDropdownOpen={(open) =>
-                    setDropdownOpen((prev) => ({ ...prev, reranker: open }))
-                  }
-                  dropdownKey="reranker"
-                />
-              )}
+              {/* Reranker Section - Always show since reranking is now optional */}
+              <InputSection
+                title={localize('com_ui_web_search_reranker')}
+                selectedKey={selectedReranker}
+                onSelectionChange={handleRerankerChange}
+                dropdownOptions={rerankerOptions}
+                showDropdown={!config?.webSearch?.rerankerType}
+                register={register}
+                dropdownOpen={dropdownOpen.reranker}
+                setDropdownOpen={(open) =>
+                  setDropdownOpen((prev) => ({ ...prev, reranker: open }))
+                }
+                dropdownKey="reranker"
+              />
             </form>
           </>
         }
