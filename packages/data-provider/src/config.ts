@@ -1026,22 +1026,31 @@ const sharedAnthropicModels = [
 ];
 
 export const bedrockModels = [
-  'anthropic.claude-sonnet-4-5-20250929-v1:0',
-  'anthropic.claude-haiku-4-5-20251001-v1:0',
-  'anthropic.claude-opus-4-1-20250805-v1:0',
-  'anthropic.claude-3-5-sonnet-20241022-v2:0',
-  'anthropic.claude-3-5-sonnet-20240620-v1:0',
-  'anthropic.claude-3-5-haiku-20241022-v1:0',
-  'anthropic.claude-3-haiku-20240307-v1:0',
-  'anthropic.claude-3-opus-20240229-v1:0',
-  'anthropic.claude-3-sonnet-20240229-v1:0',
+  // Latest Claude 4.5 and 4 models (use inference profiles with us. prefix)
+  'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+  'us.anthropic.claude-opus-4-1-20250805-v1:0',
+  'us.anthropic.claude-sonnet-4-20250514-v1:0',
+  'us.anthropic.claude-opus-4-20250514-v1:0',
+  // Claude 3.7 and 3.5 models (use inference profiles with us. prefix)
+  'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+  'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+  'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+  'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+  // Claude 3 models (use inference profiles with us. prefix)
+  'us.anthropic.claude-3-haiku-20240307-v1:0',
+  'us.anthropic.claude-3-opus-20240229-v1:0',
+  'us.anthropic.claude-3-sonnet-20240229-v1:0',
+  // Claude 2 models
   'anthropic.claude-v2',
   'anthropic.claude-v2:1',
   'anthropic.claude-instant-v1',
+  // Cohere models
   // 'cohere.command-text-v14', // no conversation history
   // 'cohere.command-light-text-v14', // no conversation history
   'cohere.command-r-v1:0',
   'cohere.command-r-plus-v1:0',
+  // Meta Llama models
   'meta.llama2-13b-chat-v1',
   'meta.llama2-70b-chat-v1',
   'meta.llama3-8b-instruct-v1:0',
@@ -1049,18 +1058,27 @@ export const bedrockModels = [
   'meta.llama3-1-8b-instruct-v1:0',
   'meta.llama3-1-70b-instruct-v1:0',
   'meta.llama3-1-405b-instruct-v1:0',
+  // Mistral models
   'mistral.mistral-7b-instruct-v0:2',
   'mistral.mixtral-8x7b-instruct-v0:1',
   'mistral.mistral-large-2402-v1:0',
   'mistral.mistral-large-2407-v1:0',
   'mistral.mistral-small-2402-v1:0',
+  // AI21 models
   'ai21.jamba-instruct-v1:0',
   // 'ai21.j2-mid-v1', // no streaming
   // 'ai21.j2-ultra-v1', no conversation history
+  // Amazon Titan models
   'amazon.titan-text-lite-v1',
   'amazon.titan-text-express-v1',
   'amazon.titan-text-premier-v1:0',
+  // Amazon Nova models (use inference profiles with us. prefix)
+  'us.amazon.nova-premier-v1:0',
+  'us.amazon.nova-pro-v1:0',
+  'us.amazon.nova-lite-v1:0',
+  'us.amazon.nova-micro-v1:0',
 ];
+
 
 export const defaultModels = {
   [EModelEndpoint.azureAssistants]: sharedOpenAIModels,
