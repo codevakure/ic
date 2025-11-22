@@ -277,6 +277,14 @@ export class MCPOAuthHandler {
         authorizationUrl.searchParams.set('state', flowId);
         logger.debug(`[MCPOAuth] Added state parameter to authorization URL`);
 
+        /** Remove prompt and resource parameters if MCP_OAUTH_PROMPT is set */
+        /** Microsoft Entra OAuth 2.0 v2.0 does not support resource parameter (only v1.0 did) */
+        const promptValue = process.env.MCP_OAUTH_PROMPT;
+        if (promptValue) {
+          authorizationUrl.searchParams.delete('prompt');
+          logger.debug(`[MCPOAuth] Removed prompt and resource parameters from authorization URL (Microsoft Entra compatibility)`);
+        }
+
         const flowMetadata: MCPOAuthFlowMetadata = {
           serverName,
           userId,
@@ -365,6 +373,15 @@ export class MCPOAuthHandler {
             `[MCPOAuth] Resource metadata missing 'resource' property for ${serverName}. ` +
               'This can cause issues with some Authorization Servers who expect a "resource" parameter.',
           );
+        }
+
+        /** Remove prompt and resource parameters if MCP_OAUTH_PROMPT is set */
+        /** Microsoft Entra OAuth 2.0 v2.0 does not support resource parameter (only v1.0 did) */
+        const promptValue = process.env.MCP_OAUTH_PROMPT;
+        if (promptValue) {
+          authorizationUrl.searchParams.delete('prompt');
+          authorizationUrl.searchParams.delete('resource');
+          logger.debug(`[MCPOAuth] Removed prompt and resource parameters from authorization URL (Microsoft Entra compatibility)`);
         }
       } catch (error) {
         logger.error(`[MCPOAuth] startAuthorization failed:`, error);
