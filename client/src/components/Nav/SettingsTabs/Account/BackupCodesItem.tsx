@@ -130,7 +130,7 @@ const BackupCodesItem: React.FC = () => {
                         className={`flex flex-col rounded-xl border p-4 backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isUsed
                             ? 'border-red-200 bg-red-50/80 dark:border-red-800 dark:bg-red-900/20'
-                            : 'border-green-200 bg-green-50/80 dark:border-green-800 dark:bg-green-900/20'
+                            : 'border-primary/20 bg-primary/5 dark:border-primary-dark/30 dark:bg-primary-dark/10'
                         } `}
                       >
                         <div className="flex items-center justify-between" aria-hidden="true">
@@ -149,7 +149,7 @@ const BackupCodesItem: React.FC = () => {
                                 className={`rounded-full px-3 py-1 text-sm font-medium ${
                                   isUsed
                                     ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                    : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                    : 'bg-primary/10 text-primary dark:bg-primary-dark/20 dark:text-primary-dark'
                                 }`}
                               >
                                 {isUsed ? localize('com_ui_used') : localize('com_ui_not_used')}

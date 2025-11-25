@@ -164,7 +164,7 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
                 </h2>
                 <button
                   type="button"
-                  className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-border-xheavy focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-surface-primary dark:focus:ring-offset-surface-primary"
+                  className="rounded-md opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
                   onClick={() => onOpenChange(false)}
                 >
                   <svg

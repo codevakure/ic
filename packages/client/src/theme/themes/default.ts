@@ -33,8 +33,10 @@ export const defaultTheme: IThemeRGB = {
   'rgb-surface-tertiary': '236 236 236', // #ececec (gray-100)
   'rgb-surface-tertiary-alt': '255 255 255', // #fff (white)
   'rgb-surface-dialog': '255 255 255', // #fff (white)
-  'rgb-surface-submit': '4 120 87', // #047857 (green-700)
-  'rgb-surface-submit-hover': '6 95 70', // #065f46 (green-800)
+  'rgb-surface-submit': '25 25 71', // primary color
+  'rgb-surface-submit-hover': '20 20 60', // primary-hover
+  'rgb-primary': '25 25 71', // primary
+  'rgb-primary-border': '60 60 150', // primary-border
   'rgb-surface-destructive': '185 28 28', // #b91c1c (red-700)
   'rgb-surface-destructive-hover': '153 27 27', // #991b1b (red-800)
   'rgb-surface-chat': '255 255 255', // #fff (white)

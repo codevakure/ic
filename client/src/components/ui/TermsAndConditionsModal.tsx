@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { OGDialog, DialogTemplate, useToastContext } from '@librechat/client';
+import { OGDialog, DialogTemplate, useToastContext, Button } from '@librechat/client';
 import type { TTermsOfService } from 'librechat-data-provider';
 import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 import { useAcceptTermsMutation } from '~/data-provider';
@@ -87,18 +87,20 @@ const TermsAndConditionsModal = ({
         }
         buttons={
           <>
-            <button
+            <Button
               onClick={handleDecline}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-border-heavy bg-surface-secondary px-4 py-2 text-sm text-text-primary hover:bg-surface-active"
+              variant="outline"
+              className="min-w-[100px]"
             >
               {localize('com_ui_decline')}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleAccept}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-border-heavy bg-surface-secondary px-4 py-2 text-sm text-text-primary hover:bg-green-500 hover:text-white focus:bg-green-500 focus:text-white dark:hover:bg-green-600 dark:focus:bg-green-600"
+              variant="submit"
+              className="min-w-[100px]"
             >
               {localize('com_ui_accept')}
-            </button>
+            </Button>
           </>
         }
       />

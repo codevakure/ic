@@ -22,8 +22,8 @@ const UploadFileModal = ({ open, onOpenChange }) => {
         )}
       >
         <DialogHeader>
-          <DialogTitle className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-200">
-            Upoad a File
+          <DialogTitle className="text-lg font-semibold">
+            Upload a File
           </DialogTitle>
         </DialogHeader>
         <div className="flex w-full flex-col p-0 sm:p-6 sm:pb-0 sm:pt-4">
@@ -35,7 +35,7 @@ const UploadFileModal = ({ open, onOpenChange }) => {
               <div className="italic">Please upload square file, size less than 100KB</div>
               <div className="mt-4 flex w-full flex-row items-center bg-[#f9f9f9] p-2">
                 <div className="w-1/2 sm:w-1/3">
-                  <Button>Choose File</Button>
+                  <Button variant="outline">Choose File</Button>
                 </div>
                 <div className="w-1/2 sm:w-1/3"> No File Chosen</div>
               </div>
@@ -59,9 +59,10 @@ const UploadFileModal = ({ open, onOpenChange }) => {
             <div className="hidden w-1/3 sm:block">
               <span className="font-bold">Learn about file purpose</span>
             </div>
-            <div className="flex w-full flex-row justify-evenly sm:w-1/3">
+            <div className="flex w-full flex-row justify-evenly gap-3 sm:w-1/3">
               <Button
-                className="mr-3 w-full rounded-md border border-black bg-white p-0 text-black hover:bg-white"
+                variant="outline"
+                className="flex-1"
                 onClick={() => {
                   onOpenChange(false);
                 }}
@@ -69,7 +70,8 @@ const UploadFileModal = ({ open, onOpenChange }) => {
                 Cancel
               </Button>
               <Button
-                className="w-full rounded-md border border-black bg-black p-0 text-white"
+                variant="submit"
+                className="flex-1"
                 onClick={() => {
                   console.log('upload file');
                 }}
