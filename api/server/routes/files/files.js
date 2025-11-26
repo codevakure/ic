@@ -405,6 +405,11 @@ router.post('/', async (req, res) => {
     }
     res.status(500).json({ message });
   } finally {
+    // Skip cleanup if background RAG processing is handling the temp file
+    if (req.skipCleanup) {
+      logger.debug('[/files] Skipping cleanup - background process will handle temp file');
+      return;
+    }
     if (cleanup) {
       try {
         await fs.unlink(req.file.path);

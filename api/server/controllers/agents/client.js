@@ -389,6 +389,15 @@ class AgentClient extends BaseClient {
       systemContent = this.augmentedPrompt + systemContent;
     }
 
+    // Add code executor package information if execute_code tool is present
+    const hasCodeExecutor = this.options.agent.tools?.some(
+      (tool) => tool && (tool.name === 'execute_code' || tool.name?.includes('execute_code'))
+    );
+    if (hasCodeExecutor) {
+      const codeExecutorInfo = `\n\n# Code Execution Environment\n\nAvailable Python packages for code execution:\n- **Data Processing**: numpy, pandas, scipy, faker\n- **Visualization**: matplotlib, seaborn, plotly\n- **PDF Processing**: PyMuPDF (import as 'fitz' - recommended for speed/quality), pdfplumber\n- **Documents**: openpyxl (Excel), python-docx (Word), python-pptx (PowerPoint), reportlab (PDF generation)\n- **Images**: pillow (PIL)\n- **Web**: requests, beautifulsoup4\n- **Parsing**: lxml\n\nNote: Use PyMuPDF (import fitz) for PDF processing - it's 10-20x faster than PyPDF2 and has better text extraction.`;
+      systemContent += codeExecutorInfo;
+    }
+
     // Inject MCP server instructions if available
     const ephemeralAgent = this.options.req.body.ephemeralAgent;
     let mcpServers = [];

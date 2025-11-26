@@ -28,12 +28,13 @@ const {
 const { addResourceFileId, deleteResourceFileId } = require('~/server/controllers/assistants/v2');
 const { addAgentResourceFile, removeAgentResourceFiles } = require('~/models/Agent');
 const { getOpenAIClient } = require('~/server/controllers/assistants/helpers');
-const { createFile, updateFileUsage, deleteFiles } = require('~/models/File');
+const { createFile, updateFile, updateFileUsage, deleteFiles } = require('~/models/File');
 const { loadAuthValues } = require('~/server/services/Tools/credentials');
 const { getFileStrategy } = require('~/server/utils/getFileStrategy');
 const { checkCapability } = require('~/server/services/Config');
 const { LB_QueueAsyncCall } = require('~/server/utils/queue');
 const { getStrategyFunctions } = require('./strategies');
+const { deleteVectors } = require('./VectorDB/crud');
 const { determineFileType } = require('~/server/utils');
 const { STTService } = require('./Audio/STTService');
 
@@ -199,6 +200,15 @@ const processDeleteRequest = async ({ req, files }) => {
         tool_resource: req.body.tool_resource,
         file_id: file.file_id,
       });
+    }
+
+    // Delete vectors from RAG if file was embedded
+    if (file.embedded) {
+      promises.push(
+        deleteVectors(req, file).catch((err) => {
+          logger.error(`[processDeleteRequest] Error deleting vectors for file ${file.file_id}:`, err);
+        }),
+      );
     }
 
     if (source === FileSources.text) {
@@ -642,56 +652,78 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
   }
 
   // Dual storage pattern for RAG files: Storage + Vector DB
-  let storageResult, embeddingResult;
+  let storageResult;
   const isImageFile = file.mimetype.startsWith('image');
   const source = getFileStrategy(appConfig, { isImage: isImageFile });
 
-  if (tool_resource === EToolResources.file_search) {
-    // FIRST: Upload to Storage for permanent backup (S3/local/etc.)
-    const { handleFileUpload } = getStrategyFunctions(source);
-    const sanitizedUploadFn = createSanitizedUploadWrapper(handleFileUpload);
-    storageResult = await sanitizedUploadFn({
-      req,
-      file,
-      file_id,
-      basePath,
-      entity_id,
-    });
-
-    // SECOND: Upload to Vector DB
-    const { uploadVectors } = require('./VectorDB/crud');
-
-    embeddingResult = await uploadVectors({
-      req,
-      file,
-      file_id,
-      entity_id,
-    });
-
-    // Vector status will be stored at root level, no need for metadata
-    fileInfoMetadata = {};
-  } else {
-    // Standard single storage for non-RAG files
-    const { handleFileUpload } = getStrategyFunctions(source);
-    const sanitizedUploadFn = createSanitizedUploadWrapper(handleFileUpload);
-    storageResult = await sanitizedUploadFn({
-      req,
-      file,
-      file_id,
-      basePath,
-      entity_id,
-    });
-  }
+  // FIRST: Always upload to Storage (S3/local/etc.) immediately
+  const { handleFileUpload } = getStrategyFunctions(source);
+  const sanitizedUploadFn = createSanitizedUploadWrapper(handleFileUpload);
+  storageResult = await sanitizedUploadFn({
+    req,
+    file,
+    file_id,
+    basePath,
+    entity_id,
+  });
 
   let { bytes, filename, filepath: _filepath, height, width } = storageResult;
-  // For RAG files, use embedding result; for others, use storage result
   let embedded = storageResult.embedded;
-  if (tool_resource === EToolResources.file_search) {
-    embedded = embeddingResult?.embedded;
-    filename = embeddingResult?.filename || filename;
-  }
-
   let filepath = _filepath;
+
+  // For file_search (RAG), process Vector DB upload asynchronously in background
+  if (tool_resource === EToolResources.file_search) {
+    // Check if RAG API is available before attempting background upload
+    if (!process.env.RAG_API_URL) {
+      logger.warn(`[processAgentFileUpload] RAG_API_URL not configured, skipping Vector DB upload for file ${file_id}`);
+      embedded = false;
+      fileInfoMetadata = {};
+    } else {
+      const { uploadVectors } = require('./VectorDB/crud');
+
+      // Tell route to skip cleanup - background process will handle it
+      req.skipCleanup = true;
+      const tempFilePath = file.path;
+
+      // Process Vector DB upload asynchronously - don't await
+      setImmediate(async () => {
+        try {
+          logger.debug(`[processAgentFileUpload] Starting background Vector DB upload for file ${file_id}`);
+          const embeddingResult = await uploadVectors({
+            req,
+            file,
+            file_id,
+            entity_id,
+          });
+
+          // Update file record with embedding status
+          if (embeddingResult?.embedded) {
+            await updateFile({
+              file_id,
+              embedded: true,
+            });
+            logger.debug(`[processAgentFileUpload] Vector DB embedding completed for file ${file_id}`);
+          }
+        } catch (error) {
+          logger.error(`[processAgentFileUpload] Background Vector DB upload failed for file ${file_id}:`, error);
+          // File is already saved to storage, so we don't throw - just log the error
+          // The file can be re-embedded later if needed
+        } finally {
+          // Clean up the temp file after background processing
+          try {
+            fs.unlinkSync(tempFilePath);
+            logger.debug(`[processAgentFileUpload] Cleaned up temp file after RAG processing: ${tempFilePath}`);
+          } catch (cleanupError) {
+            logger.warn(`[processAgentFileUpload] Failed to clean up temp file ${tempFilePath}:`, cleanupError);
+          }
+        }
+      });
+
+      // Set embedded to false initially - will be updated when background job completes
+      embedded = false;
+      fileInfoMetadata = {};
+    }
+  }
 
   if (!messageAttachment && tool_resource) {
     await addAgentResourceFile({
