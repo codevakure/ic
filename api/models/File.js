@@ -46,13 +46,22 @@ const getToolFilesByIds = async (fileIds, toolResourceSet) => {
       filter.$or.push({ text: { $exists: true, $ne: null }, context: FileContext.agents });
     }
     if (toolResourceSet.has(EToolResources.file_search)) {
-      filter.$or.push({ embedded: true });
+      // Include files that are embedded OR have text content
+      // Files with text but not yet embedded can still provide context immediately
+      filter.$or.push({
+        $or: [
+          { embedded: true },
+          { text: { $exists: true, $ne: null, $ne: '' } },
+        ],
+      });
     }
     if (toolResourceSet.has(EToolResources.execute_code)) {
       filter.$or.push({ 'metadata.fileIdentifier': { $exists: true } });
     }
 
-    const selectFields = { text: 0 };
+    // Don't exclude text field - it's needed for context extraction
+    // Previously: { text: 0 } excluded text to save bandwidth, but now we need it
+    const selectFields = {};
     const sortOptions = { updatedAt: -1 };
 
     return await getFiles(filter, sortOptions, selectFields);

@@ -248,6 +248,7 @@ const useFileHandling = (params?: UseFileHandling) => {
   const handleFiles = async (_files: FileList | File[], _toolResource?: string) => {
     abortControllerRef.current = new AbortController();
     const fileList = Array.from(_files);
+    
     /* Validate files */
     let filesAreValid: boolean;
     try {
@@ -283,6 +284,7 @@ const useFileHandling = (params?: UseFileHandling) => {
         const initialPreview = URL.createObjectURL(originalFile);
 
         // Create initial ExtendedFile to show immediately
+        // Note: tool_resource is NOT set here - backend will determine routing via intent analyzer
         const initialExtendedFile: ExtendedFile = {
           file_id,
           file: originalFile,
@@ -292,6 +294,7 @@ const useFileHandling = (params?: UseFileHandling) => {
           size: originalFile.size,
         };
 
+        // Only set tool_resource if explicitly provided (e.g., from agent config panel)
         if (_toolResource != null && _toolResource !== '') {
           initialExtendedFile.tool_resource = _toolResource;
         }

@@ -15,6 +15,24 @@ export enum FileSources {
   text = 'text',
 }
 
+/** Upload strategies determined by intent analyzer for routing attachments */
+export enum UploadStrategy {
+  /** Image files - routed to vision-capable models */
+  IMAGE = 'IMAGE',
+  /** Code/data files - routed to code executor (spreadsheets, CSV, code files) */
+  CODE_EXECUTOR = 'CODE_EXECUTOR',
+  /** Document files - routed to RAG for file search */
+  FILE_SEARCH = 'FILE_SEARCH',
+}
+
+/** RAG embedding status for file search */
+export enum RagStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 export const checkOpenAIStorage = (source: string) =>
   source === FileSources.openai || source === FileSources.azure;
 
@@ -114,9 +132,19 @@ export type TFile = {
   height?: number;
   expiresAt?: string | Date;
   preview?: string;
-  metadata?: { fileIdentifier?: string };
+  metadata?: {
+    fileIdentifier?: string;
+    /** Upload strategies from intent analyzer: IMAGE, CODE_EXECUTOR, FILE_SEARCH */
+    strategies?: string[];
+    /** RAG embedding status: pending, processing, completed, failed */
+    ragStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+    /** Tool resource type for this file (execute_code, file_search, etc.) */
+    tool_resource?: string;
+  };
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  /** Extracted text content from the file (for context/file_search) */
+  text?: string;
 };
 
 export type TFileUpload = TFile & {

@@ -370,7 +370,10 @@ async function processRequiredActions(client, requiredActions) {
  * @returns {Promise<{ tools?: StructuredTool[]; userMCPAuthMap?: Record<string, Record<string, string>> }>} The agent tools.
  */
 async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIApiKey }) {
+  logger.info(`[loadAgentTools] Agent tools requested: [${agent.tools?.join(', ') || 'none'}]`);
+  
   if (!agent.tools || agent.tools.length === 0) {
+    logger.info(`[loadAgentTools] No tools to load`);
     return {};
   } else if (
     agent.tools &&
@@ -390,6 +393,9 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
       appConfig.endpoints?.[EModelEndpoint.agents]?.capabilities ?? defaultAgentCapabilities,
     );
   }
+  
+  logger.info(`[loadAgentTools] Enabled capabilities: [${Array.from(enabledCapabilities).join(', ')}]`);
+  
   const checkCapability = (capability) => {
     const enabled = enabledCapabilities.has(capability);
     if (!enabled) {
@@ -416,7 +422,10 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
     return true;
   });
 
+  logger.info(`[loadAgentTools] Filtered tools after capability check: [${_agentTools?.join(', ') || 'none'}]`);
+
   if (!_agentTools || _agentTools.length === 0) {
+    logger.info(`[loadAgentTools] No tools passed capability check`);
     return {};
   }
   /** @type {ReturnType<typeof createOnSearchResults>} */
@@ -502,6 +511,7 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
   }, {});
 
   if (!checkCapability(AgentCapabilities.actions)) {
+    logger.info(`[loadAgentTools] Actions capability disabled. Returning ${agentTools.length} tools: [${agentTools.map(t => t.name).join(', ')}]`);
     return {
       tools: agentTools,
       userMCPAuthMap,
@@ -512,7 +522,9 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
   const actionSets = (await loadActionSets({ agent_id: agent.id })) ?? [];
   if (actionSets.length === 0) {
     if (_agentTools.length > 0 && agentTools.length === 0) {
-      logger.warn(`No tools found for the specified tool calls: ${_agentTools.join(', ')}`);
+      logger.warn(`[loadAgentTools] No tools found for the specified tool calls: ${_agentTools.join(', ')}`);
+    } else {
+      logger.info(`[loadAgentTools] No action sets. Returning ${agentTools.length} tools: [${agentTools.map(t => t.name).join(', ')}]`);
     }
     return {
       tools: agentTools,
@@ -636,9 +648,11 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
   }
 
   if (_agentTools.length > 0 && agentTools.length === 0) {
-    logger.warn(`No tools found for the specified tool calls: ${_agentTools.join(', ')}`);
+    logger.warn(`[loadAgentTools] No tools found for the specified tool calls: ${_agentTools.join(', ')}`);
     return {};
   }
+
+  logger.info(`[loadAgentTools] Final loaded tools: [${agentTools.map(t => t.name).join(', ')}] (count: ${agentTools.length})`);
 
   return {
     tools: agentTools,

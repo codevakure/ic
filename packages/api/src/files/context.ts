@@ -23,22 +23,28 @@ export async function extractFileContext({
   tokenCountFn: (text: string) => number;
 }): Promise<string | undefined> {
   if (!attachments || attachments.length === 0) {
+    logger.debug('[extractFileContext] No attachments provided');
     return undefined;
   }
+
+  logger.debug(
+    `[extractFileContext] Processing ${attachments.length} attachments: ${attachments.map(f => `${f.filename}(text:${!!f.text})`).join(', ')}`,
+  );
 
   const fileConfig = mergeFileConfig(req?.config?.fileConfig);
-  const fileTokenLimit = req?.body?.fileTokenLimit ?? fileConfig.fileTokenLimit;
-
-  if (!fileTokenLimit) {
-    // If no token limit, return undefined (no processing)
-    return undefined;
-  }
+  const fileTokenLimit = req?.body?.fileTokenLimit ?? fileConfig.fileTokenLimit ?? 50000; // Default to 50k tokens if not set
 
   let resultText = '';
 
   for (const file of attachments) {
     const source = file.source ?? FileSources.local;
-    if (source === FileSources.text && file.text) {
+    // Process files with text content - either from FileSources.text OR from file_search extraction
+    // This allows file_search files to provide immediate context while embedding happens in background
+    if (file.text && file.text.length > 0) {
+      logger.debug(
+        `[extractFileContext] Processing file with text: ${file.filename} | source: ${source} | embedded: ${file.embedded} | textLength: ${file.text.length}`,
+      );
+
       const { text: limitedText, wasTruncated } = await processTextWithTokenLimit({
         text: file.text,
         tokenLimit: fileTokenLimit,

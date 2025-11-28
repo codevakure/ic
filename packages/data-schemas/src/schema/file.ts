@@ -69,6 +69,12 @@ const file: Schema<IMongoFile> = new Schema(
     height: Number,
     metadata: {
       fileIdentifier: String,
+      /** Upload strategies from intent analyzer: IMAGE, CODE_EXECUTOR, FILE_SEARCH */
+      strategies: [String],
+      /** RAG embedding status: pending, processing, completed, failed */
+      ragStatus: String,
+      /** Tool resource type for this file (execute_code, file_search, etc.) */
+      tool_resource: String,
     },
     expiresAt: {
       type: Date,

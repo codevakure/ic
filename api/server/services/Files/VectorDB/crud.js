@@ -83,6 +83,12 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
       formData.append('storage_metadata', JSON.stringify(storageMetadata));
     }
 
+    // Callback URL for RAG API to notify when embedding completes
+    // Note: RAG API generates its own JWT using the shared JWT_SECRET
+    const serverDomain = process.env.DOMAIN_SERVER || `http://localhost:${process.env.PORT || 3080}`;
+    const callbackUrl = `${serverDomain}/api/files/embedding-complete`;
+    formData.append('callback_url', callbackUrl);
+
     const formHeaders = formData.getHeaders();
 
     const response = await axios.post(`${process.env.RAG_API_URL}/embed`, formData, {
@@ -94,7 +100,13 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
     });
 
     const responseData = response.data;
-    logger.debug('Response from embedding file', responseData);
+    logger.debug('Response from embedding file', {
+      file_id: responseData.file_id,
+      known_type: responseData.known_type,
+      char_count: responseData.char_count,
+      extraction_time: responseData.extraction_time,
+      hasText: !!responseData.text,
+    });
 
     if (responseData.known_type === false) {
       throw new Error(`File embedding failed. The filetype ${file.mimetype} is not supported`);
@@ -104,11 +116,21 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
       throw new Error('File embedding failed.');
     }
 
+    // Return extracted text for immediate context use
+    // Note: embedded=false because embedding happens in background
+    // The file will be available for chat immediately using the text
     return {
       bytes: file.size,
       filename: file.originalname,
       filepath: FileSources.vectordb,
-      embedded: Boolean(responseData.known_type),
+      // Set embedded=false - embedding is in progress in background
+      // When background embedding completes, this can be updated to true
+      embedded: false,
+      // NEW: Return extracted text for immediate context use
+      text: responseData.text,
+      char_count: responseData.char_count,
+      extraction_time: responseData.extraction_time,
+      embedding_in_progress: true,
     };
   } catch (error) {
     logAxiosError({

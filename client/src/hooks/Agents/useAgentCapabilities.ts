@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { AgentCapabilities } from 'librechat-data-provider';
+import { AgentCapabilities, defaultToolsAutoEnabled } from 'librechat-data-provider';
 
 interface AgentCapabilitiesResult {
   toolsEnabled: boolean;
@@ -10,11 +10,19 @@ interface AgentCapabilitiesResult {
   fileSearchEnabled: boolean;
   webSearchEnabled: boolean;
   codeEnabled: boolean;
+  /** Check if a capability is auto-enabled (handled by backend intent analyzer) */
+  isAutoEnabled: (capability: AgentCapabilities) => boolean;
 }
 
 export default function useAgentCapabilities(
   capabilities: AgentCapabilities[] | undefined,
+  toolsAutoEnabled: AgentCapabilities[] = defaultToolsAutoEnabled as AgentCapabilities[],
 ): AgentCapabilitiesResult {
+  const isAutoEnabled = useMemo(
+    () => (capability: AgentCapabilities) => toolsAutoEnabled.includes(capability),
+    [toolsAutoEnabled],
+  );
+
   const toolsEnabled = useMemo(
     () => capabilities?.includes(AgentCapabilities.tools) ?? false,
     [capabilities],
@@ -64,5 +72,6 @@ export default function useAgentCapabilities(
     artifactsEnabled,
     webSearchEnabled,
     fileSearchEnabled,
+    isAutoEnabled,
   };
 }

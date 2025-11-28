@@ -270,6 +270,20 @@ export const defaultAgentCapabilities = [
   AgentCapabilities.ocr,
 ];
 
+/**
+ * Default tools that are automatically enabled/selected by the intent analyzer.
+ * These tools will NOT show in the UI dropdown - they are auto-selected based on:
+ * 1. Attached file types (e.g., Excel → code_interpreter, PDF → file_search)
+ * 2. Query intent analysis (e.g., "analyze data" → code_interpreter)
+ * 
+ * Tools NOT in this list will show in UI for manual selection (e.g., web_search).
+ */
+export const defaultToolsAutoEnabled = [
+  AgentCapabilities.file_search,
+  AgentCapabilities.execute_code,
+  AgentCapabilities.artifacts,
+];
+
 export const agentsEndpointSchema = baseEndpointSchema
   .merge(
     z.object({
@@ -285,11 +299,22 @@ export const agentsEndpointSchema = baseEndpointSchema
         .array(z.nativeEnum(AgentCapabilities))
         .optional()
         .default(defaultAgentCapabilities),
+      /**
+       * Tools that are automatically enabled by intent analyzer.
+       * These tools are hidden from UI and auto-selected based on:
+       * - File types attached (PDF → file_search, Excel → execute_code)
+       * - Query intent (e.g., "analyze this data" → execute_code)
+       */
+      toolsAutoEnabled: z
+        .array(z.nativeEnum(AgentCapabilities))
+        .optional()
+        .default(defaultToolsAutoEnabled),
     }),
   )
   .default({
     disableBuilder: false,
     capabilities: defaultAgentCapabilities,
+    toolsAutoEnabled: defaultToolsAutoEnabled,
     maxCitations: 30,
     maxCitationsPerFile: 7,
     minRelevanceScore: 0.45,

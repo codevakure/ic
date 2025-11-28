@@ -1,4 +1,5 @@
 const { Providers } = require('@librechat/agents');
+const { logger } = require('@librechat/data-schemas');
 const {
   primeResources,
   getModelMaxTokens,
@@ -205,11 +206,15 @@ const initializeAgent = async ({
   }
 
   if (typeof agent.artifacts === 'string' && agent.artifacts !== '') {
+    logger.info(`[initializeAgent] Generating artifacts prompt for provider: ${agent.provider}, mode: ${agent.artifacts}`);
     agent.additional_instructions = generateArtifactsPrompt({
       endpoint: agent.provider,
       artifacts: agent.artifacts,
     });
+    logger.info(`[initializeAgent] Artifacts prompt generated: ${agent.additional_instructions ? 'yes (' + agent.additional_instructions.length + ' chars)' : 'no'}`);
   }
+
+  logger.info(`[initializeAgent] Returning agent with ${tools?.length || 0} tools: [${tools?.map(t => t.name).join(', ') || 'none'}]`);
 
   return {
     ...agent,

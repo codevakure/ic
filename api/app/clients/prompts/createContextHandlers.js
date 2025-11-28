@@ -47,8 +47,19 @@ function createContextHandlers(req, userMessageContent) {
   };
 
   const processFile = async (file) => {
+    // Log file status for debugging context source
+    logger.debug(
+      `[createContextHandlers] Processing file: ${file.filename} | ` +
+      `embedded: ${file.embedded} | hasText: ${!!file.text} | ` +
+      `file_id: ${file.file_id}`
+    );
+
     if (file.embedded && !processedIds.has(file.file_id)) {
       try {
+        logger.info(
+          `[createContextHandlers] Querying RAG API for embedded file: ${file.filename} | ` +
+          `useFullContext: ${useFullContext}`
+        );
         const promise = query(file);
         queryPromises.push(promise);
         processedFiles.push(file);
@@ -56,6 +67,16 @@ function createContextHandlers(req, userMessageContent) {
       } catch (error) {
         logger.error(`Error processing file ${file.filename}:`, error);
       }
+    } else if (!file.embedded && file.text) {
+      logger.info(
+        `[createContextHandlers] File ${file.filename} has text but not yet embedded. ` +
+        `Text can be used as context directly (${file.text?.length || 0} chars).`
+      );
+    } else if (!file.embedded) {
+      logger.warn(
+        `[createContextHandlers] File ${file.filename} is not embedded and has no text. ` +
+        `Cannot be used for context retrieval.`
+      );
     }
   };
 

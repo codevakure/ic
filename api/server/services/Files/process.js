@@ -20,6 +20,7 @@ const {
 const { EnvVar } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
 const { sanitizeFilename, parseText, processAudioFile } = require('@librechat/api');
+const { analyzeUploadIntent, UploadIntent } = require('@librechat/intent-analyzer');
 const {
   convertImage,
   resizeAndConvert,
@@ -518,9 +519,33 @@ const processFileUpload = async ({ req, res, metadata }) => {
 const processAgentFileUpload = async ({ req, res, metadata }) => {
   const { file } = req;
   const appConfig = req.config;
-  const { agent_id, tool_resource, file_id, temp_file_id = null } = metadata;
+  const { agent_id, file_id, temp_file_id = null } = metadata;
+  let { tool_resource } = metadata;
 
   let messageAttachment = !!metadata.message_file;
+
+  // Auto-detect tool_resource using intent analyzer for message attachments
+  // This enables the single "Add Photos & Files" button in the UI
+  if (messageAttachment && !tool_resource) {
+    const uploadIntent = analyzeUploadIntent({
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+    });
+    
+    logger.info(`[processAgentFileUpload] Intent analysis for ${file.originalname}: ${uploadIntent.intent}`);
+    
+    // Map intent to tool_resource
+    if (uploadIntent.intent === UploadIntent.CODE_INTERPRETER) {
+      tool_resource = EToolResources.execute_code;
+      logger.info(`[processAgentFileUpload] Routing ${file.originalname} to Code Interpreter`);
+    } else if (uploadIntent.intent === UploadIntent.FILE_SEARCH) {
+      tool_resource = EToolResources.file_search;
+      logger.info(`[processAgentFileUpload] Routing ${file.originalname} to File Search`);
+    } else {
+      logger.info(`[processAgentFileUpload] Routing ${file.originalname} as Image (no tool_resource)`);
+    }
+  }
 
   if (agent_id && !tool_resource && !messageAttachment) {
     throw new Error('No tool resource provided for agent file upload');
@@ -553,7 +578,10 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
       apiKey: result[EnvVar.CODE_API_KEY],
       entity_id,
     });
-    fileInfoMetadata = { fileIdentifier };
+    // Store both fileIdentifier AND tool_resource so we can re-upload if session expires
+    fileInfoMetadata = { fileIdentifier, tool_resource: EToolResources.execute_code };
+    logger.info(`[processAgentFileUpload] Code executor upload successful. fileIdentifier: ${fileIdentifier}`);
+    logger.info(`[processAgentFileUpload] Initial metadata set: ${JSON.stringify(fileInfoMetadata)}`);
   } else if (tool_resource === EToolResources.file_search) {
     const isFileSearchEnabled = await checkCapability(req, AgentCapabilities.file_search);
     if (!isFileSearchEnabled) {
@@ -651,12 +679,77 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     return await createTextFile({ text, bytes, type: file.mimetype });
   }
 
-  // Dual storage pattern for RAG files: Storage + Vector DB
-  let storageResult;
+  // For file_search OR message attachments (non-image documents): Extract text for context
+  // This allows immediate context use while embedding happens in background
   const isImageFile = file.mimetype.startsWith('image');
   const source = getFileStrategy(appConfig, { isImage: isImageFile });
+  let extractedText = null;
+  let embedded = false;
 
-  // FIRST: Always upload to Storage (S3/local/etc.) immediately
+  // Extract text for:
+  // 1. file_search tool resources (explicit file search uploads)
+  // 2. message attachments that are documents (not images) - so LLM can read them
+  const shouldExtractText = 
+    tool_resource === EToolResources.file_search || 
+    (messageAttachment && !isImageFile);
+
+  if (shouldExtractText) {
+    // Check if RAG API is available
+    if (!process.env.RAG_API_URL) {
+      logger.warn(`[processAgentFileUpload] RAG_API_URL not configured, skipping text extraction for file ${file_id}`);
+      fileInfoMetadata = {};
+    } else {
+      const { uploadVectors } = require('./VectorDB/crud');
+
+      try {
+        logger.debug(`[processAgentFileUpload] Starting text extraction for file ${file_id} (messageAttachment: ${messageAttachment})`);
+        
+        // FIRST: Call RAG API to extract text immediately
+        // User can start querying once this completes
+        // Embedding happens in background on RAG API side
+        const embeddingResult = await uploadVectors({
+          req,
+          file,
+          file_id,
+          entity_id,
+        });
+
+        // Store extracted text in `text` field (same pattern as EToolResources.context)
+        // This allows the text to be used as context immediately while embedding runs in background
+        extractedText = embeddingResult.text;
+        
+        // Store metadata (but NOT the text - that goes in `text` field)
+        // IMPORTANT: Merge with existing fileInfoMetadata to preserve fileIdentifier for code executor
+        fileInfoMetadata = {
+          ...fileInfoMetadata,
+          char_count: embeddingResult.char_count,
+          extraction_time: embeddingResult.extraction_time,
+        };
+
+        // embedded=false initially - RAG API is embedding in background
+        embedded = embeddingResult.embedded || false;
+
+        logger.info(
+          `[processAgentFileUpload] Text extraction complete for file ${file_id}: ` +
+          `${embeddingResult.char_count || 0} chars in ${embeddingResult.extraction_time || 0}s. ` +
+          `messageAttachment: ${messageAttachment}. User can now query. Embedding in background.`
+        );
+
+      } catch (error) {
+        logger.error(`[processAgentFileUpload] Text extraction failed for file ${file_id}:`, error);
+        // For message attachments, don't throw - just log and continue without text
+        // For file_search, throw error since text is essential
+        if (tool_resource === EToolResources.file_search) {
+          throw new Error(`Failed to extract text from file: ${error.message}`);
+        }
+        // IMPORTANT: Merge with existing fileInfoMetadata to preserve fileIdentifier for code executor
+        fileInfoMetadata = { ...fileInfoMetadata, extraction_error: error.message };
+      }
+    }
+  }
+
+  // SECOND: Upload to Storage (S3/local/etc.) after text is extracted
+  let storageResult;
   const { handleFileUpload } = getStrategyFunctions(source);
   const sanitizedUploadFn = createSanitizedUploadWrapper(handleFileUpload);
   storageResult = await sanitizedUploadFn({
@@ -668,62 +761,10 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
   });
 
   let { bytes, filename, filepath: _filepath, height, width } = storageResult;
-  let embedded = storageResult.embedded;
-  let filepath = _filepath;
-
-  // For file_search (RAG), process Vector DB upload asynchronously in background
-  if (tool_resource === EToolResources.file_search) {
-    // Check if RAG API is available before attempting background upload
-    if (!process.env.RAG_API_URL) {
-      logger.warn(`[processAgentFileUpload] RAG_API_URL not configured, skipping Vector DB upload for file ${file_id}`);
-      embedded = false;
-      fileInfoMetadata = {};
-    } else {
-      const { uploadVectors } = require('./VectorDB/crud');
-
-      // Tell route to skip cleanup - background process will handle it
-      req.skipCleanup = true;
-      const tempFilePath = file.path;
-
-      // Process Vector DB upload asynchronously - don't await
-      setImmediate(async () => {
-        try {
-          logger.debug(`[processAgentFileUpload] Starting background Vector DB upload for file ${file_id}`);
-          const embeddingResult = await uploadVectors({
-            req,
-            file,
-            file_id,
-            entity_id,
-          });
-
-          // Update file record with embedding status
-          if (embeddingResult?.embedded) {
-            await updateFile({
-              file_id,
-              embedded: true,
-            });
-            logger.debug(`[processAgentFileUpload] Vector DB embedding completed for file ${file_id}`);
-          }
-        } catch (error) {
-          logger.error(`[processAgentFileUpload] Background Vector DB upload failed for file ${file_id}:`, error);
-          // File is already saved to storage, so we don't throw - just log the error
-          // The file can be re-embedded later if needed
-        } finally {
-          // Clean up the temp file after background processing
-          try {
-            fs.unlinkSync(tempFilePath);
-            logger.debug(`[processAgentFileUpload] Cleaned up temp file after RAG processing: ${tempFilePath}`);
-          } catch (cleanupError) {
-            logger.warn(`[processAgentFileUpload] Failed to clean up temp file ${tempFilePath}:`, cleanupError);
-          }
-        }
-      });
-
-      // Set embedded to false initially - will be updated when background job completes
-      embedded = false;
-      fileInfoMetadata = {};
-    }
+  if (storageResult.embedded != null) {
+    embedded = storageResult.embedded;
   }
+  let filepath = _filepath;
 
   if (!messageAttachment && tool_resource) {
     await addAgentResourceFile({
@@ -759,7 +800,19 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     source,
     height,
     width,
+    // Store extracted text in `text` field (same pattern as EToolResources.context)
+    // This allows file_search files to be used as context immediately
+    text: extractedText,
   });
+
+  // Log the final metadata to verify fileIdentifier is preserved
+  if (fileInfoMetadata?.fileIdentifier) {
+    logger.info(`[processAgentFileUpload] Final metadata includes fileIdentifier: ${fileInfoMetadata.fileIdentifier}`);
+  }
+  if (fileInfoMetadata?.tool_resource) {
+    logger.info(`[processAgentFileUpload] Final metadata includes tool_resource: ${fileInfoMetadata.tool_resource}`);
+  }
+  logger.debug(`[processAgentFileUpload] Final metadata: ${JSON.stringify(fileInfoMetadata)}`);
 
   const result = await createFile(fileInfo, true);
 

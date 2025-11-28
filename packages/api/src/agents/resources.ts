@@ -90,7 +90,16 @@ const categorizeFileForToolResources = ({
   requestFileSet: Set<string>;
   processedResourceFiles: Set<string>;
 }): void => {
-  if (file.metadata?.fileIdentifier) {
+  // Check for code executor files - either by fileIdentifier or tool_resource metadata
+  // fileIdentifier contains session_id/file_id for existing uploads
+  // tool_resource indicates the file was intended for code executor (for re-upload if session expired)
+  const hasFileIdentifier = !!file.metadata?.fileIdentifier;
+  const hasCodeToolResource = file.metadata?.tool_resource === EToolResources.execute_code;
+  
+  logger.debug(`[categorizeFileForToolResources] File: ${file.filename}, fileIdentifier: ${hasFileIdentifier}, tool_resource: ${file.metadata?.tool_resource || 'none'}, embedded: ${file.embedded}`);
+  
+  if (hasFileIdentifier || hasCodeToolResource) {
+    logger.info(`[categorizeFileForToolResources] Adding ${file.filename} to execute_code (fileIdentifier: ${hasFileIdentifier}, tool_resource: ${hasCodeToolResource})`);
     addFileToResource({
       file,
       resourceType: EToolResources.execute_code,
@@ -100,7 +109,9 @@ const categorizeFileForToolResources = ({
     return;
   }
 
-  if (file.embedded === true) {
+  // Include files that are embedded OR have text content (for immediate context use)
+  // Files with text but embedded=false can still provide context while embedding completes in background
+  if (file.embedded === true || (file.text && file.text.length > 0)) {
     addFileToResource({
       file,
       resourceType: EToolResources.file_search,

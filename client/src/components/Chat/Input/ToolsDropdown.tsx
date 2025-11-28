@@ -8,7 +8,9 @@ import {
   Permissions,
   ArtifactModes,
   PermissionTypes,
+  AgentCapabilities,
   defaultAgentCapabilities,
+  defaultToolsAutoEnabled,
 } from 'librechat-data-provider';
 import { useLocalize, useHasAccess, useAgentCapabilities } from '~/hooks';
 import ArtifactsSubMenu from '~/components/Chat/Input/ArtifactsSubMenu';
@@ -37,8 +39,19 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
   } = useBadgeRowContext();
   const { data: startupConfig } = useGetStartupConfig();
 
-  const { codeEnabled, webSearchEnabled, artifactsEnabled, fileSearchEnabled } =
-    useAgentCapabilities(agentsConfig?.capabilities ?? defaultAgentCapabilities);
+  // Get auto-enabled tools from config (these are handled by backend intent analyzer)
+  const toolsAutoEnabled = (agentsConfig?.toolsAutoEnabled ?? defaultToolsAutoEnabled) as AgentCapabilities[];
+
+  const { 
+    codeEnabled, 
+    webSearchEnabled, 
+    artifactsEnabled, 
+    fileSearchEnabled,
+    isAutoEnabled,
+  } = useAgentCapabilities(
+    agentsConfig?.capabilities ?? defaultAgentCapabilities,
+    toolsAutoEnabled,
+  );
 
   const { setIsDialogOpen: setIsCodeDialogOpen, menuTriggerRef: codeMenuTriggerRef } =
     codeApiKeyForm;
@@ -129,7 +142,9 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
 
   const dropdownItems: MenuItemProps[] = [];
 
-  if (fileSearchEnabled && canUseFileSearch) {
+  // Only show file search in dropdown if it's NOT auto-enabled
+  // Auto-enabled tools are handled by backend intent analyzer
+  if (fileSearchEnabled && canUseFileSearch && !isAutoEnabled(AgentCapabilities.file_search)) {
     dropdownItems.push({
       onClick: handleFileSearchToggle,
       hideOnClick: false,
@@ -161,7 +176,8 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     });
   }
 
-  if (canUseWebSearch && webSearchEnabled) {
+  // Web search is NOT auto-enabled by default, so it always shows when enabled
+  if (canUseWebSearch && webSearchEnabled && !isAutoEnabled(AgentCapabilities.web_search)) {
     dropdownItems.push({
       onClick: handleWebSearchToggle,
       hideOnClick: false,
@@ -215,7 +231,8 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     });
   }
 
-  if (canRunCode && codeEnabled) {
+  // Only show code interpreter in dropdown if it's NOT auto-enabled
+  if (canRunCode && codeEnabled && !isAutoEnabled(AgentCapabilities.execute_code)) {
     dropdownItems.push({
       onClick: handleCodeInterpreterToggle,
       hideOnClick: false,
@@ -269,7 +286,8 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     });
   }
 
-  if (artifactsEnabled) {
+  // Only show artifacts in dropdown if it's NOT auto-enabled
+  if (artifactsEnabled && !isAutoEnabled(AgentCapabilities.artifacts)) {
     dropdownItems.push({
       hideOnClick: false,
       render: (props) => (

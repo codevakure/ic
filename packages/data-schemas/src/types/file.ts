@@ -20,6 +20,10 @@ export interface IMongoFile extends Omit<Document, 'model'> {
   height?: number;
   metadata?: {
     fileIdentifier?: string;
+    /** Upload strategies from intent analyzer: IMAGE, CODE_EXECUTOR, FILE_SEARCH */
+    strategies?: string[];
+    /** RAG embedding status: pending, processing, completed, failed */
+    ragStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   };
   expiresAt?: Date;
   createdAt?: Date;

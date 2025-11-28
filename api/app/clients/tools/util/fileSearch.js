@@ -104,19 +104,39 @@ const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = 
         return body;
       };
 
-      const queryPromises = files.map((file) =>
-        axios
+      // Log all files being queried
+      logger.info(
+        `[${Tools.file_search}] Querying RAG API for ${files.length} file(s): ` +
+        files.map(f => f.filename).join(', ')
+      );
+
+      const queryPromises = files.map((file) => {
+        logger.debug(
+          `[${Tools.file_search}] Sending query to RAG API | file: ${file.filename} | ` +
+          `file_id: ${file.file_id} | query: "${query.substring(0, 100)}..."`
+        );
+        return axios
           .post(`${process.env.RAG_API_URL}/query`, createQueryBody(file), {
             headers: {
               Authorization: `Bearer ${jwtToken}`,
               'Content-Type': 'application/json',
             },
           })
+          .then((response) => {
+            logger.info(
+              `[${Tools.file_search}] RAG API response for ${file.filename}: ` +
+              `${response.data?.length || 0} chunks returned`
+            );
+            return response;
+          })
           .catch((error) => {
-            logger.error('Error encountered in `file_search` while querying file:', error);
+            logger.error(
+              `[${Tools.file_search}] RAG API query failed for ${file.filename}:`,
+              error.response?.data || error.message
+            );
             return null;
-          }),
-      );
+          });
+      });
 
       const results = await Promise.all(queryPromises);
       const validResults = results.filter((result) => result !== null);

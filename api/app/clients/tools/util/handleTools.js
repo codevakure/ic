@@ -264,6 +264,10 @@ const loadTools = async ({
         if (toolContext) {
           toolContextMap[tool] = toolContext;
         }
+        // Log files being passed to code executor
+        if (files && files.length > 0) {
+          logger.info(`[handleTools] Code executor files: ${JSON.stringify(files.map(f => ({ session_id: f.session_id, id: f.id, name: f.name })))}`);
+        }
         const CodeExecutionTool = createCodeExecutionTool({
           user_id: user,
           files,

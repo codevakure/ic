@@ -5,6 +5,14 @@ const { ResourceType, SystemRoles, Tools, actionDelimiter } = require('librechat
 const { GLOBAL_PROJECT_NAME, EPHEMERAL_AGENT_ID, mcp_all, mcp_delimiter } =
   require('librechat-data-provider').Constants;
 const {
+  analyzeQueryIntent,
+  analyzeUploadIntent,
+  Tool,
+  UploadIntent,
+  capabilityToTool,
+  toolToCapability,
+} = require('@librechat/intent-analyzer');
+const {
   removeAgentFromAllProjects,
   removeAgentIdsFromProject,
   addAgentIdsToProject,
@@ -76,6 +84,12 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (spec != null && spec !== '') {
     modelSpec = modelSpecs?.find((s) => s.name === spec) || null;
   }
+  
+  // Get agent config from app config
+  const agentsConfig = req.config?.endpoints?.agents;
+  const capabilities = agentsConfig?.capabilities ?? [];
+  const toolsAutoEnabled = agentsConfig?.toolsAutoEnabled ?? ['file_search', 'execute_code', 'artifacts'];
+  
   /** @type {TEphemeralAgent | null} */
   const ephemeralAgent = req.body.ephemeralAgent;
   const mcpServers = new Set(ephemeralAgent?.mcp);
@@ -85,15 +99,116 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
       mcpServers.add(mcpServer);
     }
   }
+  
+  // Get query text and files from request body
+  const queryText = req.body.text || '';
+  const requestFiles = req.body.files || [];
+  
+  // Determine upload intents for attached files
+  const uploadIntents = [];
+  for (const file of requestFiles) {
+    // Try multiple property names for filename and mimetype
+    // The file object from req.body.files has: file_id, filepath, type
+    // Extract filename from filepath if needed (e.g., "uploads/user123/filename.xlsx" → "filename.xlsx")
+    let filename = file.filename || file.name || file.originalname;
+    if (!filename && file.filepath) {
+      // Extract filename from filepath (last segment after /)
+      const pathParts = file.filepath.split('/');
+      filename = pathParts[pathParts.length - 1];
+    }
+    const mimetype = file.type || file.mimetype || file.mimeType;
+    
+    if (filename) {
+      const intentResult = analyzeUploadIntent({
+        filename: filename,
+        mimetype: mimetype || 'application/octet-stream',
+        size: file.bytes || file.size,
+      });
+      logger.info(`[loadEphemeralAgent] File "${filename}" (${mimetype}) → intent: ${intentResult.intent}`);
+      if (!uploadIntents.includes(intentResult.intent)) {
+        uploadIntents.push(intentResult.intent);
+      }
+    } else {
+      logger.warn(`[loadEphemeralAgent] File missing filename property. Keys: ${Object.keys(file).join(', ')}`);
+    }
+  }
+  
+  // Map capabilities to Tool enum for intent analyzer
+  const availableTools = capabilities
+    .map(cap => capabilityToTool(cap))
+    .filter(tool => tool !== null);
+  
+  // Map auto-enabled capabilities to Tool enum
+  const autoEnabledTools = toolsAutoEnabled
+    .map(cap => capabilityToTool(cap))
+    .filter(tool => tool !== null);
+  
+  // Map user explicitly selected tools from ephemeralAgent
+  const userSelectedTools = [];
+  if (ephemeralAgent?.web_search === true) {
+    userSelectedTools.push(Tool.WEB_SEARCH);
+  }
+  // Note: file_search, execute_code, artifacts are auto-enabled so user doesn't manually select them
+  
+  // Run intent analysis
+  const intentResult = analyzeQueryIntent({
+    query: queryText,
+    attachedFiles: uploadIntents.length > 0 ? {
+      files: requestFiles.map(f => {
+        // Extract filename from filepath if not directly available
+        let filename = f.filename || f.name || f.originalname;
+        if (!filename && f.filepath) {
+          const pathParts = f.filepath.split('/');
+          filename = pathParts[pathParts.length - 1];
+        }
+        return { 
+          filename: filename || 'unknown', 
+          mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream', 
+          size: f.bytes || f.size 
+        };
+      }),
+      uploadIntents,
+    } : undefined,
+    availableTools,
+    autoEnabledTools,
+    userSelectedTools,
+  });
+  
+  logger.info(`[loadEphemeralAgent] ===== EPHEMERAL AGENT SETUP =====`);
+  logger.info(`[loadEphemeralAgent] Query: "${queryText.substring(0, 80)}..."`);
+  logger.info(`[loadEphemeralAgent] Files attached: ${requestFiles.length}`);
+  if (requestFiles.length > 0) {
+    logger.info(`[loadEphemeralAgent] File intents: ${uploadIntents.join(', ')}`);
+  }
+  logger.info(`[loadEphemeralAgent] Tools sent to analyzer: [${availableTools.map(t => toolToCapability(t)).join(', ')}]`);
+  logger.info(`[loadEphemeralAgent] Auto-enabled: [${autoEnabledTools.map(t => toolToCapability(t)).join(', ')}]`);
+  logger.info(`[loadEphemeralAgent] Intent result - picked: [${intentResult.tools.map(t => toolToCapability(t)).join(', ')}]`);
+  logger.info(`[loadEphemeralAgent] Intent reasoning: ${intentResult.reasoning}`);
+  
   /** @type {string[]} */
   const tools = [];
-  if (ephemeralAgent?.execute_code === true || modelSpec?.executeCode === true) {
+  
+  // Add tools based on intent analysis (includes auto-enabled tools)
+  for (const tool of intentResult.tools) {
+    const capability = toolToCapability(tool);
+    if (capability === 'execute_code' && !tools.includes(Tools.execute_code)) {
+      tools.push(Tools.execute_code);
+    } else if (capability === 'file_search' && !tools.includes(Tools.file_search)) {
+      tools.push(Tools.file_search);
+    } else if (capability === 'web_search' && !tools.includes(Tools.web_search)) {
+      tools.push(Tools.web_search);
+    }
+    // artifacts is handled separately via ephemeralAgent.artifacts
+  }
+  
+  // Legacy fallback: Also add tools based on modelSpec if not already added
+  if (modelSpec?.executeCode === true && !tools.includes(Tools.execute_code)) {
     tools.push(Tools.execute_code);
   }
-  if (ephemeralAgent?.file_search === true || modelSpec?.fileSearch === true) {
+  if (modelSpec?.fileSearch === true && !tools.includes(Tools.file_search)) {
     tools.push(Tools.file_search);
   }
-  if (ephemeralAgent?.web_search === true || modelSpec?.webSearch === true) {
+  if (modelSpec?.webSearch === true && !tools.includes(Tools.web_search)) {
     tools.push(Tools.web_search);
   }
 
@@ -114,7 +229,14 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
   }
 
-  const instructions = req.body.promptPrefix;
+  // Build instructions from promptPrefix
+  let instructions = req.body.promptPrefix || '';
+  
+  // Handle artifacts - check if intent analyzer detected it or user explicitly enabled
+  // Just set the artifacts mode here - initializeAgent will generate the prompt using generateArtifactsPrompt
+  const hasArtifactsIntent = intentResult.tools.some(t => toolToCapability(t) === 'artifacts');
+  const artifactsMode = ephemeralAgent?.artifacts;
+  
   const result = {
     id: agent_id,
     instructions,
@@ -124,9 +246,15 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     tools,
   };
 
-  if (ephemeralAgent?.artifacts != null && ephemeralAgent.artifacts) {
-    result.artifacts = ephemeralAgent.artifacts;
+  logger.info(`[loadEphemeralAgent] Final tools array: [${tools.join(', ')}]`);
+
+  // Set artifacts mode on result if enabled (initializeAgent will add the prompt)
+  // Use 'default' mode to match ArtifactModes.DEFAULT - this ensures generateArtifactsPrompt works correctly
+  if (hasArtifactsIntent || (artifactsMode != null && artifactsMode)) {
+    result.artifacts = artifactsMode || 'default';
+    logger.info(`[loadEphemeralAgent] Artifacts enabled (mode: ${result.artifacts})`);
   }
+  
   return result;
 };
 

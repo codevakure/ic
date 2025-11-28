@@ -1264,6 +1264,10 @@ class BaseClient {
    * @returns {Promise<void>}
    */
   async addFileContextToMessage(message, attachments) {
+    logger.debug(
+      `[addFileContextToMessage] Processing ${attachments?.length || 0} attachments for message ${message?.messageId}`,
+    );
+    
     const fileContext = await extractFileContext({
       attachments,
       req: this.options?.req,
@@ -1271,7 +1275,12 @@ class BaseClient {
     });
 
     if (fileContext) {
+      logger.info(
+        `[addFileContextToMessage] Added file context to message (${fileContext.length} chars)`,
+      );
       message.fileContext = fileContext;
+    } else {
+      logger.debug('[addFileContextToMessage] No file context extracted from attachments');
     }
   }
 
@@ -1292,7 +1301,9 @@ class BaseClient {
         allFiles.push(file);
         continue;
       }
-      if (file.embedded === true || file.metadata?.fileIdentifier != null) {
+      // Include files that are embedded, have code execution metadata, OR have extracted text
+      // This allows files with text (from RAG API extraction) to be used for context even if not fully embedded
+      if (file.embedded === true || file.metadata?.fileIdentifier != null || (file.text && file.text.length > 0)) {
         allFiles.push(file);
         continue;
       }

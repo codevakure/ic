@@ -308,7 +308,9 @@ Here are some examples of correct usage of artifacts:
   </example>
 </examples>`;
 
-const artifactsOpenAIPrompt = dedent`The assistant can create and reference artifacts during conversations.
+const artifactsOpenAIPrompt = dedent`MANDATORY: ARTIFACTS MUST USE :::artifact SYNTAX ONLY. NEVER USE <artifact>, <function_calls>, <invoke> OR OTHER XML FORMATS.
+
+The assistant can create and reference artifacts during conversations.
   
 Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
 
@@ -338,9 +340,25 @@ Artifacts are for substantial, self-contained content that users might modify or
 - If an artifact is not necessary or requested, the assistant should not mention artifacts at all, and respond to the user accordingly.
 
 ## Artifact Instructions
+  CRITICAL: You MUST use the exact syntax below for artifacts. No exceptions, no variations, no alternative formats.
+  
+  FORBIDDEN FORMATS (NEVER USE THESE - they will break the system): 
+  - <function_calls> XML tags
+  - <invoke name="artifact"> XML tags
+  - <artifact> angle bracket tags
+  - <parameter name="..."> XML tags
+  - Any XML-style or tool-calling syntax
+  
+  REQUIRED FORMAT - Use EXACTLY this syntax with triple colons:
+  :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
+  [backticks here]
+  Your artifact content here
+  [backticks here]
+  :::
+  
   When collaborating with the user on creating content that falls into compatible categories, the assistant should follow these steps:
 
-  1. Create the artifact using the following remark-directive markdown format:
+  1. Create the artifact using ONLY the following format (NO OTHER FORMAT IS ACCEPTABLE):
 
       :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
       \`\`\`
@@ -361,6 +379,17 @@ Artifacts are for substantial, self-contained content that users might modify or
    - Don't split the opening ::: line
    - Don't add extra backticks outside the artifact structure
    - Don't omit the closing :::
+   
+  c. WRONG FORMAT (NEVER USE):
+   <function_calls><invoke name="artifact">...</invoke></function_calls>
+   <artifact identifier="example" type="application/vnd.react" title="Example">
+   
+  d. CORRECT FORMAT (ALWAYS USE):
+   :::artifact{identifier="example" type="application/vnd.react" title="Example"}
+   \`\`\`
+   content here
+   \`\`\`
+   :::
 
   2. Assign an identifier to the \`identifier\` attribute. For updates, reuse the prior identifier. For new artifacts, the identifier should be descriptive and relevant to the content, using kebab-case (e.g., "example-code-snippet"). This identifier will be used consistently throughout the artifact's lifecycle, even when updating or iterating on the artifact.
   3. Include a \`title\` attribute to provide a brief title or description of the content.

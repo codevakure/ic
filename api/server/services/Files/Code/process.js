@@ -105,34 +105,68 @@ function checkIfActive(dateString) {
 }
 
 /**
+ * Parse a fileIdentifier string into its components.
+ * Format: "session_id/file_id" or "session_id/file_id?entity_id=xxx"
+ * 
+ * @param {string} fileIdentifier - The file identifier string
+ * @returns {{ session_id: string, file_id: string, entity_id?: string } | null}
+ */
+function parseFileIdentifier(fileIdentifier) {
+  if (!fileIdentifier || typeof fileIdentifier !== 'string') {
+    return null;
+  }
+  
+  try {
+    // Split off query parameters first
+    const [pathPart, queryString] = fileIdentifier.split('?');
+    const [session_id, file_id] = pathPart.split('/');
+    
+    if (!session_id || !file_id) {
+      logger.warn(`[parseFileIdentifier] Invalid fileIdentifier format: ${fileIdentifier}`);
+      return null;
+    }
+    
+    // Parse query parameters if present
+    let entity_id;
+    if (queryString) {
+      const params = new URLSearchParams(queryString);
+      entity_id = params.get('entity_id') || undefined;
+    }
+    
+    return { session_id, file_id, entity_id };
+  } catch (error) {
+    logger.error(`[parseFileIdentifier] Error parsing fileIdentifier: ${fileIdentifier}`, error);
+    return null;
+  }
+}
+
+/**
  * Retrieves the `lastModified` time string for a specified file from Code Execution Server.
  *
- * @param {Object} params - The parameters object.
- * @param {string} params.fileIdentifier - The identifier for the file (e.g., "session_id/fileId").
- * @param {string} params.apiKey - The API key for authentication.
+ * @param {string} fileIdentifier - The identifier for the file (e.g., "session_id/fileId").
+ * @param {string} apiKey - The API key for authentication.
  *
  * @returns {Promise<string|null>}
  *          A promise that resolves to the `lastModified` time string of the file if successful, or null if there is an
  *          error in initialization or fetching the info.
  */
 async function getSessionInfo(fileIdentifier, apiKey) {
+  const parsed = parseFileIdentifier(fileIdentifier);
+  if (!parsed) {
+    logger.warn(`[getSessionInfo] Could not parse fileIdentifier: ${fileIdentifier}`);
+    return null;
+  }
+  
+  const { session_id, file_id, entity_id } = parsed;
+  
   try {
     const baseURL = getCodeBaseURL();
-    const [path, queryString] = fileIdentifier.split('?');
-    const session_id = path.split('/')[0];
-
-    let queryParams = {};
-    if (queryString) {
-      queryParams = Object.fromEntries(new URLSearchParams(queryString).entries());
-    }
+    const queryParams = entity_id ? { detail: 'summary', entity_id } : { detail: 'summary' };
 
     const response = await axios({
       method: 'get',
       url: `${baseURL}/files/${session_id}`,
-      params: {
-        detail: 'summary',
-        ...queryParams,
-      },
+      params: queryParams,
       headers: {
         'User-Agent': 'LibreChat/1.0',
         'X-API-Key': apiKey,
@@ -140,10 +174,12 @@ async function getSessionInfo(fileIdentifier, apiKey) {
       timeout: 5000,
     });
 
-    return response.data.find((file) => file.name.startsWith(path))?.lastModified;
+    // Find the file in the session by matching the session_id/file_id pattern
+    const filePattern = `${session_id}/${file_id}`;
+    return response.data.find((file) => file.name.startsWith(filePattern))?.lastModified;
   } catch (error) {
     logAxiosError({
-      message: `Error fetching session info: ${error.message}`,
+      message: `[getSessionInfo] Error fetching session info for ${session_id}: ${error.message}`,
       error,
     });
     return null;
@@ -167,6 +203,11 @@ const primeFiles = async (options, apiKey) => {
   const file_ids = tool_resources?.[EToolResources.execute_code]?.file_ids ?? [];
   const agentResourceIds = new Set(file_ids);
   const resourceFiles = tool_resources?.[EToolResources.execute_code]?.files ?? [];
+
+  logger.info(`[primeFiles] Starting. file_ids: ${file_ids.length}, resourceFiles: ${resourceFiles.length}`);
+  if (resourceFiles.length > 0) {
+    logger.info(`[primeFiles] Resource files: ${resourceFiles.map(f => `${f.filename} (fileIdentifier: ${f.metadata?.fileIdentifier || 'none'}, tool_resource: ${f.metadata?.tool_resource || 'none'})`).join(', ')}`);
+  }
 
   // Get all files first
   const allFiles = (await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [];
@@ -196,9 +237,104 @@ const primeFiles = async (options, apiKey) => {
       continue;
     }
 
-    if (file.metadata.fileIdentifier) {
-      const [path, queryString] = file.metadata.fileIdentifier.split('?');
-      const [session_id, id] = path.split('/');
+    /**
+     * Helper function to upload file to code executor and update metadata.
+     * This is the single source of truth for uploading files to code executor.
+     * @param {Object} file - The file object from database
+     * @returns {Promise<{ session_id: string, id: string } | null>}
+     */
+    const uploadFileToCodeExecutor = async (file) => {
+      try {
+        const { getDownloadStream } = getStrategyFunctions(file.source);
+        const { handleFileUpload: uploadCodeEnvFile } = getStrategyFunctions(
+          FileSources.execute_code,
+        );
+        const stream = await getDownloadStream(options.req, file.filepath);
+        const fileIdentifier = await uploadCodeEnvFile({
+          req: options.req,
+          stream,
+          filename: file.filename,
+          entity_id: agentId,
+          apiKey,
+        });
+
+        // Preserve existing metadata when adding fileIdentifier
+        const updatedMetadata = {
+          ...file.metadata,
+          fileIdentifier,
+          tool_resource: EToolResources.execute_code,
+        };
+
+        await updateFile({
+          file_id: file.file_id,
+          metadata: updatedMetadata,
+        });
+
+        // Use centralized parser to extract session_id and file_id
+        const parsed = parseFileIdentifier(fileIdentifier);
+        if (!parsed) {
+          logger.error(`[primeFiles] Failed to parse newly created fileIdentifier: ${fileIdentifier}`);
+          return null;
+        }
+        
+        logger.info(`[primeFiles] Uploaded file ${file.filename} to code executor. Session: ${parsed.session_id}, FileId: ${parsed.file_id}`);
+        
+        return { session_id: parsed.session_id, id: parsed.file_id };
+      } catch (error) {
+        logger.error(
+          `[primeFiles] Error uploading file ${file.filename} to code executor: ${error.message}`,
+          error,
+        );
+        return null;
+      }
+    };
+
+    // Handle files that have tool_resource=execute_code but no fileIdentifier
+    // This happens when fileIdentifier was deleted or file was categorized by tool_resource metadata
+    if (!file.metadata?.fileIdentifier && file.metadata?.tool_resource === EToolResources.execute_code) {
+      logger.info(`[primeFiles] File ${file.filename} has tool_resource=execute_code but no fileIdentifier, uploading to code executor`);
+      const uploadResult = await uploadFileToCodeExecutor(file);
+      if (uploadResult) {
+        if (!toolContext) {
+          toolContext = `- Note: The following files are available in the "${Tools.execute_code}" tool environment:`;
+        }
+        toolContext += `\n\t- /mnt/data/${file.filename}${
+          agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
+        }`;
+        files.push({
+          id: uploadResult.id,
+          session_id: uploadResult.session_id,
+          name: file.filename,
+        });
+        sessions.set(uploadResult.session_id, true);
+      }
+      continue;
+    }
+
+    // Handle files with existing fileIdentifier - check if session is still valid
+    if (file.metadata?.fileIdentifier) {
+      const parsed = parseFileIdentifier(file.metadata.fileIdentifier);
+      if (!parsed) {
+        logger.warn(`[primeFiles] Could not parse fileIdentifier for ${file.filename}, re-uploading`);
+        const uploadResult = await uploadFileToCodeExecutor(file);
+        if (uploadResult) {
+          if (!toolContext) {
+            toolContext = `- Note: The following files are available in the "${Tools.execute_code}" tool environment:`;
+          }
+          toolContext += `\n\t- /mnt/data/${file.filename}${
+            agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
+          }`;
+          files.push({
+            id: uploadResult.id,
+            session_id: uploadResult.session_id,
+            name: file.filename,
+          });
+          sessions.set(uploadResult.session_id, true);
+        }
+        continue;
+      }
+
+      const { session_id, file_id } = parsed;
 
       const pushFile = () => {
         if (!toolContext) {
@@ -208,7 +344,7 @@ const primeFiles = async (options, apiKey) => {
           agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
         }`;
         files.push({
-          id,
+          id: file_id,  // Use parsed file_id (without query params)
           session_id,
           name: file.filename,
         });
@@ -219,64 +355,53 @@ const primeFiles = async (options, apiKey) => {
         continue;
       }
 
-      let queryParams = {};
-      if (queryString) {
-        queryParams = Object.fromEntries(new URLSearchParams(queryString).entries());
-      }
-
       const reuploadFile = async () => {
-        try {
-          const { getDownloadStream } = getStrategyFunctions(file.source);
-          const { handleFileUpload: uploadCodeEnvFile } = getStrategyFunctions(
-            FileSources.execute_code,
-          );
-          const stream = await getDownloadStream(options.req, file.filepath);
-          const fileIdentifier = await uploadCodeEnvFile({
-            req: options.req,
-            stream,
-            filename: file.filename,
-            entity_id: queryParams.entity_id,
-            apiKey,
+        logger.info(`[primeFiles] Re-uploading file ${file.filename} to code executor (session expired or not found)`);
+        const uploadResult = await uploadFileToCodeExecutor(file);
+        if (uploadResult) {
+          logger.info(`[primeFiles] Re-upload successful. New session: ${uploadResult.session_id}, fileId: ${uploadResult.id}`);
+          // Update local variables to use new session/file IDs
+          if (!toolContext) {
+            toolContext = `- Note: The following files are available in the "${Tools.execute_code}" tool environment:`;
+          }
+          toolContext += `\n\t- /mnt/data/${file.filename}${
+            agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
+          }`;
+          files.push({
+            id: uploadResult.id,
+            session_id: uploadResult.session_id,
+            name: file.filename,
           });
-
-          // Preserve existing metadata when adding fileIdentifier
-          const updatedMetadata = {
-            ...file.metadata, // Preserve existing metadata (like S3 storage info)
-            fileIdentifier, // Add fileIdentifier
-          };
-
-          await updateFile({
-            file_id: file.file_id,
-            metadata: updatedMetadata,
-          });
-          sessions.set(session_id, true);
-          pushFile();
-        } catch (error) {
-          logger.error(
-            `Error re-uploading file ${id} in session ${session_id}: ${error.message}`,
-            error,
-          );
+          sessions.set(uploadResult.session_id, true);
+        } else {
+          logger.error(`[primeFiles] Re-upload failed for file ${file.filename}`);
         }
       };
+      
+      logger.info(`[primeFiles] Checking session for file ${file.filename} with fileIdentifier: ${file.metadata.fileIdentifier}`);
       const uploadTime = await getSessionInfo(file.metadata.fileIdentifier, apiKey);
       if (!uploadTime) {
-        logger.warn(`Failed to get upload time for file ${id} in session ${session_id}`);
+        logger.warn(`[primeFiles] Session not found or expired for file ${file.filename} (session: ${session_id}). Re-uploading...`);
         await reuploadFile();
         continue;
       }
       if (!checkIfActive(uploadTime)) {
+        logger.warn(`[primeFiles] Session ${session_id} is inactive (uploadTime: ${uploadTime}). Re-uploading...`);
         await reuploadFile();
         continue;
       }
+      logger.info(`[primeFiles] Session ${session_id} is active. File ${file.filename} is available.`);
       sessions.set(session_id, true);
       pushFile();
     }
   }
 
+  logger.info(`[primeFiles] Completed. Files ready: ${files.length}, toolContext: ${toolContext ? 'yes' : 'no'}`);
   return { files, toolContext };
 };
 
 module.exports = {
   primeFiles,
   processCodeOutput,
+  parseFileIdentifier,
 };
