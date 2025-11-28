@@ -3,6 +3,7 @@ import { useRecoilValue } from 'recoil';
 import { DelayedRender } from '@librechat/client';
 import type { TMessage } from 'librechat-data-provider';
 import type { TMessageContentProps, TDisplayProps } from '~/common';
+import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import Error from '~/components/Messages/Content/Error';
 import { useMessageContext } from '~/Providers';
 import MarkdownLite from './MarkdownLite';
@@ -29,11 +30,7 @@ const parseThinkingContent = (text: string) => {
 const LoadingFallback = () => (
   <div className="text-message mb-[0.625rem] flex min-h-[20px] flex-col items-start gap-3 overflow-visible">
     <div className="markdown prose dark:prose-invert light w-full break-words dark:text-gray-100">
-      <div className="absolute">
-        <p className="submitting relative">
-          <span className="result-thinking" />
-        </p>
-      </div>
+      <StreamingLoader />
     </div>
   </div>
 );
@@ -95,11 +92,6 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   const { isSubmitting = false, isLatestMessage = false } = useMessageContext();
   const enableUserMsgMarkdown = useRecoilValue(store.enableUserMsgMarkdown);
 
-  const showCursorState = useMemo(
-    () => showCursor === true && isSubmitting,
-    [showCursor, isSubmitting],
-  );
-
   const content = useMemo(() => {
     if (!isCreatedByUser) {
       return <Markdown content={text} isLatestMessage={isLatestMessage} />;
@@ -116,7 +108,6 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
         className={cn(
           'markdown prose message-content dark:prose-invert light w-full break-words',
           isSubmitting && 'submitting',
-          showCursorState && text.length > 0 && 'result-streaming',
           isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
           isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',
         )}

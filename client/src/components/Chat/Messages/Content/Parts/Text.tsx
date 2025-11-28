@@ -17,10 +17,9 @@ type ContentType =
   | ReactElement<React.ComponentProps<typeof MarkdownLite>>
   | ReactElement;
 
-const TextPart = memo(({ text, isCreatedByUser, showCursor }: TextPartProps) => {
+const TextPart = memo(({ text, isCreatedByUser }: TextPartProps) => {
   const { isSubmitting = false, isLatestMessage = false } = useMessageContext();
   const enableUserMsgMarkdown = useRecoilValue(store.enableUserMsgMarkdown);
-  const showCursorState = useMemo(() => showCursor && isSubmitting, [showCursor, isSubmitting]);
 
   const content: ContentType = useMemo(() => {
     if (!isCreatedByUser) {
@@ -36,7 +35,6 @@ const TextPart = memo(({ text, isCreatedByUser, showCursor }: TextPartProps) => 
     <div
       className={cn(
         isSubmitting ? 'submitting' : '',
-        showCursorState && !!text.length ? 'result-streaming' : '',
         'markdown prose message-content dark:prose-invert light w-full break-words',
         isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
         isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',

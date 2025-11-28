@@ -156,7 +156,7 @@ type TParagraphProps = {
 };
 
 export const p: React.ElementType = memo(({ children }: TParagraphProps) => {
-  return <p className="mb-2 whitespace-pre-wrap">{children}</p>;
+  return <p className="whitespace-pre-wrap">{children}</p>;
 });
 
 type TImageProps = {

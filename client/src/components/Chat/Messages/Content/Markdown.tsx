@@ -15,7 +15,8 @@ import {
   MCPUIResourceCarousel,
 } from '~/components/MCPUIResource';
 import { Artifact, artifactPlugin } from '~/components/Artifacts/Artifact';
-import { ArtifactProvider, CodeBlockProvider } from '~/Providers';
+import { ArtifactProvider, CodeBlockProvider, useMessageContext } from '~/Providers';
+import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset, preprocessLaTeX } from '~/utils';
 import { unicodeCitation } from '~/components/Web';
@@ -29,7 +30,11 @@ type TContentProps = {
 
 const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
   const LaTeXParsing = useRecoilValue<boolean>(store.LaTeXParsing);
+  const { isSubmitting = false } = useMessageContext();
   const isInitializing = content === '';
+
+  // Show loader while streaming (latest message + submitting + has content)
+  const showStreamingLoader = isLatestMessage && isSubmitting && !isInitializing;
 
   const currentContent = useMemo(() => {
     if (isInitializing) {
@@ -64,46 +69,43 @@ const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
   ];
 
   if (isInitializing) {
-    return (
-      <div className="absolute">
-        <p className="relative">
-          <span className={isLatestMessage ? 'result-thinking' : ''} />
-        </p>
-      </div>
-    );
+    return <StreamingLoader />;
   }
 
   return (
-    <MarkdownErrorBoundary content={content} codeExecution={true}>
-      <ArtifactProvider>
-        <CodeBlockProvider>
-          <ReactMarkdown
-            /** @ts-ignore */
-            remarkPlugins={remarkPlugins}
-            /* @ts-ignore */
-            rehypePlugins={rehypePlugins}
-            components={
-              {
-                code,
-                a,
-                p,
-                img,
-                artifact: Artifact,
-                citation: Citation,
-                'highlighted-text': HighlightedText,
-                'composite-citation': CompositeCitation,
-                'mcp-ui-resource': MCPUIResource,
-                'mcp-ui-carousel': MCPUIResourceCarousel,
-              } as {
-                [nodeType: string]: React.ElementType;
+    <>
+      <MarkdownErrorBoundary content={content} codeExecution={true}>
+        <ArtifactProvider>
+          <CodeBlockProvider>
+            <ReactMarkdown
+              /** @ts-ignore */
+              remarkPlugins={remarkPlugins}
+              /* @ts-ignore */
+              rehypePlugins={rehypePlugins}
+              components={
+                {
+                  code,
+                  a,
+                  p,
+                  img,
+                  artifact: Artifact,
+                  citation: Citation,
+                  'highlighted-text': HighlightedText,
+                  'composite-citation': CompositeCitation,
+                  'mcp-ui-resource': MCPUIResource,
+                  'mcp-ui-carousel': MCPUIResourceCarousel,
+                } as {
+                  [nodeType: string]: React.ElementType;
+                }
               }
-            }
-          >
-            {currentContent}
-          </ReactMarkdown>
-        </CodeBlockProvider>
-      </ArtifactProvider>
-    </MarkdownErrorBoundary>
+            >
+              {currentContent}
+            </ReactMarkdown>
+          </CodeBlockProvider>
+        </ArtifactProvider>
+      </MarkdownErrorBoundary>
+      {showStreamingLoader && <StreamingLoader />}
+    </>
   );
 });
 

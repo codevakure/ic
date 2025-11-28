@@ -139,6 +139,7 @@ const MessageRender = memo(
           conditionalClasses.cardRender,
           conditionalClasses.focus,
           'message-render',
+          msg.isCreatedByUser ? 'flex-row-reverse' : '',
         )}
         onClick={clickHandler}
         onKeyDown={(e) => {
@@ -153,7 +154,8 @@ const MessageRender = memo(
           <div className="absolute right-0 top-0 m-2 h-3 w-3 rounded-full bg-text-primary" />
         )}
 
-        <div className="relative flex flex-shrink-0 flex-col items-center">
+        {/* Avatar - always shown, appears on left for both user and assistant */}
+        <div className="relative flex flex-shrink-0 flex-col items-start pt-2">
           <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full">
             <MessageIcon iconData={iconData} assistant={assistant} agent={agent} />
           </div>
@@ -161,67 +163,88 @@ const MessageRender = memo(
 
         <div
           className={cn(
-            'relative flex w-11/12 flex-col',
-            msg.isCreatedByUser ? 'user-turn' : 'agent-turn',
+            'relative flex flex-col',
+            msg.isCreatedByUser 
+              ? 'user-turn w-11/12 items-end' 
+              : 'agent-turn w-11/12',
           )}
         >
-          <h2 className={cn('select-none font-semibold', fontSize)}>{messageLabel}</h2>
-
-          <div className="flex flex-col gap-1">
-            <div className="flex max-w-full flex-grow flex-col gap-0">
-              <MessageContext.Provider
-                value={{
-                  messageId: msg.messageId,
-                  conversationId: conversation?.conversationId,
-                  isExpanded: false,
-                  isSubmitting: effectiveIsSubmitting,
-                  isLatestMessage,
-                }}
-              >
-                {msg.plugin && <Plugin plugin={msg.plugin} />}
-                <MessageContent
-                  ask={ask}
-                  edit={edit}
-                  isLast={isLast}
-                  text={msg.text || ''}
-                  message={msg}
-                  enterEdit={enterEdit}
-                  error={!!(msg.error ?? false)}
-                  isSubmitting={effectiveIsSubmitting}
-                  unfinished={msg.unfinished ?? false}
-                  isCreatedByUser={msg.isCreatedByUser ?? true}
-                  siblingIdx={siblingIdx ?? 0}
-                  setSiblingIdx={setSiblingIdx ?? (() => ({}))}
-                />
-              </MessageContext.Provider>
-            </div>
-
-            {hasNoChildren && (isSubmittingFamily === true || effectiveIsSubmitting) ? (
-              <PlaceholderRow isCard={isCard} />
-            ) : (
-              <SubRow classes="text-xs">
-                <SiblingSwitch
-                  siblingIdx={siblingIdx}
-                  siblingCount={siblingCount}
-                  setSiblingIdx={setSiblingIdx}
-                />
-                <HoverButtons
-                  index={index}
-                  isEditing={edit}
-                  message={msg}
-                  enterEdit={enterEdit}
-                  isSubmitting={isSubmitting}
-                  conversation={conversation ?? null}
-                  regenerate={handleRegenerateMessage}
-                  copyToClipboard={copyToClipboard}
-                  handleContinue={handleContinue}
-                  latestMessage={latestMessage}
-                  handleFeedback={handleFeedback}
-                  isLast={isLast}
-                />
-              </SubRow>
+          {/* Message content wrapper with background for user messages */}
+          <div
+            className={cn(
+              msg.isCreatedByUser 
+                ? 'user-message-bubble max-w-[80%] rounded-lg bg-surface-hover px-4 py-2' 
+                : 'w-full'
             )}
+          >
+            <h2 className={cn(
+              'select-none font-semibold', 
+              fontSize,
+              msg.isCreatedByUser ? 'sr-only' : ''
+            )}>
+              {messageLabel}
+            </h2>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex max-w-full flex-grow flex-col gap-0">
+                <MessageContext.Provider
+                  value={{
+                    messageId: msg.messageId,
+                    conversationId: conversation?.conversationId,
+                    isExpanded: false,
+                    isSubmitting: effectiveIsSubmitting,
+                    isLatestMessage,
+                  }}
+                >
+                  {msg.plugin && <Plugin plugin={msg.plugin} />}
+                  <MessageContent
+                    ask={ask}
+                    edit={edit}
+                    isLast={isLast}
+                    text={msg.text || ''}
+                    message={msg}
+                    enterEdit={enterEdit}
+                    error={!!(msg.error ?? false)}
+                    isSubmitting={effectiveIsSubmitting}
+                    unfinished={msg.unfinished ?? false}
+                    isCreatedByUser={msg.isCreatedByUser ?? true}
+                    siblingIdx={siblingIdx ?? 0}
+                    setSiblingIdx={setSiblingIdx ?? (() => ({}))}
+                  />
+                </MessageContext.Provider>
+              </div>
+            </div>
           </div>
+
+          {/* Action buttons outside the background bubble */}
+          {hasNoChildren && (isSubmittingFamily === true || effectiveIsSubmitting) ? (
+            <PlaceholderRow isCard={isCard} />
+          ) : (
+            <SubRow classes={cn(
+              "text-xs mt-1",
+              msg.isCreatedByUser ? 'justify-end' : ''
+            )}>
+              <SiblingSwitch
+                siblingIdx={siblingIdx}
+                siblingCount={siblingCount}
+                setSiblingIdx={setSiblingIdx}
+              />
+              <HoverButtons
+                index={index}
+                isEditing={edit}
+                message={msg}
+                enterEdit={enterEdit}
+                isSubmitting={isSubmitting}
+                conversation={conversation ?? null}
+                regenerate={handleRegenerateMessage}
+                copyToClipboard={copyToClipboard}
+                handleContinue={handleContinue}
+                latestMessage={latestMessage}
+                handleFeedback={handleFeedback}
+                isLast={isLast}
+              />
+            </SubRow>
+          )}
         </div>
       </div>
     );
