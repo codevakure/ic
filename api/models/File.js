@@ -80,14 +80,23 @@ const getToolFilesByIds = async (fileIds, toolResourceSet) => {
 const createFile = async (data, disableTTL) => {
   const fileData = {
     ...data,
-    expiresAt: new Date(Date.now() + 3600 * 1000),
+  };
+
+  // Build the update operation
+  const updateOperation = {
+    $set: fileData,
   };
 
   if (disableTTL) {
-    delete fileData.expiresAt;
+    // Explicitly unset expiresAt to prevent TTL deletion
+    // This is needed because findOneAndUpdate won't remove fields that aren't in $set
+    updateOperation.$unset = { expiresAt: '' };
+  } else {
+    // Set TTL for 1 hour from now
+    updateOperation.$set.expiresAt = new Date(Date.now() + 3600 * 1000);
   }
 
-  return await File.findOneAndUpdate({ file_id: data.file_id }, fileData, {
+  return await File.findOneAndUpdate({ file_id: data.file_id }, updateOperation, {
     new: true,
     upsert: true,
   }).lean();

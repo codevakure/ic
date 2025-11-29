@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Label } from '@librechat/client';
 import type t from 'librechat-data-provider';
-import { useLocalize, TranslationKeys, useAgentCategories } from '~/hooks';
-import { cn, renderAgentAvatar, getContactDisplayName } from '~/utils';
+import { useLocalize, useAgentCategories, TranslationKeys } from '~/hooks';
+import { cn, renderAgentAvatar } from '~/utils';
 
 interface AgentCardProps {
   agent: t.Agent; // The agent data to display
@@ -19,25 +19,22 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, className = '' })
 
   const categoryLabel = useMemo(() => {
     if (!agent.category) return '';
-
     const category = categories.find((cat) => cat.value === agent.category);
-    if (category) {
-      if (category.label && category.label.startsWith('com_')) {
-        return localize(category.label as TranslationKeys);
-      }
-      return category.label;
+    if (category?.label) {
+      return category.label.startsWith('com_')
+        ? localize(category.label as TranslationKeys)
+        : category.label;
     }
-
     return agent.category.charAt(0).toUpperCase() + agent.category.slice(1);
   }, [agent.category, categories, localize]);
 
   return (
     <div
       className={cn(
-        'group relative h-40 overflow-hidden rounded-xl border border-border-light',
-        'cursor-pointer shadow-sm transition-all duration-200 hover:border-border-medium hover:shadow-lg',
+        'group relative overflow-hidden rounded-xl border border-border-light',
+        'cursor-pointer transition-all duration-200 hover:border-border-medium hover:shadow-md',
         'bg-surface-tertiary hover:bg-surface-hover',
-        'space-y-3 p-4',
+        'p-4',
         className,
       )}
       onClick={onClick}
@@ -55,53 +52,33 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, className = '' })
         }
       }}
     >
-      {/* Two column layout */}
-      <div className="flex h-full items-start gap-3">
-        {/* Left column: Avatar and Category */}
-        <div className="flex h-full flex-shrink-0 flex-col justify-between space-y-4">
+      {/* Card layout */}
+      <div className="flex flex-col gap-2">
+        {/* Top row: Avatar + Name */}
+        <div className="flex items-center gap-3">
           <div className="flex-shrink-0">{renderAgentAvatar(agent, { size: 'sm' })}</div>
-
-          {/* Category tag */}
-          {agent.category && (
-            <div className="inline-flex items-center rounded-md border-border-xheavy bg-surface-active-alt px-2 py-1 text-xs font-medium">
-              <Label className="line-clamp-1 font-normal">{categoryLabel}</Label>
-            </div>
-          )}
+          <Label className="line-clamp-1 text-base font-semibold text-text-primary">
+            {agent.name}
+          </Label>
         </div>
 
-        {/* Right column: Name, description, and other content */}
-        <div className="flex h-full min-w-0 flex-1 flex-col justify-between space-y-1">
-          <div className="space-y-1">
-            {/* Agent name */}
-            <Label className="mb-1 line-clamp-1 text-xl font-semibold text-text-primary">
-              {agent.name}
-            </Label>
+        {/* Description */}
+        <p
+          id={`agent-${agent.id}-description`}
+          className="line-clamp-2 text-sm leading-relaxed text-text-secondary"
+          {...(agent.description ? { 'aria-label': `Description: ${agent.description}` } : {})}
+        >
+          {agent.description ?? ''}
+        </p>
 
-            {/* Agent description */}
-            <p
-              id={`agent-${agent.id}-description`}
-              className="line-clamp-3 text-sm leading-relaxed text-text-primary"
-              {...(agent.description ? { 'aria-label': `Description: ${agent.description}` } : {})}
-            >
-              {agent.description ?? ''}
-            </p>
+        {/* Category badge */}
+        {agent.category && categoryLabel && (
+          <div className="mt-1">
+            <span className="inline-flex items-center rounded-md bg-blue-600/10 px-2 py-0.5 text-xs font-medium text-blue-500">
+              {categoryLabel}
+            </span>
           </div>
-
-          {/* Owner info - moved to bottom right */}
-          {(() => {
-            const displayName = getContactDisplayName(agent);
-            if (displayName) {
-              return (
-                <div className="flex justify-end">
-                  <div className="flex items-center text-sm text-text-secondary">
-                    <Label>{displayName}</Label>
-                  </div>
-                </div>
-              );
-            }
-            return null;
-          })()}
-        </div>
+        )}
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ const {
   resizeImageBuffer,
 } = require('~/server/services/Files/images');
 const { addResourceFileId, deleteResourceFileId } = require('~/server/controllers/assistants/v2');
-const { addAgentResourceFile, removeAgentResourceFiles } = require('~/models/Agent');
+const { addAgentResourceFile, removeAgentResourceFiles, getAgent } = require('~/models/Agent');
 const { getOpenAIClient } = require('~/server/controllers/assistants/helpers');
 const { createFile, updateFile, updateFileUsage, deleteFiles } = require('~/models/File');
 const { loadAuthValues } = require('~/server/services/Tools/credentials');
@@ -586,6 +586,50 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     const isFileSearchEnabled = await checkCapability(req, AgentCapabilities.file_search);
     if (!isFileSearchEnabled) {
       throw new Error('File search is not enabled for Agents');
+    }
+
+    // DUAL-UPLOAD LOGIC: If agent has execute_code enabled and file is code-suitable,
+    // also upload to code executor so it can be used by code interpreter
+    if (agent_id) {
+      try {
+        const agent = await getAgent({ id: agent_id });
+        const hasExecuteCode = agent?.tools?.includes('execute_code') || agent?.tools?.includes(EToolResources.execute_code);
+        const isCodeEnabled = await checkCapability(req, AgentCapabilities.execute_code);
+        
+        if (hasExecuteCode && isCodeEnabled) {
+          // Check if file is suitable for code execution using intent analyzer
+          const uploadIntent = analyzeUploadIntent({
+            filename: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+          });
+          
+          const isCodeSuitable = uploadIntent.intent === UploadIntent.CODE_INTERPRETER;
+          
+          if (isCodeSuitable) {
+            logger.info(`[processAgentFileUpload] File ${file.originalname} is code-suitable and agent has execute_code. Dual-uploading to code executor.`);
+            
+            const { handleFileUpload: uploadCodeEnvFile } = getStrategyFunctions(FileSources.execute_code);
+            const result = await loadAuthValues({ userId: req.user.id, authFields: [EnvVar.CODE_API_KEY] });
+            const stream = fs.createReadStream(file.path);
+            const fileIdentifier = await uploadCodeEnvFile({
+              req,
+              stream,
+              filename: file.originalname,
+              apiKey: result[EnvVar.CODE_API_KEY],
+              entity_id,
+            });
+            
+            // Store fileIdentifier in metadata - this file is now available to BOTH file_search and execute_code
+            fileInfoMetadata = { fileIdentifier, tool_resource: EToolResources.file_search };
+            logger.info(`[processAgentFileUpload] Dual-upload successful. fileIdentifier: ${fileIdentifier}`);
+          } else {
+            logger.info(`[processAgentFileUpload] File ${file.originalname} is not code-suitable (intent: ${uploadIntent.intent}). Skipping code executor upload.`);
+          }
+        }
+      } catch (error) {
+        logger.warn(`[processAgentFileUpload] Error checking agent for dual-upload: ${error.message}. Continuing with file_search only.`);
+      }
     }
     // Note: File search processing continues to dual storage logic below
   } else if (tool_resource === EToolResources.context) {

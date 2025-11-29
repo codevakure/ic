@@ -122,20 +122,9 @@ export const processAgentOption = ({
           source,
         },
       ]);
-    } else {
-      list?.push([
-        file_id,
-        {
-          file_id,
-          type: '',
-          filename: '',
-          size: 1,
-          progress: 1,
-          filepath: EModelEndpoint.agents,
-          source,
-        },
-      ]);
     }
+    // Note: If file doesn't exist in fileMap, we simply skip it
+    // This handles orphaned file_ids (e.g., files deleted by TTL)
   };
 
   if (agent.context_files && context_files.length > 0) {

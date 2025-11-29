@@ -82,7 +82,7 @@ export const columns: ColumnDef<TFile>[] = [
               className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md"
               source={file.source}
             />
-            <span className="self-center truncate">{file.filename}</span>
+            <span className="self-center truncate text-text-primary">{file.filename}</span>
           </div>
         );
       }
@@ -91,7 +91,7 @@ export const columns: ColumnDef<TFile>[] = [
       return (
         <div className="flex gap-2">
           {fileType && <FilePreview fileType={fileType} className="relative" file={file} />}
-          <span className="self-center truncate">{file.filename}</span>
+          <span className="self-center truncate text-text-primary">{file.filename}</span>
         </div>
       );
     },
@@ -145,21 +145,21 @@ export const columns: ColumnDef<TFile>[] = [
       const { source } = row.original;
       if (source === FileSources.openai) {
         return (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-text-primary">
             <OpenAIMinimalIcon className="icon-sm text-green-600/50" />
             {'OpenAI'}
           </div>
         );
       } else if (source === FileSources.azure) {
         return (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-text-primary">
             <AzureMinimalIcon className="icon-sm text-cyan-700" />
             {'Azure'}
           </div>
         );
       }
       return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-text-primary">
           <Database className="icon-sm text-cyan-700" />
           {localize('com_ui_host')}
         </div>
@@ -187,7 +187,7 @@ export const columns: ColumnDef<TFile>[] = [
       const { context } = row.original;
       const localize = useLocalize();
       return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-text-primary">
           {localize(contextMap[context ?? FileContext.unknown])}
         </div>
       );

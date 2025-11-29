@@ -92,8 +92,8 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
   });
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2 py-2 sm:gap-4 sm:py-4">
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           onClick={() => {
@@ -132,7 +132,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="max-h-[300px] overflow-y-auto dark:border-gray-700 dark:bg-gray-850"
+            className="max-h-[300px] overflow-y-auto border-border-medium bg-surface-primary"
           >
             {table
               .getAllColumns()
@@ -140,7 +140,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
               .map((column) => (
                 <DropdownMenuCheckboxItem
                   key={column.id}
-                  className="cursor-pointer text-sm capitalize dark:text-white dark:hover:bg-gray-800"
+                  className="cursor-pointer text-sm capitalize text-text-primary hover:bg-surface-hover"
                   checked={column.getIsVisible()}
                   onCheckedChange={(value) => column.toggleVisibility(Boolean(value))}
                 >
@@ -150,11 +150,11 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="relative grid h-full max-h-[calc(100vh-20rem)] w-full flex-1 overflow-hidden overflow-x-auto overflow-y-auto rounded-md border border-black/10 dark:border-white/10">
-        <Table className="w-full min-w-[300px] border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 z-50">
+      <div className="overflow-hidden rounded-md border border-border-light">
+        <Table className="w-full min-w-[300px]">
+          <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="border-b border-border-light">
+              <TableRow key={headerGroup.id} className="border-b border-border-light hover:bg-transparent">
                 {headerGroup.headers.map((header, index) => {
                   const style: Style = {};
                   if (index === 0 && header.id === 'select') {
@@ -169,7 +169,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
                   return (
                     <TableHead
                       key={header.id}
-                      className="whitespace-nowrap bg-surface-secondary px-2 py-2 text-left text-sm font-medium text-text-secondary sm:px-4"
+                      className="h-10 whitespace-nowrap px-2 text-left text-sm font-medium text-text-secondary sm:px-4"
                       style={{ ...style }}
                     >
                       {header.isPlaceholder
@@ -181,13 +181,13 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody className="w-full">
+          <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="border-b border-border-light transition-colors hover:bg-surface-secondary [tr:last-child_&]:border-b-0"
+                  className="border-b border-border-light transition-colors last:border-b-0 hover:bg-surface-hover data-[state=selected]:bg-surface-hover"
                 >
                   {row.getVisibleCells().map((cell, index) => {
                     const maxWidth =
@@ -204,7 +204,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
                     return (
                       <TableCell
                         key={cell.id}
-                        className="align-start overflow-x-auto px-2 py-1 text-xs sm:px-4 sm:py-2 sm:text-sm [tr[data-disabled=true]_&]:opacity-50"
+                        className="align-start overflow-x-auto px-2 py-1 text-xs text-text-primary sm:px-4 sm:py-2 sm:text-sm [tr[data-disabled=true]_&]:opacity-50"
                         style={style}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -224,7 +224,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
         </Table>
       </div>
 
-      <div className="flex items-center justify-end gap-2 py-4">
+      <div className="flex items-center justify-end gap-2 pt-2">
         <div className="ml-2 flex-1 truncate text-xs text-muted-foreground sm:ml-4 sm:text-sm">
           <span className="hidden sm:inline">
             {localize('com_files_number_selected', {

@@ -65,7 +65,15 @@ const LabelController: React.FC<LabelControllerProps> = ({
   </div>
 );
 
-const MarketplaceAdminSettings = () => {
+interface MarketplaceAdminSettingsProps {
+  iconSize?: string;
+  buttonSize?: string;
+}
+
+const MarketplaceAdminSettings: React.FC<MarketplaceAdminSettingsProps> = ({
+  iconSize = 'h-5 w-5',
+  buttonSize = 'h-12',
+}) => {
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const { user, roles } = useAuthContext();
@@ -148,9 +156,10 @@ const MarketplaceAdminSettings = () => {
       <OGDialogTrigger asChild>
         <Button
           variant="outline"
-          className="relative h-12 rounded-xl border-border-medium font-medium"
+          size="icon"
+          className={`relative ${buttonSize} rounded-lg border-border-medium`}
         >
-          <ShieldEllipsis className="cursor-pointer" aria-hidden="true" />
+          <ShieldEllipsis className={iconSize} aria-hidden="true" />
         </Button>
       </OGDialogTrigger>
       <OGDialogContent className="w-11/12 max-w-md border-border-light bg-surface-primary text-text-primary">

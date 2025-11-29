@@ -204,13 +204,28 @@ const primeFiles = async (options, apiKey) => {
   const agentResourceIds = new Set(file_ids);
   const resourceFiles = tool_resources?.[EToolResources.execute_code]?.files ?? [];
 
-  logger.info(`[primeFiles] Starting. file_ids: ${file_ids.length}, resourceFiles: ${resourceFiles.length}`);
+  // DUAL-UPLOAD SUPPORT: Also check file_search files that have fileIdentifier metadata
+  // These are files uploaded to file_search that were also uploaded to code executor
+  const fileSearchFileIds = tool_resources?.[EToolResources.file_search]?.file_ids ?? [];
+  
+  logger.info(`[primeFiles] Starting. execute_code file_ids: ${file_ids.length}, file_search file_ids: ${fileSearchFileIds.length}, resourceFiles: ${resourceFiles.length}`);
   if (resourceFiles.length > 0) {
     logger.info(`[primeFiles] Resource files: ${resourceFiles.map(f => `${f.filename} (fileIdentifier: ${f.metadata?.fileIdentifier || 'none'}, tool_resource: ${f.metadata?.tool_resource || 'none'})`).join(', ')}`);
   }
 
-  // Get all files first
+  // Get execute_code files
   const allFiles = (await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [];
+  
+  // Get file_search files that might have fileIdentifier (dual-uploaded)
+  let fileSearchFiles = [];
+  if (fileSearchFileIds.length > 0) {
+    const allFileSearchFiles = (await getFiles({ file_id: { $in: fileSearchFileIds } }, null, { text: 0 })) ?? [];
+    // Only include file_search files that have fileIdentifier (were dual-uploaded to code executor)
+    fileSearchFiles = allFileSearchFiles.filter(f => f.metadata?.fileIdentifier);
+    if (fileSearchFiles.length > 0) {
+      logger.info(`[primeFiles] Found ${fileSearchFiles.length} file_search files with fileIdentifier (dual-uploaded): ${fileSearchFiles.map(f => f.filename).join(', ')}`);
+    }
+  }
 
   // Filter by access if user and agent are provided
   let dbFiles;
@@ -221,8 +236,18 @@ const primeFiles = async (options, apiKey) => {
       role: req.user.role,
       agentId,
     });
+    // Also filter file_search files
+    if (fileSearchFiles.length > 0) {
+      const filteredFileSearchFiles = await filterFilesByAgentAccess({
+        files: fileSearchFiles,
+        userId: req.user.id,
+        role: req.user.role,
+        agentId,
+      });
+      dbFiles = dbFiles.concat(filteredFileSearchFiles);
+    }
   } else {
-    dbFiles = allFiles;
+    dbFiles = allFiles.concat(fileSearchFiles);
   }
 
   dbFiles = dbFiles.concat(resourceFiles);
