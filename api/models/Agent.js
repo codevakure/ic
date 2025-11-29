@@ -133,11 +133,6 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
   }
   
-  // Map capabilities to Tool enum for intent analyzer
-  const availableTools = capabilities
-    .map(cap => capabilityToTool(cap))
-    .filter(tool => tool !== null);
-  
   // Map auto-enabled capabilities to Tool enum
   const autoEnabledTools = toolsAutoEnabled
     .map(cap => capabilityToTool(cap))
@@ -148,7 +143,15 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (ephemeralAgent?.web_search === true) {
     userSelectedTools.push(Tool.WEB_SEARCH);
   }
-  // Note: file_search, execute_code, artifacts are auto-enabled so user doesn't manually select them
+  if (ephemeralAgent?.artifacts === true || ephemeralAgent?.artifacts === 'default') {
+    userSelectedTools.push(Tool.ARTIFACTS);
+  }
+  
+  // Available tools for intent analyzer = auto-enabled + user-selected ONLY
+  // This ensures intent analyzer can only pick from tools that are either:
+  // 1. Always enabled via toolsAutoEnabled config
+  // 2. Explicitly selected by user in the UI
+  const availableTools = [...new Set([...autoEnabledTools, ...userSelectedTools])];
   
   // Run intent analysis
   const intentResult = analyzeQueryIntent({

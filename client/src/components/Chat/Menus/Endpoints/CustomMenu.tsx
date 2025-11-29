@@ -33,7 +33,7 @@ export const CustomMenu = React.forwardRef<HTMLDivElement, CustomMenuProps>(func
 
   const menuStore = Ariakit.useMenuStore({
     showTimeout: 100,
-    placement: parent ? 'right' : 'left',
+    placement: parent ? 'right' : 'bottom-start',
     defaultOpen: defaultOpen,
   });
 
@@ -44,7 +44,7 @@ export const CustomMenu = React.forwardRef<HTMLDivElement, CustomMenuProps>(func
         {...props}
         className={cn(
           !parent &&
-            'flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary',
+            'flex h-10 w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm text-text-primary',
           menuStore.useState('open')
             ? 'bg-surface-tertiary hover:bg-surface-tertiary'
             : 'bg-surface-secondary hover:bg-surface-tertiary',
@@ -53,41 +53,26 @@ export const CustomMenu = React.forwardRef<HTMLDivElement, CustomMenuProps>(func
         render={parent ? <CustomMenuItem render={trigger} /> : trigger}
       >
         <span className="flex-1">{label}</span>
-        <Ariakit.MenuButtonArrow className="stroke-1 text-base opacity-75" />
+        <Ariakit.MenuButtonArrow className="stroke-2 text-lg opacity-80 text-gray-600 dark:text-gray-300 transition-transform duration-200 ui-expanded:rotate-180" />
       </Ariakit.MenuButton>
       <Ariakit.Menu
         open={menuStore.useState('open')}
         portal
-        overlap
         unmountOnHide
-        gutter={parent ? -4 : 4}
+        gutter={parent ? -4 : 8}
+        preventBodyScroll={false}
         className={cn(
-          `${parent ? 'animate-popover-left ml-3' : 'animate-popover'} outline-none! z-50 flex max-h-[min(450px,var(--popover-available-height))] w-full`,
-          'w-[var(--menu-width,auto)] min-w-[300px] flex-col overflow-auto rounded-xl border border-border-light',
-          'bg-surface-secondary px-3 py-2 text-sm text-text-primary shadow-lg',
-          'max-w-[calc(100vw-4rem)] sm:max-h-[calc(65vh)] sm:max-w-[400px]',
-          searchable && 'p-0',
+          `${parent ? 'animate-popover-left ml-3' : 'animate-popover'} outline-none! z-50 flex max-h-[min(380px,var(--popover-available-height))] w-full`,
+          'w-[var(--menu-width,auto)] min-w-[260px] flex-col overflow-hidden rounded-xl',
+          // Light theme: white background with subtle shadow
+          'bg-white dark:bg-gray-800',
+          'shadow-lg dark:shadow-2xl',
+          'border border-gray-200 dark:border-gray-700',
+          'max-w-[calc(100vw-4rem)] sm:max-h-[calc(55vh)] sm:max-w-[320px]',
         )}
       >
         <SearchableContext.Provider value={searchable}>
-          {searchable ? (
-            <>
-              <div className="sticky top-0 z-10 bg-inherit p-1">
-                <Ariakit.Combobox
-                  autoSelect
-                  render={combobox}
-                  className={cn(
-                    'h-10 w-full rounded-lg border-none bg-transparent px-2 text-base',
-                    'sm:h-8 sm:text-sm',
-                    'focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-white',
-                  )}
-                />
-              </div>
-              <Ariakit.ComboboxList className="p-0.5 pt-0">{children}</Ariakit.ComboboxList>
-            </>
-          ) : (
-            children
-          )}
+          <div className="p-1.5">{children}</div>
         </SearchableContext.Provider>
       </Ariakit.Menu>
     </Ariakit.MenuProvider>
@@ -116,7 +101,7 @@ export const CustomMenuSeparator = React.forwardRef<HTMLHRElement, Ariakit.MenuS
         ref={ref}
         {...props}
         className={cn(
-          'my-0.5 h-0 w-full border-t border-slate-200 dark:border-slate-700',
+          'my-1 h-0 w-full border-t border-gray-200 dark:border-gray-700',
           props.className,
         )}
       />
@@ -133,7 +118,7 @@ export const CustomMenuGroup = React.forwardRef<HTMLDivElement, CustomMenuGroupP
     return (
       <Ariakit.MenuGroup ref={ref} {...props} className={cn('', props.className)}>
         {label && (
-          <Ariakit.MenuGroupLabel className="cursor-default p-2 text-sm font-medium opacity-60 sm:py-1 sm:text-xs">
+          <Ariakit.MenuGroupLabel className="cursor-default px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             {label}
           </Ariakit.MenuGroupLabel>
         )}
@@ -159,7 +144,15 @@ export const CustomMenuItem = React.forwardRef<HTMLDivElement, CustomMenuItemPro
       blurOnHoverEnd: false,
       ...props,
       className: cn(
-        'relative flex cursor-default items-center gap-2 rounded-lg p-2 outline-none! scroll-m-1 scroll-mt-[calc(var(--combobox-height,0px)+var(--label-height,4px))] aria-disabled:opacity-25 data-[active-item]:bg-black/[0.075] data-[active-item]:text-black dark:data-[active-item]:bg-white/10 dark:data-[active-item]:text-white sm:py-1 sm:text-sm min-w-0 w-full before:absolute before:left-0 before:top-1 before:bottom-1 before:w-0.5 before:bg-transparent before:rounded-full data-[active-item]:before:bg-black dark:data-[active-item]:before:bg-white',
+        'relative flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 outline-none!',
+        'scroll-m-1 scroll-mt-[calc(var(--combobox-height,0px)+var(--label-height,4px))] aria-disabled:opacity-25',
+        // Light theme hover
+        'hover:bg-gray-100 dark:hover:bg-gray-700',
+        'data-[active-item]:bg-gray-100 dark:data-[active-item]:bg-gray-700',
+        // Text color
+        'text-gray-900 dark:text-gray-100',
+        'text-sm min-w-0 w-full',
+        'transition-colors duration-100',
         props.className,
       ),
     };

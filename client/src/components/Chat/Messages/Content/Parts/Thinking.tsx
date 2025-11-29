@@ -16,7 +16,7 @@ export const ThinkingContent: FC<{
   children: React.ReactNode;
 }> = memo(({ children }) => {
   return (
-    <div className="relative rounded-xl border border-border-medium bg-surface-tertiary p-4 text-text-secondary">
+    <div className="relative rounded-xl border border-border-medium bg-surface-tertiary p-2 text-text-secondary">
       <p className="whitespace-pre-wrap text-sm italic leading-[22px]">{children}</p>
     </div>
   );

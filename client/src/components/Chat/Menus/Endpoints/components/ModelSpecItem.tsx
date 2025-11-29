@@ -2,7 +2,6 @@ import React from 'react';
 import type { TModelSpec } from 'librechat-data-provider';
 import { CustomMenuItem as MenuItem } from '../CustomMenu';
 import { useModelSelectorContext } from '../ModelSelectorContext';
-import SpecIcon from './SpecIcon';
 import { cn } from '~/utils';
 
 interface ModelSpecItemProps {
@@ -11,43 +10,37 @@ interface ModelSpecItemProps {
 }
 
 export function ModelSpecItem({ spec, isSelected }: ModelSpecItemProps) {
-  const { handleSelectSpec, endpointsConfig } = useModelSelectorContext();
-  const { showIconInMenu = true } = spec;
+  const { handleSelectSpec } = useModelSelectorContext();
   return (
     <MenuItem
       key={spec.name}
       onClick={() => handleSelectSpec(spec)}
       className={cn(
-        'flex w-full cursor-pointer items-center justify-between rounded-lg px-2 text-sm',
+        'flex w-full cursor-pointer items-center justify-between rounded-lg text-sm',
       )}
     >
       <div
         className={cn(
-          'flex w-full min-w-0 gap-2 px-1 py-1',
+          'flex w-full min-w-0',
           spec.description ? 'items-start' : 'items-center',
         )}
       >
-        {showIconInMenu && (
-          <div className="flex-shrink-0">
-            <SpecIcon currentSpec={spec} endpointsConfig={endpointsConfig} />
-          </div>
-        )}
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-left">{spec.label}</span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-left font-medium text-gray-900 dark:text-gray-100">{spec.label}</span>
           {spec.description && (
-            <span className="break-words text-xs font-normal">{spec.description}</span>
+            <span className="break-words text-xs font-normal text-gray-500 dark:text-gray-400 leading-snug">{spec.description}</span>
           )}
         </div>
       </div>
       {isSelected && (
-        <div className="flex-shrink-0 self-center">
+        <div className="flex-shrink-0 self-center ml-2">
           <svg
             width="16"
             height="16"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="block"
+            className="block text-green-600 dark:text-green-500"
           >
             <path
               fillRule="evenodd"

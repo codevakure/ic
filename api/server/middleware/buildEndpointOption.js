@@ -15,6 +15,7 @@ const openAI = require('~/server/services/Endpoints/openAI');
 const agents = require('~/server/services/Endpoints/agents');
 const custom = require('~/server/services/Endpoints/custom');
 const google = require('~/server/services/Endpoints/google');
+const { routeModel } = require('~/server/services/LLMRouter');
 
 const buildFunction = {
   [EModelEndpoint.openAI]: openAI.buildOptions,
@@ -84,6 +85,27 @@ async function buildEndpointOption(req, res, next) {
 
     // TODO: use object params
     req.body.endpointOption = await builder(endpoint, parsedBody, endpointType);
+
+    const originalModel = req.body.endpointOption?.model_parameters?.model || req.body.model;
+    
+    // LLM Router: Dynamically select the optimal model based on prompt complexity
+    const routedModel = await routeModel({
+      endpoint,
+      prompt: req.body.text || req.body.message || '',
+      currentModel: originalModel,
+      userId: req.user?.id,
+      appConfig: req.config,
+    });
+
+    if (routedModel && routedModel !== originalModel) {
+      logger.info(`[buildEndpointOption] LLM Router changed model: ${originalModel} -> ${routedModel}`);
+      if (req.body.endpointOption?.model_parameters) {
+        req.body.endpointOption.model_parameters.model = routedModel;
+      }
+      req.body.model = routedModel;
+      req.body.routedModel = true;
+      req.body.originalModel = originalModel;
+    }
 
     if (req.body.files && !isAgents) {
       req.body.endpointOption.attachments = processFiles(req.body.files);

@@ -88,6 +88,8 @@ export interface AppConfig {
   secureImageLinks?: TCustomConfig['secureImageLinks'];
   /** Processed model specifications */
   modelSpecs?: TCustomConfig['modelSpecs'];
+  /** LLM Router configuration */
+  llmRouter?: TCustomConfig['llmRouter'];
   /** Available tools */
   availableTools?: Record<string, FunctionTool>;
   endpoints?: {

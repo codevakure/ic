@@ -8,6 +8,7 @@ import { useUpdateConversationMutation } from '~/data-provider';
 import EndpointIcon from '~/components/Endpoints/EndpointIcon';
 import { useNavigateToConvo, useLocalize } from '~/hooks';
 import { useGetEndpointsQuery } from '~/data-provider';
+import { useAgentsMapContext } from '~/Providers';
 import { NotificationSeverity } from '~/common';
 import { ConvoOptions } from './ConvoOptions';
 import RenameForm from './RenameForm';
@@ -27,6 +28,7 @@ export default function Conversation({ conversation, retainView, toggleNav }: Co
   const { showToast } = useToastContext();
   const { navigateToConvo } = useNavigateToConvo();
   const { data: endpointsConfig } = useGetEndpointsQuery();
+  const agentsMap = useAgentsMapContext();
   const currentConvoId = useMemo(() => params.conversationId, [params.conversationId]);
   const updateConvoMutation = useUpdateConversationMutation(currentConvoId ?? '');
   const activeConvos = useRecoilValue(store.allConversationsSelector);
@@ -177,6 +179,7 @@ export default function Conversation({ conversation, retainView, toggleNav }: Co
           <EndpointIcon
             conversation={conversation}
             endpointsConfig={endpointsConfig}
+            agentsMap={agentsMap}
             size={20}
             context="menu-item"
           />

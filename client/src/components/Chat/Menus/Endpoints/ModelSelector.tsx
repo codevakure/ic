@@ -60,21 +60,32 @@ function ModelSelectorContent() {
 
   const trigger = (
     <button
-      className="my-1 flex h-10 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-surface-secondary px-3 py-2 text-sm text-text-primary hover:bg-surface-tertiary"
+      className="my-1 inline-flex h-10 items-center justify-start gap-2 rounded-xl px-4 py-2 text-base max-w-[70vw] bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-all duration-200"
       aria-label={localize('com_ui_select_model')}
     >
-      {selectedIcon && React.isValidElement(selectedIcon) && (
-        <div className="flex flex-shrink-0 items-center justify-center overflow-hidden">
-          {selectedIcon}
-        </div>
-      )}
-      <span className="flex-grow truncate text-left">{selectedDisplayValue}</span>
+      <span className="truncate text-left font-medium">{selectedDisplayValue}</span>
+      <svg
+        className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   );
 
   return (
-    <div className="relative flex w-full max-w-md flex-col items-center gap-2">
+    // Developer: changed alignment to `items-start` so the trigger/button
+    // is left-aligned. The button itself sizes to its text (no mx-auto),
+    // so hover will match the text width while the whole block remains
+    // left-aligned within its container.
+    <div className="relative flex w-full max-w-sm flex-col items-start gap-2">
       <Menu
+        // Override the default `w-full` applied by CustomMenu's MenuButton
+        // so the trigger button can size to its content and be left-aligned.
+        className="!w-auto justify-start"
         values={selectedValues}
         onValuesChange={(values: Record<string, any>) => {
           setSelectedValues({
@@ -83,8 +94,11 @@ function ModelSelectorContent() {
             modelSpec: values.modelSpec || '',
           });
         }}
-        onSearch={(value) => setSearchValue(value)}
-        combobox={<input placeholder={localize('com_endpoint_search_models')} />}
+        // Developer: the combobox/search UI is commented out intentionally because
+        // we only have three models currently and a static list is simpler.
+        // To re-enable search, uncomment onSearch and combobox props below:
+        // onSearch={(value) => setSearchValue(value)}
+        // combobox={<input placeholder={localize('com_endpoint_search_models')} />}
         trigger={trigger}
       >
         {searchResults ? (

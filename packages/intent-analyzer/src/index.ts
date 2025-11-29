@@ -10,7 +10,9 @@
  * ## Legacy Modules (Full-featured)
  * - Attachments: Detailed file routing with OCR, STT, embedding support
  * - Tools: Comprehensive tool selection with MCP support
- * - LLM Routing: Model selection based on task complexity
+ * 
+ * ## LLM Routing
+ * For LLM routing/model selection, use the separate @librechat/llm-router package.
  */
 
 // ============================================================================
@@ -84,17 +86,3 @@ export {
   type ToolSelectionContext,
   type ToolSelectionResult,
 } from './tools';
-
-// LLM Routing
-export {
-  routeToLLM,
-  modelSupportsCapabilities,
-  getCheapestModel,
-  getFastestModel,
-  ModelCapability,
-  ModelTier,
-  TaskComplexity,
-  type ModelDefinition,
-  type LLMRoutingContext,
-  type LLMRoutingResult,
-} from './llm-routing';

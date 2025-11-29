@@ -640,6 +640,7 @@ export type TStartupConfig = {
   turnstile?: TTurnstileConfig;
   balance?: TBalanceConfig;
   transactions?: TTransactionsConfig;
+  llmRouter?: TLLMRouterConfig;
   discordLoginEnabled: boolean;
   facebookLoginEnabled: boolean;
   githubLoginEnabled: boolean;
@@ -841,12 +842,36 @@ export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
+// LLM Router Schema - for automatic model selection based on prompt complexity
+// Uses rule-based pattern matching to route simple queries to cheap models (Nova Lite)
+// and complex queries to powerful models (Claude Sonnet 4.5)
+const llmRouterEndpointSchema = z.object({
+  enabled: z.boolean().optional().default(false),
+  threshold: z.number().min(0).max(1).optional(),
+  preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional(),
+  strongModel: z.string().optional(),
+  weakModel: z.string().optional(),
+});
+
+export const llmRouterSchema = z.object({
+  enabled: z.boolean().optional().default(false),
+  // Threshold: 0.35 recommended. Lower = more queries to strong model, Higher = more to weak model
+  // Simple greetings score ~0.05, complex coding tasks score ~0.5-0.7
+  threshold: z.number().min(0).max(1).optional().default(0.35),
+  // Preset model pairs: 'costOptimized' (Sonnet 4.5 + Nova Lite), 'premium' (Sonnet 4.5 + Haiku 4.5), 'ultraCheap' (Haiku 4.5 + Nova Micro)
+  preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional().default('costOptimized'),
+  endpoints: z.record(z.string(), llmRouterEndpointSchema).optional(),
+});
+
+export type TLLMRouterConfig = z.infer<typeof llmRouterSchema>;
+
 export const configSchema = z.object({
   version: z.string(),
   cache: z.boolean().default(true),
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
+  llmRouter: llmRouterSchema.optional(),
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
   includedTools: z.array(z.string()).optional(),
@@ -1053,6 +1078,7 @@ const sharedAnthropicModels = [
 
 export const bedrockModels = [
   // Latest Claude 4.5 and 4 models (use inference profiles with us. prefix)
+  'global.anthropic.claude-opus-4-5-20251101-v1:0',
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
   'us.anthropic.claude-haiku-4-5-20251001-v1:0',
   'us.anthropic.claude-opus-4-1-20250805-v1:0',

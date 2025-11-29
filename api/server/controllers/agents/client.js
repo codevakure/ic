@@ -780,6 +780,54 @@ class AgentClient extends BaseClient {
       input_tokens,
       output_tokens,
     };
+
+    // Log LLM Router metrics if routing was applied
+    const req = this.options.req;
+    if (req?.body?.routedModel) {
+      const actualModel = model ?? this.model ?? this.options.agent?.model_parameters?.model;
+      const originalModel = req.body.originalModel;
+      
+      // Get pricing for actual model used
+      const MODEL_PRICING = {
+        'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 5.00, output: 25.00 },
+        'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00 },
+        'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00 },
+        'us.amazon.nova-premier-v1:0': { input: 2.50, output: 12.50 },
+        'us.amazon.nova-pro-v1:0': { input: 0.80, output: 3.20 },
+        'us.amazon.nova-lite-v1:0': { input: 0.06, output: 0.24 },
+        'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14 },
+        'us.anthropic.claude-3-5-sonnet-20241022-v2:0': { input: 3.00, output: 15.00 },
+        'us.anthropic.claude-3-5-haiku-20241022-v1:0': { input: 1.00, output: 5.00 },
+      };
+      
+      const actualPricing = MODEL_PRICING[actualModel] || { input: 0, output: 0 };
+      const originalPricing = MODEL_PRICING[originalModel] || { input: 0, output: 0 };
+      
+      const actualInputCost = (input_tokens / 1_000_000) * actualPricing.input;
+      const actualOutputCost = (output_tokens / 1_000_000) * actualPricing.output;
+      const actualTotalCost = actualInputCost + actualOutputCost;
+      
+      const originalInputCost = (input_tokens / 1_000_000) * originalPricing.input;
+      const originalOutputCost = (output_tokens / 1_000_000) * originalPricing.output;
+      const originalTotalCost = originalInputCost + originalOutputCost;
+      
+      const savings = originalTotalCost - actualTotalCost;
+      const savingsPercent = originalTotalCost > 0 ? ((savings / originalTotalCost) * 100).toFixed(1) : 0;
+      
+      logger.info('[LLMRouter] ========== ACTUAL USAGE METRICS ==========');
+      logger.info(`[LLMRouter] Original Model: ${originalModel}`);
+      logger.info(`[LLMRouter] Routed Model: ${actualModel}`);
+      logger.info(`[LLMRouter] Input Tokens: ${input_tokens}`);
+      logger.info(`[LLMRouter] Output Tokens: ${output_tokens}`);
+      logger.info(`[LLMRouter] Total Tokens: ${input_tokens + output_tokens}`);
+      logger.info('[LLMRouter] ---------- ACTUAL COSTS ----------');
+      logger.info(`[LLMRouter] Routed Input Cost: $${actualInputCost.toFixed(6)}`);
+      logger.info(`[LLMRouter] Routed Output Cost: $${actualOutputCost.toFixed(6)}`);
+      logger.info(`[LLMRouter] Routed Total Cost: $${actualTotalCost.toFixed(6)}`);
+      logger.info(`[LLMRouter] Original Would Have Cost: $${originalTotalCost.toFixed(6)}`);
+      logger.info(`[LLMRouter] SAVINGS: $${savings.toFixed(6)} (${savingsPercent}%)`);
+      logger.info('[LLMRouter] ==============================================');
+    }
   }
 
   /**

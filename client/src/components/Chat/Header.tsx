@@ -24,6 +24,11 @@ export default function Header() {
     [startupConfig],
   );
 
+  // Check if LLM Router is enabled (Auto Mode)
+  const isAutoModeEnabled = useMemo(() => {
+    return startupConfig?.llmRouter?.enabled === true;
+  }, [startupConfig]);
+
   const hasAccessToBookmarks = useHasAccess({
     permissionType: PermissionTypes.BOOKMARKS,
     permission: Permissions.USE,
@@ -57,8 +62,11 @@ export default function Header() {
           </AnimatePresence>
 
           <div className={navVisible ? 'flex items-center gap-2' : 'ml-2 flex items-center gap-2'}>
-            <ModelSelector startupConfig={startupConfig} />
-            {interfaceConfig.presets === true && interfaceConfig.modelSelect && <PresetsMenu />}
+            {/* When LLM Router is enabled, don't show model selector or auto indicator - routing is automatic */}
+            {!isAutoModeEnabled && (
+              <ModelSelector startupConfig={startupConfig} />
+            )}
+            {!isAutoModeEnabled && interfaceConfig.presets === true && interfaceConfig.modelSelect && <PresetsMenu />}
             {hasAccessToBookmarks === true && <BookmarkMenu />}
             {hasAccessToMultiConvo === true && <AddMultiConvo />}
             {isSmallScreen && (

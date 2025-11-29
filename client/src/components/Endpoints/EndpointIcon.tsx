@@ -1,19 +1,21 @@
-import { getEndpointField, isAssistantsEndpoint } from 'librechat-data-provider';
+import { getEndpointField, isAssistantsEndpoint, isAgentsEndpoint } from 'librechat-data-provider';
 import type {
   TPreset,
+  TAgentsMap,
   TConversation,
   TAssistantsMap,
   TEndpointsConfig,
 } from 'librechat-data-provider';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';
 import MinimalIcon from '~/components/Endpoints/MinimalIcon';
-import { getIconEndpoint } from '~/utils';
+import { getIconEndpoint, getAgentAvatarUrl } from '~/utils';
 
 export default function EndpointIcon({
   conversation,
   endpointsConfig,
   className = 'mr-0',
   assistantMap,
+  agentsMap,
   context,
 }: {
   conversation: TConversation | TPreset | null;
@@ -21,6 +23,7 @@ export default function EndpointIcon({
   containerClassName?: string;
   context?: 'message' | 'nav' | 'landing' | 'menu-item';
   assistantMap?: TAssistantsMap;
+  agentsMap?: TAgentsMap;
   className?: string;
   size?: number;
 }) {
@@ -31,13 +34,23 @@ export default function EndpointIcon({
   const endpointType = getEndpointField(endpointsConfig, endpoint, 'type');
   const endpointIconURL = getEndpointField(endpointsConfig, endpoint, 'iconURL');
 
+  // Handle assistants
   const assistant = isAssistantsEndpoint(endpoint)
     ? assistantMap?.[endpoint]?.[conversation?.assistant_id ?? '']
     : null;
   const assistantAvatar = (assistant && (assistant.metadata?.avatar as string)) || '';
   const assistantName = assistant && (assistant.name ?? '');
 
-  const iconURL = assistantAvatar || convoIconURL;
+  // Handle agents
+  const agent = isAgentsEndpoint(endpoint)
+    ? agentsMap?.[conversation?.agent_id ?? '']
+    : null;
+  const agentAvatar = getAgentAvatarUrl(agent) || '';
+  const agentName = agent?.name ?? '';
+
+  // Priority: assistant avatar > agent avatar > conversation iconURL
+  const iconURL = assistantAvatar || agentAvatar || convoIconURL;
+  const displayName = assistantName || agentName;
 
   if (iconURL && (iconURL.includes('http') || iconURL.startsWith('/images/'))) {
     return (
@@ -46,8 +59,8 @@ export default function EndpointIcon({
         modelLabel={conversation?.chatGptLabel ?? conversation?.modelLabel ?? ''}
         context={context}
         endpointIconURL={endpointIconURL}
-        assistantAvatar={assistantAvatar}
-        assistantName={assistantName ?? ''}
+        assistantAvatar={assistantAvatar || agentAvatar}
+        assistantName={displayName}
       />
     );
   } else {

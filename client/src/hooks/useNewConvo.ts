@@ -100,6 +100,7 @@ const useNewConvo = (index = 0) => {
           let defaultEndpoint = getDefaultEndpoint({
             convoSetup: activePreset ?? conversation,
             endpointsConfig,
+            startupConfig,
           });
 
           if (!defaultEndpoint) {
