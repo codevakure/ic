@@ -1,8 +1,9 @@
-import { memo, useMemo, useState, useCallback } from 'react';
-import { useAtom } from 'jotai';
+import { memo, useMemo, useState, useCallback, useEffect } from 'react';
+import { useAtomValue } from 'jotai';
 import type { MouseEvent } from 'react';
 import { ContentTypes } from 'librechat-data-provider';
 import { ThinkingContent, ThinkingButton } from './Thinking';
+import { showReasoningAtom } from '~/store/showReasoning';
 import { showThinkingAtom } from '~/store/showThinking';
 import { useMessageContext } from '~/Providers';
 import { useLocalize } from '~/hooks';
@@ -19,27 +20,31 @@ type ReasoningProps = {
  * Used for structured content parts with ContentTypes.THINK type.
  * This handles modern message format where content is an array of typed parts.
  *
- * Pattern: `{ content: [{ type: "think", think: "<think>content</think>" }, ...] }`
+ * Behavior controlled by two settings:
+ * 1. showReasoning (Show Reasoning setting):
+ *    - OFF (default): Shows "Thinking" shimmer while processing, hides completely when done
+ *    - ON: Shows the reasoning component after completion
  *
- * Used by:
- * - ContentParts.tsx → Part.tsx for structured messages
- * - Agent/Assistant responses (OpenAI Assistants, custom agents)
- * - O-series models (o1, o3) with reasoning capabilities
- * - Modern Claude responses with thinking blocks
- *
- * Key differences from legacy Thinking.tsx:
- * - Works with content parts array instead of plain text
- * - Strips `<think>` tags instead of `:::thinking:::` markers
- * - Each THINK part has its own independent toggle button
- * - Can be interleaved with other content types
- *
- * For legacy text-based messages, see Thinking.tsx component.
+ * 2. showThinking (Open Thinking Dropdowns by Default):
+ *    - Only applies when showReasoning is ON
+ *    - Controls whether reasoning content is expanded or collapsed
  */
 const Reasoning = memo(({ reasoning, isLast }: ReasoningProps) => {
   const localize = useLocalize();
-  const [showThinking] = useAtom(showThinkingAtom);
-  const [isExpanded, setIsExpanded] = useState(showThinking);
+  const showReasoning = useAtomValue(showReasoningAtom);
+  const showThinking = useAtomValue(showThinkingAtom);
   const { isSubmitting, isLatestMessage, nextType } = useMessageContext();
+
+  // Determine if currently thinking (streaming reasoning for this message)
+  const isThinking = isLatestMessage && isSubmitting && isLast;
+
+  // Expanded state - controlled by showThinking setting when showReasoning is on
+  const [isExpanded, setIsExpanded] = useState(showThinking);
+
+  // Update expanded state when showThinking setting changes
+  useEffect(() => {
+    setIsExpanded(showThinking);
+  }, [showThinking]);
 
   // Strip <think> tags from the reasoning content (modern format)
   const reasoningText = useMemo(() => {
@@ -54,42 +59,58 @@ const Reasoning = memo(({ reasoning, isLast }: ReasoningProps) => {
     setIsExpanded((prev) => !prev);
   }, []);
 
-  const effectiveIsSubmitting = isLatestMessage ? isSubmitting : false;
-
   const label = useMemo(
-    () =>
-      effectiveIsSubmitting && isLast ? localize('com_ui_thinking') : localize('com_ui_thoughts'),
-    [effectiveIsSubmitting, localize, isLast],
+    () => (isThinking ? localize('com_ui_thinking') : localize('com_ui_thoughts')),
+    [isThinking, localize],
   );
 
   if (!reasoningText) {
     return null;
   }
 
+  // Hide completely when not thinking AND showReasoning setting is OFF
+  if (!isThinking && !showReasoning) {
+    return null;
+  }
+
   return (
-    <div className="group/reasoning">
+    <div className={cn("group/reasoning", isThinking && "mt-1")}>
       <div className="group/thinking-container">
-        <div className="sticky top-0 z-10 mb-2 bg-presentation pb-2 pt-2">
+        <div className="sticky top-0 z-10 bg-presentation pb-2">
           <ThinkingButton
             isExpanded={isExpanded}
             onClick={handleClick}
             label={label}
             content={reasoningText}
+            isThinking={isThinking}
           />
         </div>
-        <div
-          className={cn(
-            'grid transition-all duration-300 ease-out',
-            nextType !== ContentTypes.THINK && isExpanded && 'mb-4',
-          )}
-          style={{
-            gridTemplateRows: isExpanded ? '1fr' : '0fr',
-          }}
-        >
-          <div className="overflow-hidden">
-            <ThinkingContent>{reasoningText}</ThinkingContent>
+        {/* Shimmer animation when thinking */}
+        {isThinking && (
+          <div className="mt-2 space-y-2">
+            <div className="animate-pulse">
+              <div className="h-3 bg-gray-300 rounded-md w-3/4 mb-2 shimmer"></div>
+              <div className="h-3 bg-gray-300 rounded-md w-1/2 mb-2 shimmer"></div>
+              <div className="h-3 bg-gray-300 rounded-md w-5/6 shimmer"></div>
+            </div>
           </div>
-        </div>
+        )}
+        {/* Accordion content - only show when not thinking */}
+        {!isThinking && (
+          <div
+            className={cn(
+              'grid transition-all duration-300 ease-out',
+              nextType !== ContentTypes.THINK && isExpanded && 'mb-4',
+            )}
+            style={{
+              gridTemplateRows: isExpanded ? '1fr' : '0fr',
+            }}
+          >
+            <div className="overflow-hidden text-base">
+              <ThinkingContent>{reasoningText}</ThinkingContent>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

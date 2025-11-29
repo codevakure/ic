@@ -3,12 +3,15 @@ import copy from 'copy-to-clipboard';
 import { InfoIcon } from 'lucide-react';
 import { Tools } from 'librechat-data-provider';
 import { Clipboard, CheckMark } from '@librechat/client';
+import { useAtomValue } from 'jotai';
 import type { CodeBarProps } from '~/common';
 import ResultSwitcher from '~/components/Messages/Content/ResultSwitcher';
 import { useToolCallsMapContext, useMessageContext } from '~/Providers';
 import { LogContent } from '~/components/Chat/Messages/Content/Parts';
 import RunCode from '~/components/Messages/Content/RunCode';
 import { useLocalize } from '~/hooks';
+import { getLanguageDisplay } from '~/utils/titleCase';
+import { showCodeOutputAtom } from '~/store/showCodeOutput';
 import cn from '~/utils/cn';
 
 type CodeBlockProps = Pick<
@@ -23,21 +26,37 @@ const CodeBar: React.FC<CodeBarProps> = React.memo(
   ({ lang, error, codeRef, blockIndex, plugin = null, allowExecution = true }) => {
     const localize = useLocalize();
     const [isCopied, setIsCopied] = useState(false);
+    
     return (
-      <div className="relative flex items-center justify-between rounded-tl-md rounded-tr-md bg-gray-700 px-4 py-2 font-sans text-xs text-gray-200 dark:bg-gray-700">
-        <span className="">{lang}</span>
+      <div className={cn(
+        'flex items-center justify-between px-4 py-2.5 text-xs font-medium',
+        'bg-gray-100 text-gray-600 dark:bg-black dark:text-gray-400'
+      )}>
+        <span className={cn(
+          'font-medium',
+          'text-gray-800 dark:text-gray-200'
+        )}>
+          {getLanguageDisplay(lang)}
+        </span>
         {plugin === true ? (
-          <InfoIcon className="ml-auto flex h-4 w-4 gap-2 text-white/50" />
+          <InfoIcon className={cn(
+            'h-4 w-4',
+            'text-gray-500 dark:text-gray-400'
+          )} />
         ) : (
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-3">
             {allowExecution === true && (
               <RunCode lang={lang} codeRef={codeRef} blockIndex={blockIndex} />
             )}
+            
+            {/* Copy button - icon only */}
             <button
               type="button"
               className={cn(
-                'ml-auto flex gap-2',
-                error === true ? 'h-4 w-4 items-start text-white/50' : '',
+                'flex items-center justify-center w-8 h-6 rounded transition-colors',
+                'text-gray-600 hover:text-gray-800 hover:bg-gray-200',
+                'dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800',
+                error === true ? 'h-4 w-4' : '',
               )}
               onClick={async () => {
                 const codeString = codeRef.current?.textContent;
@@ -50,17 +69,12 @@ const CodeBar: React.FC<CodeBarProps> = React.memo(
                   }, 3000);
                 }
               }}
+              title={isCopied ? 'Copied!' : 'Copy code'}
             >
               {isCopied ? (
-                <>
-                  <CheckMark className="h-[18px] w-[18px]" />
-                  {error === true ? '' : localize('com_ui_copied')}
-                </>
+                <CheckMark className="h-4 w-4" />
               ) : (
-                <>
-                  <Clipboard />
-                  {error === true ? '' : localize('com_ui_copy_code')}
-                </>
+                <Clipboard className="h-4 w-4" />
               )}
             </button>
           </div>
@@ -82,6 +96,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const codeRef = useRef<HTMLElement>(null);
   const toolCallsMap = useToolCallsMapContext();
   const { messageId, partIndex } = useMessageContext();
+  const showCodeOutput = useAtomValue(showCodeOutputAtom);
   const key = allowExecution
     ? `${messageId}_${partIndex ?? 0}_${blockIndex ?? 0}_${Tools.execute_code}`
     : '';
@@ -116,6 +131,8 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
 
   const isNonCode = !!(plugin === true || error === true);
   const language = isNonCode ? 'json' : lang;
+  const hasOutput = allowExecution === true && toolCalls && toolCalls.length > 0;
+  const showOutput = hasOutput && showCodeOutput;
 
   return (
     <div className="w-full rounded-md bg-gray-900 text-xs text-white/80">
@@ -127,7 +144,12 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
         plugin={plugin === true}
         allowExecution={allowExecution}
       />
-      <div className={cn(classProp, 'overflow-y-auto p-4')}>
+      <div className={cn(
+        classProp, 
+        'overflow-y-auto pl-4 pr-4 pt-1 pb-4 relative',
+        // Add bottom border radius when no output is shown
+        !showOutput && 'rounded-b-md'
+      )}>
         <code
           ref={codeRef}
           className={cn(
@@ -137,7 +159,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           {codeChildren}
         </code>
       </div>
-      {allowExecution === true && toolCalls && toolCalls.length > 0 && (
+      {showOutput && (
         <>
           <div className="bg-gray-700 p-4 text-xs">
             <div

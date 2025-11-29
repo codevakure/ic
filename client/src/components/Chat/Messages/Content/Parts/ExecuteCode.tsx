@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useRecoilValue } from 'recoil';
+import { useAtomValue } from 'jotai';
 import type { TAttachment } from 'librechat-data-provider';
 import ProgressText from '~/components/Chat/Messages/Content/ProgressText';
 import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
+import { showCodeOutputAtom } from '~/store/showCodeOutput';
 import { useProgress, useLocalize } from '~/hooks';
 import { AttachmentGroup } from './Attachment';
 import Stdout from './Stdout';
@@ -63,8 +65,12 @@ export default function ExecuteCode({
   const codeContentRef = useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const showAnalysisCode = useRecoilValue(store.showCode);
-  const [showCode, setShowCode] = useState(showAnalysisCode);
+  const showCodeOutput = useAtomValue(showCodeOutputAtom); // Default to hidden
+  const [showCode, setShowCode] = useState(false); // Default to collapsed
   const [contentHeight, setContentHeight] = useState<number | undefined>(0);
+
+  // Only show output when setting is enabled
+  const shouldShowOutput = hasOutput && showCodeOutput;
 
   const prevShowCodeRef = useRef<boolean>(showCode);
   const { lang, code } = useParseArgs(args) ?? ({} as ParsedArgs);
@@ -142,7 +148,7 @@ export default function ExecuteCode({
 
   return (
     <>
-      <div className="relative my-2.5 flex size-5 shrink-0 items-center gap-2.5">
+      <div className="relative mt-2 flex size-5 shrink-0 items-center gap-2.5">
         <ProgressText
           progress={progress}
           onClick={() => setShowCode((prev) => !prev)}
@@ -172,7 +178,7 @@ export default function ExecuteCode({
       >
         <div
           className={cn(
-            'code-analyze-block mt-0.5 overflow-hidden rounded-xl bg-surface-primary',
+            'code-analyze-block mt-3 overflow-hidden rounded-xl bg-surface-primary',
             showCode && 'shadow-lg',
           )}
           ref={codeContentRef}
@@ -191,6 +197,7 @@ export default function ExecuteCode({
                 transition:
                   'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
+              className={cn(!shouldShowOutput && 'rounded-b-xl')}
             >
               <MarkdownLite
                 content={code ? `\`\`\`${lang}\n${code}\n\`\`\`` : ''}
@@ -198,10 +205,10 @@ export default function ExecuteCode({
               />
             </div>
           )}
-          {hasOutput && (
+          {shouldShowOutput && (
             <div
               className={cn(
-                'bg-surface-tertiary p-4 text-xs',
+                'bg-surface-tertiary p-4 text-xs rounded-b-xl',
                 showCode ? 'border-t border-surface-primary-contrast' : '',
               )}
               style={{

@@ -12,7 +12,15 @@ import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset } from '~/utils';
 
 const MarkdownLite = memo(
-  ({ content = '', codeExecution = true }: { content?: string; codeExecution?: boolean }) => {
+  ({ 
+    content = '', 
+    codeExecution = true,
+    hideLineNumbers = false 
+  }: { 
+    content?: string; 
+    codeExecution?: boolean;
+    hideLineNumbers?: boolean;
+  }) => {
     const rehypePlugins: PluggableList = [
       [rehypeKatex],
       [

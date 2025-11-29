@@ -4,22 +4,20 @@ import { Lightbulb, ChevronDown } from 'lucide-react';
 import { Clipboard, CheckMark } from '@librechat/client';
 import type { MouseEvent, FC } from 'react';
 import { showThinkingAtom } from '~/store/showThinking';
-import { fontSizeAtom } from '~/store/fontSize';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 
 /**
  * ThinkingContent - Displays the actual thinking/reasoning content
  * Used by both legacy text-based messages and modern content parts
+ * Styled with italic text
  */
 export const ThinkingContent: FC<{
   children: React.ReactNode;
 }> = memo(({ children }) => {
-  const fontSize = useAtomValue(fontSizeAtom);
-
   return (
-    <div className="relative rounded-3xl border border-border-medium bg-surface-tertiary p-4 text-text-secondary">
-      <p className={cn('whitespace-pre-wrap leading-[26px]', fontSize)}>{children}</p>
+    <div className="relative rounded-xl border border-border-medium bg-surface-tertiary p-4 text-text-secondary">
+      <p className="whitespace-pre-wrap text-sm italic leading-[22px]">{children}</p>
     </div>
   );
 });
@@ -36,15 +34,16 @@ export const ThinkingButton = memo(
     label,
     content,
     showCopyButton = true,
+    isThinking = false,
   }: {
     isExpanded: boolean;
     onClick: (e: MouseEvent<HTMLButtonElement>) => void;
     label: string;
     content?: string;
     showCopyButton?: boolean;
+    isThinking?: boolean;
   }) => {
     const localize = useLocalize();
-    const fontSize = useAtomValue(fontSizeAtom);
 
     const [isCopied, setIsCopied] = useState(false);
 
@@ -65,10 +64,7 @@ export const ThinkingButton = memo(
         <button
           type="button"
           onClick={onClick}
-          className={cn(
-            'group/button flex flex-1 items-center justify-start rounded-lg leading-[18px]',
-            fontSize,
-          )}
+          className="group/button flex flex-1 items-center justify-start rounded-lg text-sm leading-[18px]"
         >
           <span className="relative mr-1.5 inline-flex h-[18px] w-[18px] items-center justify-center">
             <Lightbulb className="icon-sm absolute text-text-secondary opacity-100 transition-opacity group-hover/button:opacity-0" />
@@ -79,9 +75,9 @@ export const ThinkingButton = memo(
               )}
             />
           </span>
-          {label}
+          <span className={cn(isThinking && 'shimmer')}>{label}</span>
         </button>
-        {content && showCopyButton && (
+        {content && showCopyButton && !isThinking && (
           <button
             type="button"
             onClick={handleCopy}
@@ -99,7 +95,7 @@ export const ThinkingButton = memo(
               'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-white',
             )}
           >
-            {isCopied ? <CheckMark className="h-[18px] w-[18px]" /> : <Clipboard size="19" />}
+            {isCopied ? <CheckMark className="h-[18px] w-[18px]" /> : <Clipboard size="18" />}
           </button>
         )}
       </div>

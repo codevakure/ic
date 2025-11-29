@@ -1,5 +1,7 @@
 import { memo } from 'react';
+import { showReasoningAtom } from '~/store/showReasoning';
 import { showThinkingAtom } from '~/store/showThinking';
+import { showCodeOutputAtom } from '~/store/showCodeOutput';
 import FontSizeSelector from './FontSizeSelector';
 import { ForkSettings } from './ForkSettings';
 import ChatDirection from './ChatDirection';
@@ -29,10 +31,17 @@ const toggleSwitchConfigs = [
     key: 'centerFormOnLanding',
   },
   {
+    stateAtom: showReasoningAtom,
+    localizationKey: 'com_nav_show_reasoning',
+    switchId: 'showReasoning',
+    hoverCardText: 'com_nav_info_show_reasoning',
+    key: 'showReasoning',
+  },
+  {
     stateAtom: showThinkingAtom,
     localizationKey: 'com_nav_show_thinking',
     switchId: 'showThinking',
-    hoverCardText: undefined,
+    hoverCardText: 'com_nav_info_show_thinking',
     key: 'showThinking',
   },
   {
@@ -41,6 +50,13 @@ const toggleSwitchConfigs = [
     switchId: 'showCode',
     hoverCardText: undefined,
     key: 'showCode',
+  },
+  {
+    stateAtom: showCodeOutputAtom,
+    localizationKey: 'com_nav_show_code_output',
+    switchId: 'showCodeOutput',
+    hoverCardText: 'com_nav_info_show_code_output',
+    key: 'showCodeOutput',
   },
   {
     stateAtom: store.LaTeXParsing,

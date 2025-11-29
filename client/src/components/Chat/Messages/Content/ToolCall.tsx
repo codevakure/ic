@@ -7,6 +7,7 @@ import { useLocalize, useProgress } from '~/hooks';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
 import ProgressText from './ProgressText';
+import { toTitleCase } from '~/utils/titleCase';
 import { logger, cn } from '~/utils';
 
 export default function ToolCall({
@@ -30,7 +31,7 @@ export default function ToolCall({
   expires_at?: number;
 }) {
   const localize = useLocalize();
-  const [showInfo, setShowInfo] = useState(false);
+  const [showInfo, setShowInfo] = useState(false); // Default to collapsed
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -106,12 +107,12 @@ export default function ToolCall({
       return localize('com_ui_cancelled');
     }
     if (isMCPToolCall === true) {
-      return localize('com_assistants_completed_function', { 0: function_name });
+      return localize('com_assistants_completed_function', { 0: toTitleCase(function_name) });
     }
     if (domain != null && domain && domain.length !== Constants.ENCODED_DOMAIN_LENGTH) {
-      return localize('com_assistants_completed_action', { 0: domain });
+      return localize('com_assistants_completed_action', { 0: toTitleCase(domain) });
     }
-    return localize('com_assistants_completed_function', { 0: function_name });
+    return localize('com_assistants_completed_function', { 0: toTitleCase(function_name) });
   };
 
   useLayoutEffect(() => {
@@ -169,7 +170,7 @@ export default function ToolCall({
           onClick={() => setShowInfo((prev) => !prev)}
           inProgressText={
             function_name
-              ? localize('com_assistants_running_var', { 0: function_name })
+              ? localize('com_assistants_running_var', { 0: toTitleCase(function_name) })
               : localize('com_assistants_running_action')
           }
           authText={

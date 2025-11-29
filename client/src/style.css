@@ -1090,8 +1090,8 @@ pre {
   line-height: 1.4;
 }
 .prose :where(p):not(:where([class~='not-prose'] *)) {
-  margin-bottom: 0.5em;
-  margin-top: 0.5em;
+  margin-bottom: 0em;
+  margin-top: 0.7em;
 }
 .prose :where(video):not(:where([class~='not-prose'] *)) {
   margin-bottom: 2em;
@@ -2668,12 +2668,38 @@ html {
 
 .code-analyze-block pre code,
 .code-analyze-block .overflow-y-auto code {
-  font-size: calc(0.85 * var(--markdown-font-size, var(--font-size-base)));
+  font-size: 0.75rem;
 }
 
 .code-analyze-block pre,
 .code-analyze-block .overflow-y-auto {
-  font-size: var(--markdown-font-size, var(--font-size-base));
+  font-size: 0.75rem;
+}
+
+/* Override dark theme for code analyze blocks */
+.code-analyze-block pre[class*='language-'] {
+  background-color: #f8f9fa !important;
+  color: #333 !important;
+  border-radius: 0 0 0.75rem 0.75rem !important;
+  margin: 0 !important;
+}
+
+.dark .code-analyze-block pre[class*='language-'] {
+  background-color: #0d1117 !important;
+  color: #f0f6fc !important;
+  border-radius: 0 0 0.75rem 0.75rem !important;
+  margin: 0 !important;
+}
+
+/* Code block header styling for enterprise look */
+.code-analyze-block .hljs,
+.code-analyze-block pre[class*='language-'] {
+  margin: 0;
+}
+
+/* Ensure proper border radius for code blocks */
+.code-analyze-block .overflow-y-auto {
+  border-radius: 0 0 0.75rem 0.75rem;
 }
 
 .progress-text-wrapper {

@@ -14,7 +14,7 @@ const Wrapper = ({ popover, children }: { popover: boolean; children: React.Reac
       <div className={wrapperClass}>
         <Popover.Trigger asChild>
           <div
-            className="progress-text-content absolute left-0 top-0 overflow-visible whitespace-nowrap"
+            className="progress-text-content absolute left-0 top-0 overflow-visible whitespace-nowrap mt-3 mb-3"
             style={{ opacity: 1, transform: 'none' }}
             data-projection-id="78"
           >

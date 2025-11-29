@@ -177,13 +177,17 @@ const MessageRender = memo(
                 : 'w-full'
             )}
           >
-            <h2 className={cn(
-              'select-none font-semibold', 
-              fontSize,
-              msg.isCreatedByUser ? 'sr-only' : ''
-            )}>
-              {messageLabel}
-            </h2>
+            {/* 
+              Model/Agent name header - Hidden for cleaner UI
+              The messageLabel is still available if needed elsewhere
+              <h2 className={cn(
+                'select-none font-semibold', 
+                fontSize,
+                msg.isCreatedByUser ? 'sr-only' : ''
+              )}>
+                {messageLabel}
+              </h2>
+            */}
 
             <div className="flex flex-col gap-1">
               <div className="flex max-w-full flex-grow flex-col gap-0">
