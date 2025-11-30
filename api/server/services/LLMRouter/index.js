@@ -3,21 +3,18 @@
  * 
  * Uses @librechat/intent-analyzer for:
  * 1. autoToolSelection - Smart tool selection based on query intent
- * 2. modelRouting - 5-Tier automatic model routing based on complexity
+ * 2. modelRouting - 4-Tier automatic model routing based on complexity
  * 
- * Model Tiers (when modelRouting is enabled):
- *   TRIVIAL  (0.00-0.15): Nova Lite   - Greetings, yes/no, acknowledgments (multimodal)
- *   SIMPLE   (0.15-0.35): Nova Pro    - Basic Q&A, simple tools
- *   MODERATE (0.35-0.60): Haiku 4.5   - Explanations, standard coding
- *   COMPLEX  (0.60-0.80): Sonnet 4.5  - Debugging, detailed analysis
- *   EXPERT   (0.80-1.00): Opus 4.5    - System design, complex algorithms
+ * 4-TIER MODEL SYSTEM (target distribution):
+ *   SIMPLE   (~1%)  : Nova Micro  - Greetings, text-only simple responses
+ *   MODERATE (~80%) : Haiku 4.5   - Most tasks, tool usage, standard code
+ *   COMPLEX  (~15%) : Sonnet 4.5  - Debugging, detailed analysis
+ *   EXPERT   (~4%)  : Opus 4.5    - Deep analysis, architecture, research
  * 
- * Note: Nova Micro is only used for classifierModel (internal routing) - NOT for user-facing responses.
- * 
- * LLM Fallback:
- *   When regex patterns don't match confidently, the system falls back to
- *   using Nova Micro ($0.035/$0.14 per 1M tokens) as a classifier to understand
- *   user intent. This ensures accurate tool/model selection for ambiguous queries.
+ * Routing Rules:
+ * - Tool usage → Haiku 4.5 minimum (Claude models handle tools better)
+ * - Deep analysis requests → Opus 4.5
+ * - Text-only simple queries → Nova Micro allowed
  * 
  * Configuration is loaded from librechat.yaml under the `intentAnalyzer` key.
  */
@@ -56,8 +53,6 @@ async function llmClassifierFallback(prompt) {
   const classifierModel = 'us.amazon.nova-micro-v1:0';
   
   try {
-    logger.info('[IntentAnalyzer] Using LLM classifier (Nova Micro) for ambiguous query');
-    
     const command = new InvokeModelCommand({
       modelId: classifierModel,
       contentType: 'application/json',
@@ -82,29 +77,25 @@ async function llmClassifierFallback(prompt) {
     // Extract text from Nova response format
     const text = responseBody.output?.message?.content?.[0]?.text || '';
     
-    logger.info(`[IntentAnalyzer] LLM classifier response: ${text.substring(0, 200)}...`);
-    
     return text;
   } catch (error) {
-    logger.error('[IntentAnalyzer] LLM classifier fallback failed:', error.message);
+    logger.error('[IntentAnalyzer] LLM classifier failed:', error.message);
     return ''; // Return empty string on failure, will fall back to regex result
   }
 }
 
-// 5-Tier Model pricing (per 1M tokens) - matches intent-analyzer bedrock.ts
+// 4-Tier Model pricing (per 1M tokens) - matches intent-analyzer bedrock.ts
 const MODEL_PRICING = {
-  // EXPERT tier - System design, complex algorithms
-  'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 5.00, output: 25.00, tier: 'expert' },
-  // COMPLEX tier - Debugging, detailed analysis
+  // EXPERT tier (~4%) - Deep analysis, architecture, research
+  'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 15.00, output: 75.00, tier: 'expert' },
+  // COMPLEX tier (~15%) - Debugging, detailed analysis
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00, tier: 'complex' },
-  // MODERATE tier - Explanations, standard coding
+  // MODERATE tier (~80%) - Most tasks, tool usage, standard code
   'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00, tier: 'moderate' },
-  // SIMPLE tier - Basic Q&A, simple tools
-  'us.amazon.nova-pro-v1:0': { input: 0.80, output: 3.20, tier: 'simple' },
-  // TRIVIAL tier - Greetings, yes/no, acknowledgments (multimodal)
-  'us.amazon.nova-lite-v1:0': { input: 0.06, output: 0.24, tier: 'trivial' },
-  // CLASSIFIER - Used for LLM classification fallback only (NOT for routing)
-  'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14, tier: 'classifier' },
+  // SIMPLE tier (~1%) - Greetings, text-only simple responses
+  'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14, tier: 'simple' },
+  // CLASSIFIER - Used for LLM classification fallback only
+  'classifier': { input: 0.035, output: 0.14, tier: 'classifier' },
 };
 
 /**
@@ -130,9 +121,8 @@ async function getIntentAnalyzer() {
   if (!intentAnalyzer) {
     try {
       intentAnalyzer = await import('@librechat/intent-analyzer');
-      logger.info('[IntentAnalyzer] Loaded @librechat/intent-analyzer module');
     } catch (error) {
-      logger.error('[IntentAnalyzer] Failed to load @librechat/intent-analyzer:', error.message);
+      logger.error('[IntentAnalyzer] Failed to load module:', error.message);
       throw error;
     }
   }
@@ -186,29 +176,14 @@ function getIntentAnalyzerConfig(appConfig, endpoint) {
 async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, conversationHistory = [] }) {
   // Get configuration from intentAnalyzer
   const config = getIntentAnalyzerConfig(appConfig || global.appConfig, endpoint);
-  const debug = config.debug;
-  
-  if (debug) {
-    logger.info('[IntentAnalyzer] ========== ROUTING REQUEST ==========');
-    logger.info('[IntentAnalyzer] Configuration:', {
-      enabled: config.enabled,
-      autoToolSelection: config.autoToolSelection,
-      modelRouting: config.modelRouting,
-      preset: config.preset,
-      classifierModel: config.classifierModel,
-      endpoint,
-    });
-  }
   
   // Check if model routing is enabled
   if (!config.enabled || !config.modelRouting) {
-    if (debug) logger.info('[IntentAnalyzer] Model routing DISABLED - using default model');
     return null;
   }
   
   // Skip routing if no prompt
   if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-    if (debug) logger.info('[IntentAnalyzer] No prompt provided - skipping routing');
     return null;
   }
   
@@ -256,30 +231,24 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
     const costSavingsPercent = currentTotalCost > 0 ? ((costSavings / currentTotalCost) * 100).toFixed(1) : 0;
     
     // Get model short names for logging
-    const getShortName = (model) => model?.split('.').pop()?.replace('-v1:0', '')?.substring(0, 20) || model;
+    const getShortName = (model) => {
+      if (!model) return 'unknown';
+      if (model.includes('opus')) return 'Opus';
+      if (model.includes('sonnet')) return 'Sonnet';
+      if (model.includes('haiku')) return 'Haiku';
+      if (model.includes('nova-micro')) return 'Nova-Micro';
+      return model.split('.').pop()?.replace('-v1:0', '')?.substring(0, 15) || model;
+    };
     
-    // 5-Tier logging
-    if (debug) {
-      logger.info('[IntentAnalyzer] ═══════════════════════════════════════════════════════════');
-      logger.info('[IntentAnalyzer] 5-TIER ROUTING DECISION');
-      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
-      logger.info(`[IntentAnalyzer] Prompt: "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"`);
-      logger.info(`[IntentAnalyzer] Tier: ${result.tier?.toUpperCase()} | Reason: ${result.reason}`);
-      logger.info(`[IntentAnalyzer] Tools: ${result.tools?.length > 0 ? result.tools.join(', ') : 'none'}`);
-      logger.info(`[IntentAnalyzer] Used LLM Fallback: ${result.usedLlmFallback ? 'YES' : 'NO'}`);
-      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
-      logger.info(`[IntentAnalyzer] Model: ${getShortName(currentModel)} → ${getShortName(result.model)}`);
-      logger.info(`[IntentAnalyzer] Changed: ${result.model !== currentModel ? 'YES' : 'NO (same model)'}`);
-      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
-      logger.info(`[IntentAnalyzer] Est. Tokens: ~${estimatedInputTokens} input, ~${estimatedOutputTokens} output`);
-      logger.info(`[IntentAnalyzer] Cost: $${routedTotalCost.toFixed(6)} (was $${currentTotalCost.toFixed(6)})`);
-      logger.info(`[IntentAnalyzer] Savings: $${costSavings.toFixed(6)} (${costSavingsPercent}%)`);
-      logger.info(`[IntentAnalyzer] Routing: ${routingTimeMs}ms`);
-      logger.info('[IntentAnalyzer] ═══════════════════════════════════════════════════════════');
-    } else {
-      // Compact logging when debug is off
-      logger.info(`[IntentAnalyzer] ${result.tier?.toUpperCase()} | ${getShortName(result.model)} | Tools: ${result.tools?.length || 0} | LLM: ${result.usedLlmFallback ? 'Y' : 'N'} | Saved: ${costSavingsPercent}%`);
-    }
+    // Simplified single-line logging
+    // Format: [Router] Tools: [...] | Model: X | Method: regex/LLM | In: X | Out: X | Cached: X | Cost: $X
+    logger.info(
+      `[Router] Tools: [${result.tools?.join(', ') || 'none'}] | ` +
+      `Model: ${getShortName(result.model)} | ` +
+      `Method: ${result.usedLlmFallback ? 'LLM' : 'regex'} | ` +
+      `Est.In: ${estimatedInputTokens} | Est.Out: ${estimatedOutputTokens} | ` +
+      `Cost: $${routedTotalCost.toFixed(4)}`
+    );
     
     return result.model;
   } catch (error) {

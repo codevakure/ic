@@ -27,7 +27,6 @@ describe('Query Intent Analyzer', () => {
       const result = analyzeQueryIntent(context);
       expect(result.tools).toContain(Tool.CODE_INTERPRETER);
       expect(result.confidence).toBeGreaterThanOrEqual(0.9);
-      expect(result.contextPrompts.length).toBeGreaterThan(0);
     });
 
     it('should select FILE_SEARCH for document attachments', () => {
@@ -242,11 +241,10 @@ describe('Query Intent Analyzer', () => {
       };
 
       const result = analyzeQueryIntent(context);
-      expect(result.contextPrompts.length).toBeGreaterThan(0);
-      expect(result.contextPrompts.some(p => p.includes('code interpreter'))).toBe(true);
+      expect(result.tools).toContain(Tool.CODE_INTERPRETER);
     });
 
-    it('should include file-specific context prompts', () => {
+    it('should select tools based on query intent', () => {
       const context: QueryContext = {
         query: 'What is in this file?',
         attachedFiles: {
@@ -257,7 +255,7 @@ describe('Query Intent Analyzer', () => {
       };
 
       const result = analyzeQueryIntent(context);
-      expect(result.contextPrompts.some(p => p.includes('document'))).toBe(true);
+      expect(result.tools).toContain(Tool.FILE_SEARCH);
     });
   });
 
@@ -389,7 +387,6 @@ describe('Query Intent Analyzer', () => {
       expect(result.tools).toContain(Tool.CODE_INTERPRETER);
       // Should have WEB_SEARCH from auto-enabled + query
       expect(result.tools).toContain(Tool.WEB_SEARCH);
-      expect(result.contextPrompts.length).toBeGreaterThan(0);
     });
 
     it('should handle user selected + attachments', () => {

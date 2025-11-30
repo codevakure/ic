@@ -3,7 +3,13 @@
  * 
  * Single entry point that routes a query to:
  * 1. The right TOOLS (web_search, execute_code, file_search, artifacts)
- * 2. The right MODEL (based on tier: trivial → expert)
+ * 2. The right MODEL (4-tier: simple → moderate → complex → expert)
+ * 
+ * 4-TIER SYSTEM (target distribution):
+ * - Simple   (~1%)  - Nova Micro  - Greetings, text-only simple responses
+ * - Moderate (~80%) - Haiku 4.5   - Most tasks, tool usage, standard code
+ * - Complex  (~15%) - Sonnet 4.5  - Debugging, detailed analysis
+ * - Expert   (~4%)  - Opus 4.5    - Deep analysis, architecture, research
  * 
  * Uses regex patterns first (free, fast), then LLM fallback if needed.
  */
@@ -19,6 +25,7 @@ import type {
   Tool, 
   QueryIntentResult,
   LlmFallbackFunction,
+  AttachedFileContext,
 } from '../core/types';
 import { analyzeQuery } from '../core/unified-analyzer';
 import { getBedrockRoutingPair, CLASSIFIER_MODEL } from './models/bedrock';
@@ -34,12 +41,20 @@ export interface RouterConfig {
   preset: BedrockPresetTier | OpenAIPresetTier;
   /** Available tools for this request */
   availableTools: Tool[];
+  /** Whether MCP servers are configured (MCP tools require Claude models) */
+  hasMcpServers?: boolean;
   /** LLM function for fallback classification (optional but recommended) */
   llmFallback?: LlmFallbackFunction;
   /** Confidence threshold for LLM fallback (default: 0.4) */
   fallbackThreshold?: number;
   /** Conversation history for context-aware classification */
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** Attached files context */
+  attachedFiles?: AttachedFileContext;
+  /** Tools that are auto-enabled */
+  autoEnabledTools?: Tool[];
+  /** Tools explicitly selected by user */
+  userSelectedTools?: Tool[];
 }
 
 /**
@@ -84,14 +99,14 @@ function getModelPairs(
  * 
  * const result = await routeQuery('What are booming stocks today?', {
  *   provider: 'bedrock',
- *   preset: 'costOptimized',
+ *   preset: 'premium',
  *   availableTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
  *   llmFallback: async (prompt) => callNovaMicro(prompt),
  * });
  * 
  * console.log(result.tools);  // ['web_search']
- * console.log(result.model);  // 'us.amazon.nova-pro-v1:0'
- * console.log(result.tier);   // 'simple'
+ * console.log(result.model);  // 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+ * console.log(result.tier);   // 'moderate'
  * ```
  */
 export async function routeQuery(
@@ -102,21 +117,29 @@ export async function routeQuery(
     provider,
     preset,
     availableTools,
+    hasMcpServers = false,
     llmFallback,
     fallbackThreshold = 0.4,
     conversationHistory,
+    attachedFiles,
+    autoEnabledTools,
+    userSelectedTools,
   } = config;
 
   // Get model pairs for this provider/preset
   const modelPairs = getModelPairs(provider, preset);
 
   // Run unified analysis (tools + model tier together in ONE call)
+  // This includes the LLM classifier fallback for low-confidence cases
   const analysisResult = await analyzeQuery({
     query,
     availableTools,
     llmFallback,
     fallbackThreshold,
     conversationHistory,
+    attachedFiles,
+    autoEnabledTools,
+    userSelectedTools,
   });
   
   const tools = analysisResult.tools.tools;
@@ -125,28 +148,34 @@ export async function routeQuery(
   const tierReasoning = analysisResult.model.reasoning;
   const usedLlmFallback = analysisResult.usedLlmFallback;
   
-  // CRITICAL: Special routing for artifacts
-  // Artifacts requires Claude models (Haiku 4.5 or Sonnet 4.5), NEVER Opus
-  // - Nova models struggle with :::artifact{...} format
-  // - Opus is overkill for artifact generation
-  // - Use 80% Haiku 4.5 (moderate), 20% Sonnet 4.5 (complex) for cost optimization
-  const hasArtifacts = tools.some(t => t === 'artifacts');
-  let artifactRouted = false;
+  // Check if user explicitly requests deep/comprehensive analysis (should use Opus 4.5)
+  const deepAnalysisPatterns = [
+    /\bdeep\s*(analysis|dive|look|exploration|investigation|review|research)\b/i,
+    /\b(detailed|complete|full)\s*(analysis|view|breakdown|examination|assessment)\b/i,
+    /\bdig\s*(deep|deeper|into)\b/i,
+    /\b(analyze|examine|review)\s*(in\s*detail|thoroughly|comprehensively|deeply)\b/i,
+    /\b(comprehensive|thorough|exhaustive|complete)\s*(analysis|overview|review|assessment|evaluation)\b/i,
+    /\bdetailed\s*view\b/i,
+    /\b(full|complete)\s*(picture|understanding|breakdown)\b/i,
+    /\bin-?depth\b/i,
+  ];
+  const requestsDeepAnalysis = deepAnalysisPatterns.some(p => p.test(query));
   
-  if (hasArtifacts) {
-    // Cap at complex (Sonnet 4.5) - NEVER use expert (Opus) for artifacts
-    if (tier === 'expert') {
-      tier = 'complex';
-      artifactRouted = true;
-    }
-    // Elevate trivial/simple to Claude models (Haiku/Sonnet)
-    else if (tier === 'trivial' || tier === 'simple') {
-      // 80% chance Haiku 4.5 (moderate), 20% chance Sonnet 4.5 (complex)
-      tier = Math.random() < 0.8 ? 'moderate' : 'complex';
-      artifactRouted = true;
-    }
-    // For moderate tier, keep as-is (Haiku 4.5) - good balance
-    // For complex tier, keep as-is (Sonnet 4.5) - when query genuinely needs it
+  // ROUTING RULE: Any tool usage → Haiku 4.5 minimum
+  // This includes: built-in tools (web_search, execute_code, file_search, artifacts) AND MCP tools
+  // Nova Micro cannot handle tool calls properly - Claude models required
+  const hasBuiltInTools = tools.length > 0;
+  const hasAnyTools = hasBuiltInTools || hasMcpServers;
+  
+  // Elevate to moderate (Haiku) if we have any tools and tier is simple
+  if (hasAnyTools && tier === 'simple') {
+    tier = 'moderate';
+  }
+  
+  // Keep expert tier only for deep analysis requests (otherwise cap at complex/Sonnet)
+  const hasArtifacts = tools.some(t => t === 'artifacts');
+  if (hasArtifacts && tier === 'expert' && !requestsDeepAnalysis) {
+    tier = 'complex';
   }
   
   const model = modelPairs[tier];
@@ -157,9 +186,7 @@ export async function routeQuery(
     model,
     tier,
     confidence: Math.max(toolsResult.confidence, 0.5),
-    reason: artifactRouted 
-      ? `${tierReasoning} (artifact routing: ${tier === 'moderate' ? 'Haiku 4.5' : 'Sonnet 4.5'})` 
-      : tierReasoning,
+    reason: tierReasoning,
     usedLlmFallback,
   };
 }

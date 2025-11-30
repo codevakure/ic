@@ -29,8 +29,8 @@ const CodeBar: React.FC<CodeBarProps> = React.memo(
     
     return (
       <div className={cn(
-        'flex items-center justify-between px-4 py-2.5 text-xs font-medium',
-        'bg-gray-100 text-gray-600 dark:bg-black dark:text-gray-400'
+        'flex items-center justify-between px-4 py-2.5 text-xs font-medium rounded-t-md',
+        'bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-400'
       )}>
         <span className={cn(
           'font-medium',
@@ -135,7 +135,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const showOutput = hasOutput && showCodeOutput;
 
   return (
-    <div className="w-full rounded-md bg-gray-900 text-xs text-white/80 mt-3">
+    <div className="w-full rounded-md bg-gray-100 dark:bg-gray-900 text-xs text-gray-800 dark:text-white/80 overflow-hidden">
       <CodeBar
         lang={lang}
         error={error}

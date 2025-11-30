@@ -64,6 +64,28 @@ const chatBadges = atomWithLocalStorage<Pick<BadgeItem, 'id'>[]>('chatBadges', [
   // { id: '2' },
 ]);
 
+/**
+ * State for the sources side panel
+ */
+export type SourcesPanelMode = 'push' | 'overlay';
+
+export interface SourcesPanelState {
+  isOpen: boolean;
+  title: string;
+  content: React.ReactNode | null;
+  mode: SourcesPanelMode;
+}
+
+const sourcesPanelState = atom<SourcesPanelState>({
+  key: 'sourcesPanelState',
+  default: {
+    isOpen: false,
+    title: '',
+    content: null,
+    mode: 'overlay',
+  },
+});
+
 export default {
   hideBannerHint,
   messageAttachmentsMap,
@@ -71,4 +93,5 @@ export default {
   queriesEnabled,
   isEditingBadges,
   chatBadges,
+  sourcesPanelState,
 };

@@ -335,6 +335,21 @@ class AgentClient extends BaseClient {
       );
     }
 
+    // Determine if current message has explicit attachments (files attached to THIS message)
+    // At this point, this.options.attachments has been awaited and is an array (or undefined)
+    const latestMessageId = orderedMessages[orderedMessages.length - 1]?.messageId;
+    const currentMessageAttachments = this.message_file_map?.[latestMessageId] || [];
+    const currentMessageHasAttachments = currentMessageAttachments.length > 0;
+    
+    if (currentMessageHasAttachments) {
+      logger.debug(`[buildMessages] Current message has ${currentMessageAttachments.length} attachments - will only query these files for context`);
+    } else {
+      const totalFiles = Object.values(this.message_file_map || {}).flat().length;
+      if (totalFiles > 0) {
+        logger.debug(`[buildMessages] No attachments on current message - will query all ${totalFiles} conversation files for context`);
+      }
+    }
+
     const formattedMessages = orderedMessages.map((message, i) => {
       const formattedMessage = formatMessage({
         message,
@@ -366,9 +381,21 @@ class AgentClient extends BaseClient {
       /* If message has files, calculate image token cost */
       if (this.message_file_map && this.message_file_map[message.messageId]) {
         const attachments = this.message_file_map[message.messageId];
+        const isCurrentMessage = i === orderedMessages.length - 1;
+        
         for (const file of attachments) {
           if (file.embedded) {
-            this.contextHandlers?.processFile(file);
+            // If current message has explicit attachments, only process files from current message
+            // Otherwise, process all conversation files for context
+            if (currentMessageHasAttachments) {
+              // Only process files from the current message
+              if (isCurrentMessage) {
+                this.contextHandlers?.processFile(file);
+              }
+            } else {
+              // No explicit attachments - process all conversation files
+              this.contextHandlers?.processFile(file);
+            }
             continue;
           }
           if (file.metadata?.fileIdentifier) {
@@ -827,22 +854,26 @@ class AgentClient extends BaseClient {
       const originalOutputCost = (output_tokens / 1_000_000) * originalPricing.output;
       const originalTotalCost = originalInputCost + originalOutputCost;
       
+      const cachedTokens = this.usage?.inputTokenDetails?.cache_read_input_tokens || 0;
       const savings = originalTotalCost - actualTotalCost;
-      const savingsPercent = originalTotalCost > 0 ? ((savings / originalTotalCost) * 100).toFixed(1) : 0;
+      const savingsPercent = originalTotalCost > 0 ? ((savings / originalTotalCost) * 100).toFixed(0) : 0;
       
-      logger.info('[IntentAnalyzer] ========== ACTUAL USAGE METRICS ==========');
-      logger.info(`[IntentAnalyzer] Original Model: ${originalModel}`);
-      logger.info(`[IntentAnalyzer] Routed Model: ${actualModel}`);
-      logger.info(`[IntentAnalyzer] Input Tokens: ${input_tokens}`);
-      logger.info(`[IntentAnalyzer] Output Tokens: ${output_tokens}`);
-      logger.info(`[IntentAnalyzer] Total Tokens: ${input_tokens + output_tokens}`);
-      logger.info('[IntentAnalyzer] ---------- ACTUAL COSTS ----------');
-      logger.info(`[IntentAnalyzer] Routed Input Cost: $${actualInputCost.toFixed(6)}`);
-      logger.info(`[IntentAnalyzer] Routed Output Cost: $${actualOutputCost.toFixed(6)}`);
-      logger.info(`[IntentAnalyzer] Routed Total Cost: $${actualTotalCost.toFixed(6)}`);
-      logger.info(`[IntentAnalyzer] Original Would Have Cost: $${originalTotalCost.toFixed(6)}`);
-      logger.info(`[IntentAnalyzer] SAVINGS: $${savings.toFixed(6)} (${savingsPercent}%)`);
-      logger.info('[IntentAnalyzer] ==============================================');
+      // Single consolidated log line for actual usage
+      const getShortName = (model) => {
+        if (!model) return 'unknown';
+        if (model.includes('opus')) return 'Opus';
+        if (model.includes('sonnet')) return 'Sonnet';
+        if (model.includes('haiku')) return 'Haiku';
+        if (model.includes('nova-micro')) return 'Nova-Micro';
+        return model.split('.').pop()?.replace('-v1:0', '')?.substring(0, 15) || model;
+      };
+      
+      logger.info(
+        `[Usage] Model: ${getShortName(actualModel)} | ` +
+        `In: ${input_tokens} | Out: ${output_tokens} | Cached: ${cachedTokens} | ` +
+        `Cost: $${actualTotalCost.toFixed(4)}` +
+        (savings > 0 ? ` | Saved: $${savings.toFixed(4)} (${savingsPercent}%)` : '')
+      );
     }
   }
 

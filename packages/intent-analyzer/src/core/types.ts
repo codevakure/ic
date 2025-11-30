@@ -101,8 +101,6 @@ export interface QueryIntentResult {
   tools: Tool[];
   /** Confidence score 0-1 */
   confidence: number;
-  /** Dynamic prompts to add to context */
-  contextPrompts: string[];
   /** Brief reasoning for tool selection */
   reasoning: string;
   /** 
@@ -124,16 +122,18 @@ export interface QueryIntentResult {
 /**
  * Model tier for routing queries to appropriate LLM
  * 
- * 5-TIER SYSTEM (cost order):
- * - trivial:  Nova Lite    ($0.06/$0.24)   - Greetings, yes/no, acknowledgments (multimodal)
- * - simple:   Nova Pro     ($0.80/$3.20)   - Basic Q&A, simple tools
- * - moderate: Haiku 4.5    ($1.00/$5.00)   - Explanations, standard code
- * - complex:  Sonnet 4.5   ($3.00/$15.00)  - Debugging, analysis
- * - expert:   Opus 4.5     ($15.00/$75.00) - Architecture, research
+ * 4-TIER SYSTEM (target distribution):
+ * - simple   (~1%)  : Nova Micro  ($0.035/$0.14)  - Greetings, text-only simple responses
+ * - moderate (~80%) : Haiku 4.5   ($1/$5)         - Most tasks, tool usage, standard code
+ * - complex  (~15%) : Sonnet 4.5  ($3/$15)        - Debugging, detailed analysis
+ * - expert   (~4%)  : Opus 4.5    ($15/$75)       - Deep analysis, architecture, research
  * 
- * Note: Nova Micro is used only for classifierModel (internal routing), NOT for user-facing responses
+ * Routing Rules:
+ * - Tool usage → Haiku 4.5 minimum (Claude handles tools better)
+ * - Deep/comprehensive analysis → Opus 4.5
+ * - Text-only simple queries → Nova Micro
  */
-export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple' | 'trivial';
+export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple';
 
 /**
  * Result of model routing analysis

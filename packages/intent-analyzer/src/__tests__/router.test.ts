@@ -3,16 +3,13 @@
  * 
  * Tests the unified interface that handles both:
  * 1. Tool selection (web_search, execute_code, file_search, artifacts)
- * 2. Model routing (5-tier system: trivial → expert)
+ * 2. Model routing (4-tier system: simple → expert)
  * 
- * 5-TIER MODEL MAPPING:
- * - trivial:  Nova Lite    ($0.06/$0.24)   - Greetings, yes/no, acknowledgments (multimodal)
- * - simple:   Nova Pro     ($0.80/$3.20)   - Basic Q&A, simple tools
- * - moderate: Haiku 4.5    ($1.00/$5.00)   - Explanations, standard code
- * - complex:  Sonnet 4.5   ($3.00/$15.00)  - Debugging, analysis
- * - expert:   Opus 4.5     ($15.00/$75.00) - Architecture, research
- * 
- * Note: Nova Micro is only used for classifierModel (internal routing), NOT for user-facing responses
+ * 4-TIER MODEL MAPPING:
+ * - simple:   Nova Micro   ($0.035/$0.14)  - Greetings, text-only simple responses (~1%)
+ * - moderate: Haiku 4.5    ($1.00/$5.00)   - Most tasks, tool usage, standard code (~80%)
+ * - complex:  Sonnet 4.5   ($3.00/$15.00)  - Debugging, detailed analysis (~15%)
+ * - expert:   Opus 4.5     ($15.00/$75.00) - Deep analysis, architecture (~4%)
  */
 
 import { 
@@ -26,15 +23,15 @@ import {
 
 describe('Universal Query Router', () => {
   describe('routeQuery', () => {
-    it('should route simple greeting to trivial tier with Nova Lite', async () => {
+    it('should route simple greeting to simple tier with Nova Micro', async () => {
       const result = await routeQuery('Hello!', {
         provider: 'bedrock',
         preset: 'premium',
         availableTools: [Tool.WEB_SEARCH],
       });
 
-      expect(result.tier).toBe('trivial');
-      expect(result.model).toContain('nova-lite');
+      expect(result.tier).toBe('simple');
+      expect(result.model).toContain('nova-micro');
       expect(result.tools).toEqual([]);
     });
 
@@ -107,7 +104,7 @@ describe('Universal Query Router', () => {
 
   describe('getModelForTier', () => {
     it('should return correct models for premium preset (4-tier)', () => {
-      expect(getModelForTier('simple', 'premium')).toContain('nova-pro');
+      expect(getModelForTier('simple', 'premium')).toContain('nova-micro');
       expect(getModelForTier('moderate', 'premium')).toContain('haiku');
       expect(getModelForTier('complex', 'premium')).toContain('sonnet');
       expect(getModelForTier('expert', 'premium')).toContain('opus');
@@ -120,7 +117,7 @@ describe('Universal Query Router', () => {
     });
 
     it('should default to costOptimized preset', () => {
-      expect(getModelForTier('simple')).toContain('nova-pro');
+      expect(getModelForTier('simple')).toContain('nova-micro');
     });
   });
 
@@ -131,9 +128,9 @@ describe('Universal Query Router', () => {
   });
 
   describe('scoreQueryComplexity', () => {
-    it('should score simple greeting as trivial', () => {
+    it('should score simple greeting as simple tier', () => {
       const result = scoreQueryComplexity('Hello');
-      expect(result.tier).toBe('trivial');
+      expect(result.tier).toBe('simple');
       expect(result.score).toBeLessThan(0.15);
     });
 
@@ -169,41 +166,35 @@ describe('Universal Query Router', () => {
       });
 
       expect(result.tools.tools).toEqual([]);
-      expect(result.model.tier).toBe('trivial');
+      expect(result.model.tier).toBe('simple');
     });
   });
 });
 
-describe('Model Tier Mappings (5-tier system)', () => {
+describe('Model Tier Mappings (4-tier system)', () => {
   /**
-   * Expected model mappings for 5-tier routing:
-   * - trivial:  Nova Lite
-   * - simple:   Nova Pro
-   * - moderate: Haiku 4.5
-   * - complex:  Sonnet 4.5
-   * - expert:   Opus 4.5
-   * 
-   * Note: Nova Micro is only for classifierModel (internal routing), NOT for user-facing responses
+   * Expected model mappings for 4-tier routing:
+   * - simple:   Nova Micro ($0.035/$0.14) - Greetings, text-only simple responses (~1%)
+   * - moderate: Haiku 4.5  ($1/$5)        - Most tasks, tool usage, standard code (~80%)
+   * - complex:  Sonnet 4.5 ($3/$15)       - Debugging, detailed analysis (~15%)
+   * - expert:   Opus 4.5   ($15/$75)      - Deep analysis, architecture (~4%)
    */
   const expectedMappings = {
     premium: {
-      trivial: 'nova-lite',
-      simple: 'nova-pro',
+      simple: 'nova-micro',
       moderate: 'haiku',
       complex: 'sonnet',
       expert: 'opus',
     },
     costOptimized: {
-      trivial: 'nova-lite',
-      simple: 'nova-pro',
+      simple: 'nova-micro',
       moderate: 'haiku',
       complex: 'sonnet',
       expert: 'sonnet', // Capped at Sonnet
     },
     ultraCheap: {
-      trivial: 'nova-lite',
-      simple: 'nova-lite',
-      moderate: 'nova-pro',
+      simple: 'nova-micro',
+      moderate: 'haiku',
       complex: 'haiku',
       expert: 'haiku',   // Capped at Haiku
     },

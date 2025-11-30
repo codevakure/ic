@@ -59,7 +59,6 @@ export {
   shouldUseTool,
   capabilityToTool,
   toolToCapability,
-  getToolContextPrompts,
 } from './query-intent';
 
 // Model Routing

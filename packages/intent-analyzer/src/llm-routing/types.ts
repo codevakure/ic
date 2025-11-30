@@ -8,18 +8,20 @@
 // ============================================================================
 
 /**
- * Model tier classification - 5-tier system for fine-grained routing
+ * Model tier classification - 4-tier system for optimal cost/quality balance
  * 
- * TIER MAPPING (by cost):
- * - trivial:  Nova Lite    ($0.06/$0.24)   - Greetings, yes/no, acknowledgments (multimodal)
- * - simple:   Nova Pro     ($0.80/$3.20)   - Basic Q&A, simple tools
- * - moderate: Haiku 4.5    ($1/$5)         - Explanations, standard code
- * - complex:  Sonnet 4.5   ($3/$15)        - Debugging, analysis
- * - expert:   Opus 4.5     ($15/$75)       - Architecture, research
+ * TARGET DISTRIBUTION:
+ * - simple:   Nova Micro   (~1%)   - Greetings, acknowledgments, text-only simple responses
+ * - moderate: Haiku 4.5    (~80%)  - Most tasks, tool usage, standard coding
+ * - complex:  Sonnet 4.5   (~15%)  - Debugging, detailed analysis, complex code
+ * - expert:   Opus 4.5     (~4%)   - Deep analysis, architecture, research
  * 
- * Note: Nova Micro is used only for classifierModel (internal routing), NOT for user-facing responses
+ * ROUTING RULES:
+ * - ANY tool usage → Haiku 4.5 minimum (Claude models handle tools better)
+ * - Deep/comprehensive analysis requests → Opus 4.5
+ * - Text-only simple queries → Nova Micro allowed
  */
-export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple' | 'trivial';
+export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple';
 
 /**
  * Cost structure per 1000 tokens
@@ -67,20 +69,19 @@ export interface ModelConfig {
 }
 
 /**
- * Model configuration for 5-tier routing
- * Note: Nova Micro is only used for classifierModel (internal routing), not for user-facing responses
+ * Model configuration for 4-tier routing
+ * 
+ * Distribution targets: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
  */
 export interface ModelPair {
-  /** Tier 5: Expert - architecture, research, PhD-level (Opus 4.5) */
+  /** Tier 4: Expert (~4%) - deep analysis, architecture, research (Opus 4.5) */
   expert: string;
-  /** Tier 4: Complex - debugging, code review, analysis (Sonnet 4.5) */
+  /** Tier 3: Complex (~15%) - debugging, detailed analysis (Sonnet 4.5) */
   complex: string;
-  /** Tier 3: Moderate - explanations, standard code (Haiku 4.5) */
+  /** Tier 2: Moderate (~80%) - most tasks, tool usage, standard code (Haiku 4.5) */
   moderate: string;
-  /** Tier 2: Simple - basic Q&A, simple tools (Nova Pro) */
+  /** Tier 1: Simple (~1%) - greetings, text-only simple responses (Nova Micro) */
   simple: string;
-  /** Tier 1: Trivial - greetings, yes/no, acknowledgments, multimodal (Nova Lite) */
-  trivial: string;
 }
 
 // ============================================================================

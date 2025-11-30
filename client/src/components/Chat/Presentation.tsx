@@ -5,6 +5,7 @@ import type { ExtendedFile } from '~/common';
 import { useDeleteFilesMutation } from '~/data-provider';
 import DragDropWrapper from '~/components/Chat/Input/Files/DragDropWrapper';
 import { EditorProvider, SidePanelProvider, ArtifactsProvider } from '~/Providers';
+import { GlobalSourcesPanel } from '~/components/ui/SidePanel';
 import Artifacts from '~/components/Artifacts/Artifacts';
 import { SidePanelGroup } from '~/components/SidePanel';
 import { useSetFilesToDelete } from '~/hooks';
@@ -88,6 +89,12 @@ export default function Presentation({ children }: { children: React.ReactNode }
           </main>
         </SidePanelGroup>
       </SidePanelProvider>
+      {/* GlobalSourcesPanel: 
+          - Push mode: Rendered inline in flex container, pushes content
+          - Overlay mode: Rendered via portal, slides over content
+          - Mobile: Always renders as bottom sheet via portal
+      */}
+      <GlobalSourcesPanel />
     </DragDropWrapper>
   );
 }

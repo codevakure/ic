@@ -4,8 +4,10 @@ import { useRecoilValue } from 'recoil';
 import { getConfigDefaults } from 'librechat-data-provider';
 import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@librechat/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { useGetStartupConfig } from '~/data-provider';
 import ArtifactsPanel from './ArtifactsPanel';
+import SourcesPanel from './SourcesPanel';
 import { normalizeLayout } from '~/utils';
 import SidePanel from './SidePanel';
 import store from '~/store';
@@ -43,11 +45,24 @@ const SidePanelGroup = memo(
     const [fullCollapse, setFullCollapse] = useState(fullPanelCollapse);
     const [collapsedSize, setCollapsedSize] = useState(navCollapsedSize);
     const [shouldRenderArtifacts, setShouldRenderArtifacts] = useState(artifacts != null);
+    const [shouldRenderSources, setShouldRenderSources] = useState(false);
 
     const isSmallScreen = useMediaQuery('(max-width: 767px)');
     const hideSidePanel = useRecoilValue(store.hideSidePanel);
+    
+    // Get sources panel state to include in layout calculations
+    const { isOpen: sourcesOpen, mode: sourcesMode } = useSourcesPanel();
+    const sourcesActive = sourcesOpen && sourcesMode === 'push' && !isSmallScreen;
 
     const calculateLayout = useCallback(() => {
+      // When sources panel is active (push mode), calculate layout like artifacts
+      if (sourcesActive && artifacts == null) {
+        const navSize = 0;
+        const remainingSpace = 100 - navSize;
+        const newMainSize = Math.floor(remainingSpace * 0.6);
+        const sourcesSize = remainingSpace - newMainSize;
+        return [newMainSize, sourcesSize, navSize];
+      }
       if (artifacts == null) {
         const navSize = defaultLayout.length === 2 ? defaultLayout[1] : defaultLayout[2];
         return [100 - navSize, navSize];
@@ -58,7 +73,7 @@ const SidePanelGroup = memo(
         const artifactsSize = remainingSpace - newMainSize;
         return [newMainSize, artifactsSize, navSize];
       }
-    }, [artifacts, defaultLayout]);
+    }, [artifacts, defaultLayout, sourcesActive]);
 
     const currentLayout = useMemo(() => normalizeLayout(calculateLayout()), [calculateLayout]);
 
@@ -87,7 +102,12 @@ const SidePanelGroup = memo(
       }
     }, [isSmallScreen, defaultCollapsed, navCollapsedSize, fullPanelCollapse]);
 
-    const minSizeMain = useMemo(() => (artifacts != null ? 15 : 30), [artifacts]);
+    const minSizeMain = useMemo(() => {
+      if (artifacts != null || sourcesActive) {
+        return 15;
+      }
+      return 30;
+    }, [artifacts, sourcesActive]);
 
     /** Memoized close button handler to prevent re-creating it */
     const handleClosePanel = useCallback(() => {
@@ -124,6 +144,18 @@ const SidePanelGroup = memo(
               minSizeMain={minSizeMain}
               shouldRender={shouldRenderArtifacts}
               onRenderChange={setShouldRenderArtifacts}
+            />
+          )}
+
+          {!isSmallScreen && (
+            <SourcesPanel
+              currentLayout={currentLayout}
+              defaultSize={40}
+              minSize={25}
+              maxSize={60}
+              order={2}
+              shouldRender={shouldRenderSources}
+              onRenderChange={setShouldRenderSources}
             />
           )}
 

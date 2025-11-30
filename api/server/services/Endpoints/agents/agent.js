@@ -211,9 +211,6 @@ const initializeAgent = async ({
       artifacts: agent.artifacts,
       model: agent.model,
     });
-    logger.info(`[initializeAgent] Artifacts prompt generated for model: ${agent.model}, length: ${agent.additional_instructions?.length || 0} chars`);
-  } else {
-    logger.info(`[initializeAgent] No artifacts prompt - artifacts value: "${agent.artifacts}" (type: ${typeof agent.artifacts})`);
   }
 
   // Prepend clarification to instructions (which comes FIRST in system prompt)
@@ -239,7 +236,6 @@ ONLY ask the clarification question above, then STOP and wait for their response
 
 `;
     agent.instructions = clarification + (agent.instructions || '');
-    logger.info(`[initializeAgent] Clarification prepended to instructions: "${agent.clarificationPrompt}"`);
   }
 
   return {

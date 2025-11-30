@@ -128,7 +128,7 @@ export function AttachmentGroup({ attachments }: { attachments?: TAttachment[] }
   return (
     <>
       {fileAttachments.length > 0 && (
-        <div className="my-2 flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           {fileAttachments.map((attachment, index) =>
             attachment.filepath ? (
               <FileAttachment attachment={attachment} key={`file-${index}`} />

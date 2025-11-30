@@ -1,15 +1,17 @@
 /**
  * Bedrock Model Configurations
  * 
- * 5-TIER ROUTING SYSTEM (by cost, low to high):
+ * 4-TIER ROUTING SYSTEM (target distribution):
  * =============================================
- * 1. Nova Lite    - $0.06/$0.24 MTok   - TRIVIAL  (greetings, yes/no, acknowledgments, multimodal)
- * 2. Nova Pro     - $0.80/$3.20 MTok   - SIMPLE   (basic Q&A, simple tools)
- * 3. Haiku 4.5    - $1/$5 MTok         - MODERATE (explanations, standard code)
- * 4. Sonnet 4.5   - $3/$15 MTok        - COMPLEX  (debugging, analysis)
- * 5. Opus 4.5     - $15/$75 MTok       - EXPERT   (architecture, research)
+ * 1. Nova Micro   - $0.035/$0.14 MTok  - SIMPLE   (~1%)  - Greetings, text-only simple responses
+ * 2. Haiku 4.5    - $1/$5 MTok         - MODERATE (~80%) - Most tasks, tool usage, standard code
+ * 3. Sonnet 4.5   - $3/$15 MTok        - COMPLEX  (~15%) - Debugging, detailed analysis
+ * 4. Opus 4.5     - $15/$75 MTok       - EXPERT   (~4%)  - Deep analysis, architecture, research
  *
- * Note: Nova Micro is used ONLY for classifierModel (internal routing), NOT for user-facing responses.
+ * ROUTING RULES:
+ * - ANY tool usage (web_search, execute_code, file_search, artifacts) → Haiku 4.5 minimum
+ * - Deep/comprehensive analysis requests → Opus 4.5
+ * - Text-only simple queries (greetings, yes/no) → Nova Micro
  *
  * Model ID Format: us.{provider}.{model}-v1:0 (US cross-region inference)
  */
@@ -17,41 +19,26 @@
 import type { ModelConfig, ModelPair, BedrockPresetTier, ModelTier } from '../types';
 
 /**
- * Bedrock model configurations - 5 models for 5-tier routing
- * Nova Micro excluded from routing (only for classification)
+ * Bedrock model configurations - 4 models for 4-tier routing
  */
 export const BedrockModels: Record<string, ModelConfig> = {
   // ============================================================================
-  // TRIVIAL TIER - Nova Lite ($0.06/$0.24 per MTok) - CHEAPEST for routing
-  // Simple greetings, yes/no, acknowledgments, basic image understanding
+  // SIMPLE TIER (~1%) - Nova Micro ($0.035/$0.14 per MTok) - CHEAPEST
+  // Simple greetings, yes/no, acknowledgments - TEXT ONLY, no tools
   // ============================================================================
-  'us.amazon.nova-lite-v1:0': {
-    id: 'us.amazon.nova-lite-v1:0',
-    name: 'Amazon Nova Lite',
-    tier: 'trivial',
-    costPer1kTokens: { input: 0.00006, output: 0.00024 },
-    maxTokens: 300000,
-    capabilities: ['general', 'vision', 'tools', 'multimodal'],
-    provider: 'amazon',
-  },
-
-  // ============================================================================
-  // SIMPLE TIER - Nova Pro ($0.80/$3.20 per MTok)
-  // Basic Q&A, simple tool usage, straightforward tasks
-  // ============================================================================
-  'us.amazon.nova-pro-v1:0': {
-    id: 'us.amazon.nova-pro-v1:0',
-    name: 'Amazon Nova Pro',
+  'us.amazon.nova-micro-v1:0': {
+    id: 'us.amazon.nova-micro-v1:0',
+    name: 'Amazon Nova Micro',
     tier: 'simple',
-    costPer1kTokens: { input: 0.0008, output: 0.0032 },
-    maxTokens: 300000,
-    capabilities: ['general', 'vision', 'video', 'tools', 'analysis'],
+    costPer1kTokens: { input: 0.000035, output: 0.00014 },
+    maxTokens: 128000,
+    capabilities: ['general', 'fast'],
     provider: 'amazon',
   },
 
   // ============================================================================
-  // MODERATE TIER - Haiku 4.5 ($1/$5 per MTok)
-  // Explanations, summaries, standard code generation
+  // MODERATE TIER (~80%) - Haiku 4.5 ($1/$5 per MTok)
+  // Most tasks: explanations, standard code, tool usage
   // ============================================================================
   'us.anthropic.claude-haiku-4-5-20251001-v1:0': {
     id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
@@ -64,7 +51,7 @@ export const BedrockModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
-  // COMPLEX TIER - Sonnet 4.5 ($3/$15 per MTok)
+  // COMPLEX TIER (~15%) - Sonnet 4.5 ($3/$15 per MTok)
   // Debugging, code review, detailed analysis
   // ============================================================================
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0': {
@@ -78,8 +65,8 @@ export const BedrockModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
-  // EXPERT TIER - Opus 4.5 ($15/$75 per MTok) - MOST CAPABLE
-  // System architecture, algorithm design, PhD-level research
+  // EXPERT TIER (~4%) - Opus 4.5 ($15/$75 per MTok) - MOST CAPABLE
+  // Deep analysis, system architecture, research
   // ============================================================================
   'global.anthropic.claude-opus-4-5-20251101-v1:0': {
     id: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
@@ -93,29 +80,27 @@ export const BedrockModels: Record<string, ModelConfig> = {
 };
 
 /**
- * 5-TIER ROUTING PRESETS
+ * 4-TIER ROUTING PRESETS
  * ======================
  * 
- * Score Range → Tier → Model
- * 0.80+ → expert   → Opus 4.5     ($15/$75)     - Architecture, research
- * 0.60+ → complex  → Sonnet 4.5   ($3/$15)      - Debugging, analysis
- * 0.35+ → moderate → Haiku 4.5    ($1/$5)       - Explanations, standard code
- * 0.15+ → simple   → Nova Pro     ($0.80/$3.20) - Basic Q&A, simple tools
- * 0.00+ → trivial  → Nova Lite    ($0.06/$0.24) - Greetings, yes/no, acknowledgments
+ * Target Distribution: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
  * 
- * Note: Nova Micro is used ONLY for classifierModel, not in routing.
+ * Score Range → Tier → Model
+ * 0.85+ → expert   → Opus 4.5     ($15/$75)     - Deep analysis, architecture, research
+ * 0.55+ → complex  → Sonnet 4.5   ($3/$15)      - Debugging, detailed analysis
+ * 0.10+ → moderate → Haiku 4.5    ($1/$5)       - Most tasks, tool usage, standard code
+ * 0.00+ → simple   → Nova Micro   ($0.035/$0.14) - Greetings, text-only simple responses
  */
 export const BedrockRoutingPairs: Record<BedrockPresetTier, ModelPair> = {
   /**
-   * Premium: Full 5-tier with Opus 4.5 at top
+   * Premium: Full 4-tier with Opus 4.5 at top
    * Best for: Production, customer-facing, quality-critical
    */
   premium: {
     expert: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
     complex: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     moderate: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    simple: 'us.amazon.nova-pro-v1:0',
-    trivial: 'us.amazon.nova-lite-v1:0',
+    simple: 'us.amazon.nova-micro-v1:0',
   },
 
   /**
@@ -126,8 +111,7 @@ export const BedrockRoutingPairs: Record<BedrockPresetTier, ModelPair> = {
     expert: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     complex: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     moderate: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    simple: 'us.amazon.nova-pro-v1:0',
-    trivial: 'us.amazon.nova-lite-v1:0',
+    simple: 'us.amazon.nova-micro-v1:0',
   },
 
   /**
@@ -137,9 +121,8 @@ export const BedrockRoutingPairs: Record<BedrockPresetTier, ModelPair> = {
   ultraCheap: {
     expert: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
     complex: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-    moderate: 'us.amazon.nova-pro-v1:0',
-    simple: 'us.amazon.nova-lite-v1:0',
-    trivial: 'us.amazon.nova-lite-v1:0',
+    moderate: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    simple: 'us.amazon.nova-micro-v1:0',
   },
 };
 

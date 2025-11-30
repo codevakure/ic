@@ -78,15 +78,18 @@ export async function analyzeQuery(options: UnifiedAnalysisOptions): Promise<Uni
   const modelResult = scoreQueryComplexity(query);
 
   // Step 2: Check confidence and decide if LLM fallback is needed
-  // LLM fallback is triggered when EITHER tools OR model needs help
+  // LLM fallback is ONLY triggered when tools need help - model routing is reliable enough
   const toolsLowConfidence = toolsResult.confidence < fallbackThreshold && toolsResult.tools.length === 0;
-  const modelLowConfidence = modelResult.categories.includes('general'); // 'general' means no specific pattern matched
 
   // Use LLM fallback if:
-  // 1. Either tool OR model confidence is low (patterns didn't match well)
+  // 1. Tool confidence is low AND no tools were selected (need LLM to help with tool selection)
   // 2. LLM fallback function is provided
   // 3. Query isn't a simple greeting/acknowledgment (don't waste LLM on these trivial responses)
   // 4. Special case: Short queries (<=5 chars) with conversation history need LLM for context
+  // 5. Selection responses (1, 2, A, B, etc.) need LLM to understand context
+  //
+  // NOTE: We do NOT trigger LLM fallback just because model category is 'general'.
+  // The model routing score-based tier selection is already reliable enough.
   const isSimpleGreeting = /^(hi|hello|hey|thanks|thank you|ok|okay|bye|goodbye|yes|no|sure|yep|nope|cool|nice|great|awesome|perfect|got it|alright|sounds good|understood|noted|right|exactly|indeed|absolutely|definitely|certainly|of course|for sure|makes sense|i see|ah|oh|wow|interesting|good|fine|neat)[\s!?.]*$/i.test(query.trim());
   
   // Detect short selection responses (1, 2, 3, A, B, first, second, etc.)
@@ -97,7 +100,7 @@ export async function analyzeQuery(options: UnifiedAnalysisOptions): Promise<Uni
   const needsContextFromHistory = query.length <= 5 && conversationHistory && conversationHistory.length > 0;
   
   const shouldUseLlm =
-    (toolsLowConfidence || modelLowConfidence || isSelectionResponse || needsContextFromHistory) &&
+    (toolsLowConfidence || isSelectionResponse || needsContextFromHistory) &&
     llmFallback &&
     !isSimpleGreeting;
 

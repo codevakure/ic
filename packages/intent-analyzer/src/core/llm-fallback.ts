@@ -38,24 +38,22 @@ interface LlmClassificationResponse {
  * Nova Micro is only for classifierModel (internal routing) - NOT for user-facing responses
  */
 const MODEL_TIER_INFO = `
-MODEL TIERS (pick LOWEST that works - 5 tiers):
+MODEL TIERS - 4-TIER SYSTEM (pick based on task complexity):
 ┌──────────┬─────────────────┬──────────────────┬─────────┬──────────┬───────────────────────────────────────────────────────────┐
-│ Tier     │ Model           │ Cost (in/out 1M) │ Context │ Latency  │ Best For                                                  │
+│ Tier     │ Model           │ Cost (in/out 1M) │ Context │ Target % │ Best For                                                  │
 ├──────────┼─────────────────┼──────────────────┼─────────┼──────────┼───────────────────────────────────────────────────────────┤
-│ TRIVIAL  │ Nova Lite       │ $0.06 / $0.24    │ 300K    │ Fastest  │ Greetings, acknowledgments (cool, nice, ok), yes/no       │
-│ SIMPLE   │ Nova Pro        │ $0.80 / $3.20    │ 300K    │ Fast     │ Basic Q&A, simple tools, straightforward tasks            │
-│ MODERATE │ Haiku 4.5       │ $1.00 / $5.00    │ 200K    │ Fast     │ Explanations, summaries, standard code generation         │
-│ COMPLEX  │ Sonnet 4.5      │ $3.00 / $15.00   │ 200K    │ Moderate │ Debugging, code review, detailed analysis                 │
-│ EXPERT   │ Opus 4.5        │ $15.00 / $75.00  │ 200K    │ Slower   │ System architecture, algorithms, research, PhD-level      │
+│ SIMPLE   │ Nova Micro      │ $0.035 / $0.14   │ 128K    │ ~1%      │ Greetings, acknowledgments, yes/no, simple text-only      │
+│ MODERATE │ Haiku 4.5       │ $1.00 / $5.00    │ 200K    │ ~80%     │ Most tasks, tool usage, standard code, explanations       │
+│ COMPLEX  │ Sonnet 4.5      │ $3.00 / $15.00   │ 200K    │ ~15%     │ Debugging, code review, detailed analysis                 │
+│ EXPERT   │ Opus 4.5        │ $15.00 / $75.00  │ 200K    │ ~4%      │ Deep analysis, architecture, research, PhD-level          │
 └──────────┴─────────────────┴──────────────────┴─────────┴──────────┴───────────────────────────────────────────────────────────┘
 
-CRITICAL COST RULES:
-- EXPERT is 250x more expensive than TRIVIAL - use ONLY for architecture/algorithm design
-- TRIVIAL (Nova Lite) for: greetings ("hi", "hello"), acknowledgments ("cool", "nice", "got it", "ok"), yes/no, simple thanks
-- SIMPLE acknowledgments like "Cool", "Nice", "Great" do NOT need clarification - they are just confirmations!
-- SIMPLE (Nova Pro) for: basic Q&A, simple tools (NOT greetings/acknowledgments - use TRIVIAL for those)
-- "detailed analysis" or "more detail" does NOT mean EXPERT - use SIMPLE or MODERATE
-- EXPERT is ONLY for: system design, complex algorithms, PhD-level research, multi-hour coding
+CRITICAL ROUTING RULES:
+- SIMPLE (~1%): ONLY for text-only greetings ("hi", "hello"), acknowledgments ("cool", "nice", "ok"), yes/no
+- MODERATE (~80%): DEFAULT for most tasks. ANY tool usage (web_search, execute_code, file_search, artifacts) → MODERATE minimum
+- COMPLEX (~15%): Debugging, detailed code review, complex analysis
+- EXPERT (~4%): Deep/comprehensive analysis, system architecture, complex algorithms, research
+- Keywords like "deep analysis", "comprehensive review", "dig deep", "detailed view" → EXPERT
 `;
 
 /**
@@ -185,15 +183,13 @@ VISUALIZATION AMBIGUITY - CRITICAL:
   → clarificationOptions: ["Interactive dashboard/graph (editable, clickable)", "Static image/chart (PNG, embedded in response)"]
 - Use USER-FRIENDLY language, NOT technical terms (no "React", "matplotlib", "Python" etc.)
 
-CRITICAL Rules:
-- Choose the LOWEST cost tier that can handle the task - this saves real money
-- SIMPLE (Nova Pro) is the minimum tier - supports tools and conversation context
-- "Get me X" / "What is X" with web_search → SIMPLE (tool does work, model formats)
-- "detailed analysis" / "explain more" / "can you analyze" → SIMPLE or MODERATE (NOT EXPERT!)
-- Only upgrade to COMPLEX for debugging or complex code review
-- EXPERT is ONLY for: system architecture, algorithm design, PhD-level research
-- If regex suggestion looks correct, KEEP IT - don't upgrade unnecessarily
-- When in doubt, pick LOWER tier - user can always ask for more
+CRITICAL Rules (4-Tier System):
+- SIMPLE (~1%): ONLY for text-only greetings/acknowledgments - NO TOOLS
+- MODERATE (~80%): DEFAULT tier. Any tool usage → MODERATE minimum
+- COMPLEX (~15%): Debugging, detailed code review, complex analysis
+- EXPERT (~4%): ONLY for "deep analysis", "comprehensive review", system architecture, PhD-level research
+- If tools are selected → MODERATE minimum (Haiku 4.5 handles tools well)
+- Don't over-upgrade: most queries are MODERATE
 
 ARTIFACTS vs EXECUTE_CODE:
 - artifacts ALONE handles: dashboards, UI components, React apps, HTML pages, visualizations, charts in React
@@ -205,25 +201,19 @@ ARTIFACTS vs EXECUTE_CODE:
 FOLLOW-UP QUERIES:
 - If conversation history shows user asked for data (stocks, news, prices), a follow-up asking for "analysis" or "more details" should:
   1. Use web_search if fresh data is needed (likely YES for stocks, news, prices)
-  2. Stay at SIMPLE or MODERATE tier - just formatting/explaining data, NOT EXPERT
-- "can you analyze this" after a data fetch → SIMPLE + web_search (may need updated data)
-- "explain more" after data fetch → SIMPLE (just better formatting, no new data needed)
+  2. Stay at MODERATE tier - just formatting/explaining data
 
 SELECTION RESPONSES - CRITICAL (MUST SELECT TOOLS):
 - If user responds with "1", "2", "3" or "a", "b", "c" - THIS IS A SELECTION
 - YOU MUST look at the PREVIOUS assistant message and SELECT THE CORRESPONDING TOOL
 - If previous message offered: "1. Interactive React component 2. Python chart"
-  → User says "1" → tools: ["artifacts"], tier: "complex"
-  → User says "2" → tools: ["execute_code"], tier: "simple"
-- If previous message offered visualization/chart/graph options:
-  → "React" / "Interactive" / "dashboard" / "component" option → artifacts
-  → "Python" / "matplotlib" / "chart" option → execute_code
-- NEVER return tools: [] when user makes a selection - ALWAYS map to the selected tool
+  → User says "1" → tools: ["artifacts"], tier: "moderate"
+  → User says "2" → tools: ["execute_code"], tier: "moderate"
 - Selection responses REQUIRE you to select tools based on context
 - Example conversation:
   Assistant: "Which would you prefer? 1. Interactive React component 2. Python chart"
   User: "1"
-  → YOUR RESPONSE MUST BE: {"tools": ["artifacts"], "modelTier": "complex", "reasoning": "User selected option 1 (React component)"}`;
+  → YOUR RESPONSE MUST BE: {"tools": ["artifacts"], "modelTier": "moderate", "reasoning": "User selected option 1 (React component)"}`;
 }
 
 /**
@@ -288,18 +278,18 @@ function mapToToolEnum(toolStr: string, availableTools: Tool[]): Tool | null {
 }
 
 /**
- * Validate and normalize model tier
+ * Validate and normalize model tier (4-tier system)
  */
 function normalizeModelTier(tier: string): ModelTier {
   const normalized = tier.toLowerCase().trim();
-  const validTiers: ModelTier[] = ['trivial', 'simple', 'moderate', 'complex', 'expert'];
+  const validTiers: ModelTier[] = ['simple', 'moderate', 'complex', 'expert'];
 
   if (validTiers.includes(normalized as ModelTier)) {
     return normalized as ModelTier;
   }
 
-  // Default to trivial if invalid (cheapest tier for unknown queries)
-  return 'trivial';
+  // Default to moderate (Haiku 4.5) for unknown - safer default
+  return 'moderate';
 }
 
 /**
@@ -349,28 +339,22 @@ export async function classifyWithLlm(
 
     // CRITICAL: Elevate tier based on task requirements
     const hasArtifacts = mappedTools.includes(Tool.ARTIFACTS);
+    const hasTools = mappedTools.length > 0;
     
-    // If artifacts/UI tasks are needed, elevate to at least MODERATE (Haiku 4.5)
-    // Haiku can handle basic React components and visualizations
-    // Only go to COMPLEX (Sonnet) if query is already complex/expert or has detailed requirements
-    if (hasArtifacts) {
-      if (tier === 'trivial' || tier === 'simple') {
-        tier = 'moderate'; // Haiku 4.5 for basic artifacts
-      }
-      // If already moderate/complex/expert, keep it (Sonnet/Opus for detailed artifacts)
+    // Tool usage requires Claude models (Haiku 4.5 minimum)
+    if (hasTools && tier === 'simple') {
+      tier = 'moderate'; // Haiku 4.5 for tool usage
     }
     
-    // If clarification is needed, upgrade from trivial to simple
-    // Nova Lite (trivial) doesn't reliably follow clarification instructions
-    if (tier === 'trivial' && parsed.needsClarification) {
-      tier = 'simple';
+    // Artifacts: 80% Haiku, 20% Sonnet for cost optimization
+    if (hasArtifacts && tier === 'moderate') {
+      tier = Math.random() < 0.8 ? 'moderate' : 'complex';
     }
 
-    // Map tier to score for consistency (5-tier system)
+    // Map tier to score for consistency (4-tier system)
     const tierScores: Record<ModelTier, number> = {
-      trivial: 0.1,
-      simple: 0.25,
-      moderate: 0.5,
+      simple: 0.05,
+      moderate: 0.4,
       complex: 0.7,
       expert: 0.9,
     };
@@ -379,7 +363,6 @@ export async function classifyWithLlm(
     const toolsResult: QueryIntentResult = {
       tools: mappedTools,
       confidence: parsed.needsClarification ? 0.5 : 0.8, // Lower confidence if clarification needed
-      contextPrompts: [],
       reasoning: `LLM: ${parsed.reasoning}`,
     };
 

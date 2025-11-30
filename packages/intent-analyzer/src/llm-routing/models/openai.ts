@@ -84,7 +84,7 @@ export const OpenAIModels: Record<string, ModelConfig> = {
   'gpt-3.5-turbo-0125': {
     id: 'gpt-3.5-turbo-0125',
     name: 'GPT-3.5 Turbo 0125',
-    tier: 'trivial',  // Cheapest tier for simple greetings
+    tier: 'simple',
     costPer1kTokens: { input: 0.0005, output: 0.0015 },
     maxTokens: 16385,
     capabilities: ['general', 'fast'],
@@ -93,18 +93,17 @@ export const OpenAIModels: Record<string, ModelConfig> = {
 };
 
 /**
- * Pre-configured model pairs for 5-tier routing
+ * Pre-configured model pairs for 4-tier routing
  */
 export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
   /**
-   * Premium tier: Full GPT-4 family
+   * Premium tier: Full GPT-4 family with o1 for expert
    */
   premium: {
     expert: 'o1-preview',
     complex: 'gpt-4o',
     moderate: 'gpt-4o-mini',
-    simple: 'gpt-4o-mini',
-    trivial: 'gpt-3.5-turbo-0125',
+    simple: 'gpt-3.5-turbo-0125',
   },
 
   /**
@@ -114,8 +113,7 @@ export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
     expert: 'gpt-4o',
     complex: 'gpt-4o',
     moderate: 'gpt-4o-mini',
-    simple: 'gpt-3.5-turbo',
-    trivial: 'gpt-3.5-turbo-0125',
+    simple: 'gpt-3.5-turbo-0125',
   },
 
   /**
@@ -125,8 +123,7 @@ export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
     expert: 'gpt-4o-mini',
     complex: 'gpt-4o-mini',
     moderate: 'gpt-4o-mini',
-    simple: 'gpt-3.5-turbo',
-    trivial: 'gpt-3.5-turbo-0125',
+    simple: 'gpt-3.5-turbo-0125',
   },
 };
 

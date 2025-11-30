@@ -3,17 +3,10 @@ import { useRecoilValue } from 'recoil';
 import * as Ariakit from '@ariakit/react';
 import { VisuallyHidden } from '@ariakit/react';
 import { Tools } from 'librechat-data-provider';
-import { X, Globe, Newspaper, Image, ChevronDown, File, Download } from 'lucide-react';
-import {
-  OGDialog,
-  AnimatedTabs,
-  OGDialogClose,
-  OGDialogTitle,
-  OGDialogContent,
-  OGDialogTrigger,
-  useToastContext,
-} from '@librechat/client';
+import { ChevronDown, File, Download } from 'lucide-react';
+import { useToastContext } from '@librechat/client';
 import type { ValidSource, ImageResult } from 'librechat-data-provider';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { FaviconImage, getCleanDomain } from '~/components/Web/SourceHovercard';
 import SourcesErrorBoundary from './SourcesErrorBoundary';
 import { useFileDownload } from '~/data-provider';
@@ -389,6 +382,7 @@ const SourcesGroup = React.memo(function SourcesGroup({
   limit?: number;
 }) {
   const localize = useLocalize();
+  const { openPanel } = useSourcesPanel();
 
   // Memoize source slicing for better performance
   const { visibleSources, remainingSources, hasMoreSources } = useMemo(() => {
@@ -401,78 +395,72 @@ const SourcesGroup = React.memo(function SourcesGroup({
     };
   }, [sources, limit]);
 
-  return (
-    <div className="scrollbar-none grid w-full grid-cols-4 gap-2 overflow-x-auto">
-      <OGDialog>
-        {visibleSources.map((source, i) => (
-          <div key={`source-${i}`} className="w-full min-w-[120px]">
-            <SourceItem source={source} />
-          </div>
-        ))}
-        {hasMoreSources && (
-          <OGDialogTrigger className="flex flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 hover:bg-surface-tertiary">
-            <div className="flex items-center gap-2">
-              <StackedFavicons sources={remainingSources} />
-              <span className="truncate text-xs font-medium text-text-secondary">
-                {localize('com_sources_more_sources', { count: remainingSources.length })}
+  const handleOpenPanel = useCallback(() => {
+    const allSources = [...visibleSources, ...remainingSources];
+    openPanel(
+      localize('com_sources_title'),
+      <div className="flex flex-col gap-2 px-3 py-2">
+        {allSources.map((source, i) => (
+          <a
+            key={`panel-source-${i}`}
+            href={source.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-surface-tertiary"
+          >
+            <FaviconImage
+              domain={getCleanDomain(source.link)}
+              className="h-5 w-5 flex-shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h3 className="mb-0.5 truncate text-sm font-medium text-text-primary">
+                {source.title || source.link}
+              </h3>
+              {'snippet' in source && source.snippet && (
+                <p className="mb-1 line-clamp-2 text-xs text-text-secondary md:line-clamp-3">
+                  {source.snippet}
+                </p>
+              )}
+              <span className="text-xs text-text-secondary-alt">
+                {getCleanDomain(source.link)}
               </span>
             </div>
-          </OGDialogTrigger>
-        )}
-        <OGDialogContent className="flex max-h-[80vh] max-w-full flex-col overflow-hidden rounded-lg bg-surface-primary p-0 md:max-w-[600px]">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border-light bg-surface-primary px-3 py-2">
-            <OGDialogTitle className="text-base font-medium">
-              {localize('com_sources_title')}
-            </OGDialogTitle>
-            <OGDialogClose
-              className="rounded-full p-1 text-text-secondary hover:bg-surface-tertiary hover:text-text-primary"
-              aria-label={localize('com_ui_close')}
-            >
-              <X className="h-4 w-4" />
-            </OGDialogClose>
+            {'imageUrl' in source && source.imageUrl && (
+              <div className="hidden h-12 w-12 flex-shrink-0 overflow-hidden rounded-md sm:block">
+                <img
+                  src={source.imageUrl}
+                  alt={source.title || localize('com_sources_image_alt')}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
+          </a>
+        ))}
+      </div>,
+      'push', // Use push mode to push content aside
+    );
+  }, [visibleSources, remainingSources, openPanel, localize]);
+
+  return (
+    <div className="scrollbar-none grid w-full grid-cols-4 gap-2 overflow-x-auto">
+      {visibleSources.map((source, i) => (
+        <div key={`source-${i}`} className="w-full min-w-[120px]">
+          <SourceItem source={source} />
+        </div>
+      ))}
+      {hasMoreSources && (
+        <button
+          onClick={handleOpenPanel}
+          className="flex flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 hover:bg-surface-tertiary"
+        >
+          <div className="flex items-center gap-2">
+            <StackedFavicons sources={remainingSources} />
+            <span className="truncate text-xs font-medium text-text-secondary">
+              {localize('com_sources_more_sources', { count: remainingSources.length })}
+            </span>
           </div>
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            <div className="flex flex-col gap-2">
-              {[...visibleSources, ...remainingSources].map((source, i) => (
-                <a
-                  key={`more-source-${i}`}
-                  href={source.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-surface-tertiary"
-                >
-                  <FaviconImage
-                    domain={getCleanDomain(source.link)}
-                    className="h-5 w-5 flex-shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="mb-0.5 truncate text-sm font-medium text-text-primary">
-                      {source.title || source.link}
-                    </h3>
-                    {'snippet' in source && source.snippet && (
-                      <p className="mb-1 line-clamp-2 text-xs text-text-secondary md:line-clamp-3">
-                        {source.snippet}
-                      </p>
-                    )}
-                    <span className="text-xs text-text-secondary-alt">
-                      {getCleanDomain(source.link)}
-                    </span>
-                  </div>
-                  {'imageUrl' in source && source.imageUrl && (
-                    <div className="hidden h-12 w-12 flex-shrink-0 overflow-hidden rounded-md sm:block">
-                      <img
-                        src={source.imageUrl}
-                        alt={source.title || localize('com_sources_image_alt')}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
-                </a>
-              ))}
-            </div>
-          </div>
-        </OGDialogContent>
-      </OGDialog>
+        </button>
+      )}
     </div>
   );
 });
@@ -486,6 +474,8 @@ interface FilesGroupProps {
 
 function FilesGroup({ files, messageId, conversationId, limit = 3 }: FilesGroupProps) {
   const localize = useLocalize();
+  const { openPanel } = useSourcesPanel();
+
   // If there's only 1 remaining file, show it instead of "+1 files"
   const shouldShowAll = files.length <= limit + 1;
   const actualLimit = shouldShowAll ? files.length : limit;
@@ -493,64 +483,49 @@ function FilesGroup({ files, messageId, conversationId, limit = 3 }: FilesGroupP
   const remainingFiles = files.slice(actualLimit);
   const hasMoreFiles = remainingFiles.length > 0;
 
+  const handleOpenPanel = useCallback(() => {
+    const allFiles = [...visibleFiles, ...remainingFiles];
+    openPanel(
+      localize('com_sources_agent_files'),
+      <div className="flex flex-col gap-2 px-3 py-2">
+        {allFiles.map((file, i) => (
+          <FileItem
+            key={`panel-file-${i}`}
+            file={file}
+            messageId={messageId}
+            conversationId={conversationId}
+            expanded={true}
+          />
+        ))}
+      </div>,
+      'push', // Use push mode to push content aside
+    );
+  }, [visibleFiles, remainingFiles, openPanel, localize, messageId, conversationId]);
+
   return (
     <div className="scrollbar-none grid w-full grid-cols-4 gap-2 overflow-x-auto">
-      <OGDialog>
-        {visibleFiles.map((file, i) => (
-          <div key={`file-${i}`} className="w-full min-w-[120px]">
-            <FileItem file={file} messageId={messageId} conversationId={conversationId} />
-          </div>
-        ))}
-        {hasMoreFiles && (
-          <OGDialogTrigger className="flex flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 hover:bg-surface-tertiary">
-            <div className="flex items-center gap-2">
-              <div className="relative flex">
-                {remainingFiles.slice(0, 3).map((_, i) => (
-                  <File key={`file-icon-${i}`} className={`h-4 w-4 ${i > 0 ? 'ml-[-6px]' : ''}`} />
-                ))}
-              </div>
-              <span className="truncate text-xs font-medium text-text-secondary">
-                {localize('com_sources_more_files', { count: remainingFiles.length })}
-              </span>
-            </div>
-          </OGDialogTrigger>
-        )}
-        <OGDialogContent className="flex max-h-[80vh] max-w-full flex-col overflow-hidden rounded-lg bg-surface-primary p-0 md:max-w-[600px]">
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border-light bg-surface-primary px-3 py-2">
-            <OGDialogTitle className="text-base font-medium">
-              {localize('com_sources_agent_files')}
-            </OGDialogTitle>
-            <OGDialogClose
-              className="rounded-full p-1 text-text-secondary hover:bg-surface-tertiary hover:text-text-primary"
-              aria-label={localize('com_ui_close')}
-            >
-              <X className="h-4 w-4" />
-            </OGDialogClose>
-          </div>
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            <div className="flex flex-col gap-2">
-              {[...visibleFiles, ...remainingFiles].map((file, i) => (
-                <FileItem
-                  key={`more-file-${i}`}
-                  file={file}
-                  messageId={messageId}
-                  conversationId={conversationId}
-                  expanded={true}
-                />
+      {visibleFiles.map((file, i) => (
+        <div key={`file-${i}`} className="w-full min-w-[120px]">
+          <FileItem file={file} messageId={messageId} conversationId={conversationId} />
+        </div>
+      ))}
+      {hasMoreFiles && (
+        <button
+          onClick={handleOpenPanel}
+          className="flex flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 hover:bg-surface-tertiary"
+        >
+          <div className="flex items-center gap-2">
+            <div className="relative flex">
+              {remainingFiles.slice(0, 3).map((_, i) => (
+                <File key={`file-icon-${i}`} className={`h-4 w-4 ${i > 0 ? 'ml-[-6px]' : ''}`} />
               ))}
             </div>
+            <span className="truncate text-xs font-medium text-text-secondary">
+              {localize('com_sources_more_files', { count: remainingFiles.length })}
+            </span>
           </div>
-        </OGDialogContent>
-      </OGDialog>
-    </div>
-  );
-}
-
-function TabWithIcon({ label, icon }: { label: string; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 rounded-md px-3 py-1 text-sm transition-colors hover:bg-surface-tertiary hover:text-text-primary">
-      {React.cloneElement(icon as React.ReactElement, { size: 14 })}
-      <span>{label}</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -655,73 +630,46 @@ function SourcesComponent({ messageId, conversationId }: SourcesProps = {}) {
     };
   }, [searchResults, messageId]);
 
-  const tabs = useMemo(() => {
-    const availableTabs: Array<{ label: React.ReactNode; content: React.ReactNode }> = [];
+  // Check if we have any sources to display
+  const hasAnySources = organicSources.length || topStories.length || hasAnswerBox || images.length || (agentFiles.length && messageId && conversationId);
+  
+  if (!hasAnySources) return null;
 
-    if (organicSources.length || topStories.length || hasAnswerBox) {
-      availableTabs.push({
-        label: <TabWithIcon label={localize('com_sources_tab_all')} icon={<Globe />} />,
-        content: <SourcesGroup sources={[...organicSources, ...topStories]} />,
-      });
-    }
+  return (
+    <div role="region" aria-label={localize('com_sources_region_label')} className="mt-2">
+      {/* All Sources (organic + top stories) - 3 cards + 1 more card */}
+      {(organicSources.length || topStories.length || hasAnswerBox) && (
+        <div className="mb-3 mt-2">
+          <SourcesGroup sources={[...organicSources, ...topStories]} limit={3} />
+        </div>
+      )}
 
-    if (topStories.length) {
-      availableTabs.push({
-        label: <TabWithIcon label={localize('com_sources_tab_news')} icon={<Newspaper />} />,
-        content: <SourcesGroup sources={topStories} limit={3} />,
-      });
-    }
-
-    if (images.length) {
-      availableTabs.push({
-        label: <TabWithIcon label={localize('com_sources_tab_images')} icon={<Image />} />,
-        content: (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      {/* Images */}
+      {images.length > 0 && (
+        <div className="mb-3">
+          <h3 className="mb-2 text-sm font-medium text-text-primary">{localize('com_sources_tab_images')}</h3>
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2">
             {images.map((item, i) => (
-              <ImageItem key={`image-${i}`} image={item} />
+              <div key={`image-${i}`} className="flex-shrink-0 w-32">
+                <ImageItem image={item} />
+              </div>
             ))}
           </div>
-        ),
-      });
-    }
+        </div>
+      )}
 
-    if (agentFiles.length && messageId && conversationId) {
-      availableTabs.push({
-        label: <TabWithIcon label={localize('com_sources_tab_files')} icon={<File />} />,
-        content: (
+      {/* Files */}
+      {agentFiles.length > 0 && messageId && conversationId && (
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-text-primary">{localize('com_sources_tab_files')}</h3>
           <FilesGroup
             files={agentFiles}
             messageId={messageId}
             conversationId={conversationId}
-            limit={3}
+            limit={10}
           />
-        ),
-      });
-    }
-
-    return availableTabs;
-  }, [
-    organicSources,
-    topStories,
-    images,
-    hasAnswerBox,
-    agentFiles,
-    messageId,
-    conversationId,
-    localize,
-  ]);
-
-  if (!tabs.length) return null;
-
-  return (
-    <div role="region" aria-label={localize('com_sources_region_label')}>
-      <AnimatedTabs
-        tabs={tabs}
-        containerClassName="flex min-w-full mb-4"
-        tabListClassName="flex items-center mb-2 border-b border-border-light overflow-x-auto"
-        tabPanelClassName="w-full overflow-x-auto scrollbar-none md:mx-0 md:px-0"
-        tabClassName="flex items-center whitespace-nowrap text-xs font-medium text-token-text-secondary px-1 pt-2 pb-1 border-b-2 border-transparent data-[state=active]:text-text-primary outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-      />
+        </div>
+      )}
     </div>
   );
 }

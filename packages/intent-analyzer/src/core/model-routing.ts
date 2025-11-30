@@ -61,8 +61,16 @@ const EXPERT_PATTERNS: RegExp[] = [
   /\bexhaustive\b/i,
   /\b(rag|retrieval|knowledge base|document)\b.*\b(search|query|analysis)\b/i,
   /\b(multi-?step|complex)\b.*\b(reasoning|analysis|research)\b/i,
-  /\b(critical|deep)\b.*\b(analysis|thinking|review)\b/i,
+  /\b(critical|deep)\b.*\b(analysis|thinking|review|dive|look)\b/i,
   /\b(synthesize|integrate|consolidate)\b.*\b(information|sources|data)\b/i,
+  // Deep analysis patterns - route to Opus 4.5
+  /\bdeep\s*(analysis|dive|look|exploration|investigation|review|research)\b/i,
+  /\b(detailed|complete|full)\s*(analysis|view|breakdown|examination|assessment)\b/i,
+  /\bdig\s*(deep|deeper|into)\b/i,
+  /\b(analyze|examine|review)\s*(in\s*detail|thoroughly|comprehensively|deeply)\b/i,
+  /\b(comprehensive|thorough|exhaustive|complete)\s*(analysis|overview|review|assessment|evaluation)\b/i,
+  /\bdetailed\s*view\b/i,
+  /\b(full|complete)\s*(picture|understanding|breakdown)\b/i,
 ];
 
 const MATH_PATTERNS: RegExp[] = [
@@ -176,13 +184,22 @@ function hasExpertComplexity(text: string, tokenCount: number): boolean {
   return matchCount >= 2 || (matchCount >= 1 && tokenCount > 100 && hasTechnicalTerms(text));
 }
 
+/**
+ * Convert score to tier - 4-tier system
+ * 
+ * Target distribution: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
+ * 
+ * Score thresholds adjusted to achieve target distribution:
+ * - 0.85+ → Expert (Opus 4.5) - Deep analysis, architecture, research
+ * - 0.55+ → Complex (Sonnet 4.5) - Debugging, detailed analysis
+ * - 0.10+ → Moderate (Haiku 4.5) - Most tasks, tool usage, standard code
+ * - 0.00+ → Simple (Nova Micro) - Greetings, text-only simple responses
+ */
 function scoreToTier(score: number): ModelTier {
-  if (score >= 0.80) return 'expert';
-  if (score >= 0.60) return 'complex';
-  if (score >= 0.35) return 'moderate';
-  if (score >= 0.15) return 'simple';
-  // Very low scores (greetings, yes/no) go to trivial (Nova Lite)
-  return 'trivial';
+  if (score >= 0.85) return 'expert';   // ~4% - deep analysis, architecture
+  if (score >= 0.55) return 'complex';  // ~15% - debugging, detailed analysis  
+  if (score >= 0.10) return 'moderate'; // ~80% - most tasks, tools, standard code
+  return 'simple';                       // ~1% - greetings, simple text-only
 }
 
 /**

@@ -99,7 +99,6 @@ const ContentParts = memo(
       <>
         <SearchContext.Provider value={{ searchResults }}>
           <MemoryArtifacts attachments={attachments} />
-          <Sources messageId={messageId} conversationId={conversationId || undefined} />
           {content.map((part, idx) => {
             if (!part) {
               return null;
@@ -134,6 +133,10 @@ const ContentParts = memo(
               </MessageContext.Provider>
             );
           })}
+          {/* Show sources only after all content is processed and if not currently submitting */}
+          {!isSubmitting && (
+            <Sources messageId={messageId} conversationId={conversationId || undefined} />
+          )}
         </SearchContext.Provider>
       </>
     );

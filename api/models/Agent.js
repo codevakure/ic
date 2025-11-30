@@ -5,7 +5,7 @@ const { ResourceType, SystemRoles, Tools, actionDelimiter } = require('librechat
 const { GLOBAL_PROJECT_NAME, EPHEMERAL_AGENT_ID, mcp_all, mcp_delimiter } =
   require('librechat-data-provider').Constants;
 const {
-  analyzeQuery,
+  routeQuery,
   analyzeUploadIntent,
   Tool,
   UploadIntent,
@@ -21,6 +21,8 @@ const {
 } = require('./Project');
 const { removeAllPermissions } = require('~/server/services/PermissionService');
 const { getMCPServerTools } = require('~/server/services/Config');
+const { getConvoFiles } = require('./Conversation');
+const { getFiles } = require('./File');
 const { Agent, AclEntry } = require('~/db/models');
 const { getActions } = require('./Action');
 
@@ -85,12 +87,16 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (spec != null && spec !== '') {
     modelSpec = modelSpecs?.find((s) => s.name === spec) || null;
   }
-  
+
   // Get agent config from app config
   const agentsConfig = req.config?.endpoints?.agents;
   const capabilities = agentsConfig?.capabilities ?? [];
-  const toolsAutoEnabled = agentsConfig?.toolsAutoEnabled ?? ['file_search', 'execute_code', 'artifacts'];
-  
+  const toolsAutoEnabled = agentsConfig?.toolsAutoEnabled ?? [
+    'file_search',
+    'execute_code',
+    'artifacts',
+  ];
+
   /** @type {TEphemeralAgent | null} */
   const ephemeralAgent = req.body.ephemeralAgent;
   const mcpServers = new Set(ephemeralAgent?.mcp);
@@ -100,12 +106,12 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
       mcpServers.add(mcpServer);
     }
   }
-  
+
   // Get query text and files from request body
   const queryText = req.body.text || '';
   const requestFiles = req.body.files || [];
-  
-  // Determine upload intents for attached files
+
+  // Determine upload intents for attached files (current message)
   const uploadIntents = [];
   for (const file of requestFiles) {
     // Try multiple property names for filename and mimetype
@@ -118,31 +124,58 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
       filename = pathParts[pathParts.length - 1];
     }
     const mimetype = file.type || file.mimetype || file.mimeType;
-    
+
     if (filename) {
       const intentResult = analyzeUploadIntent({
         filename: filename,
         mimetype: mimetype || 'application/octet-stream',
         size: file.bytes || file.size,
       });
-      logger.info(`[loadEphemeralAgent] File "${filename}" (${mimetype}) → intent: ${intentResult.intent}`);
       if (!uploadIntents.includes(intentResult.intent)) {
         uploadIntents.push(intentResult.intent);
       }
-    } else {
-      logger.warn(`[loadEphemeralAgent] File missing filename property. Keys: ${Object.keys(file).join(', ')}`);
     }
   }
-  
+
+  // Also check conversation files for tool determination (e.g., xlsx in conversation needs CODE_INTERPRETER)
+  // This ensures follow-up questions about existing files can use the right tools
+  const conversationId = req.body.conversationId;
+  if (conversationId && requestFiles.length === 0) {
+    try {
+      const convoFileIds = await getConvoFiles(conversationId);
+      if (convoFileIds.length > 0) {
+        const convoFiles = await getFiles({ file_id: { $in: convoFileIds } });
+        for (const file of convoFiles) {
+          if (file.filename) {
+            const intentResult = analyzeUploadIntent({
+              filename: file.filename,
+              mimetype: file.type || 'application/octet-stream',
+              size: file.bytes || file.size,
+            });
+            // Add conversation file intents (for follow-up questions about existing files)
+            if (!uploadIntents.includes(intentResult.intent)) {
+              uploadIntents.push(intentResult.intent);
+              logger.debug(
+                `[loadEphemeralAgent] Added ${intentResult.intent} intent from conversation file: ${file.filename}`,
+              );
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.debug(`[loadEphemeralAgent] Could not fetch conversation files: ${err.message}`);
+    }
+  }
+
   // Get intentAnalyzer config - check if autoToolSelection is enabled
   const intentAnalyzerConfig = req.config?.intentAnalyzer || {};
   const autoToolSelectionEnabled = intentAnalyzerConfig.autoToolSelection === true;
-  
+
   // Map auto-enabled capabilities to Tool enum
   const autoEnabledTools = toolsAutoEnabled
-    .map(cap => capabilityToTool(cap))
-    .filter(tool => tool !== null);
-  
+    .map((cap) => capabilityToTool(cap))
+    .filter((tool) => tool !== null);
+
   // Map user explicitly selected tools from ephemeralAgent
   const userSelectedTools = [];
   if (ephemeralAgent?.web_search === true) {
@@ -151,94 +184,70 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (ephemeralAgent?.artifacts === true || ephemeralAgent?.artifacts === 'default') {
     userSelectedTools.push(Tool.ARTIFACTS);
   }
-  
+
   // Available tools for intent analyzer = auto-enabled + user-selected ONLY
   // This ensures intent analyzer can only pick from tools that are either:
   // 1. Always enabled via toolsAutoEnabled config
   // 2. Explicitly selected by user in the UI
   const availableTools = [...new Set([...autoEnabledTools, ...userSelectedTools])];
-  
+
   // Determine which tools to use based on autoToolSelection config:
   // - If autoToolSelection: true → Run unified intent analyzer with LLM fallback
   // - If autoToolSelection: false → Use all toolsAutoEnabled + userSelected tools by default
   let intentResult;
   let unifiedResult = null; // Store unified result for model routing
-  
+
   if (autoToolSelectionEnabled) {
     // Use conversation history from request (already fetched by buildEndpointOption) or empty array
     const conversationHistory = req.conversationHistory || [];
-    
-    // Run unified intent analysis with LLM fallback for ambiguous queries
-    // This uses regex first (free, fast), then falls back to Nova Micro if confidence < 0.4
-    unifiedResult = await analyzeQuery({
-      query: queryText,
-      attachedFiles: uploadIntents.length > 0 ? {
-        files: requestFiles.map(f => {
-          // Extract filename from filepath if not directly available
-          let filename = f.filename || f.name || f.originalname;
-          if (!filename && f.filepath) {
-            const pathParts = f.filepath.split('/');
-            filename = pathParts[pathParts.length - 1];
-          }
-          return { 
-            filename: filename || 'unknown', 
-            mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream', 
-            size: f.bytes || f.size 
-          };
-        }),
-        uploadIntents,
-      } : undefined,
+
+    // Run unified routing - determines both tools AND model in one call
+    // Hierarchy: regex patterns → LLM classifier (if confidence < 0.4) → routing rules
+    unifiedResult = await routeQuery(queryText, {
+      provider: 'bedrock',
+      preset: 'costOptimized',
       availableTools,
       autoEnabledTools,
       userSelectedTools,
-      conversationHistory, // Pass conversation history to help LLM understand follow-ups
+      hasMcpServers: mcpServers.size > 0, // MCP tools require Claude models
       llmFallback: llmClassifierFallback, // Use Nova Micro when regex confidence is low
       fallbackThreshold: 0.4, // Trigger LLM if confidence < 40%
+      conversationHistory, // Pass conversation history to help LLM understand follow-ups
+      attachedFiles:
+        uploadIntents.length > 0
+          ? {
+              files: requestFiles.map((f) => {
+                let filename = f.filename || f.name || f.originalname;
+                if (!filename && f.filepath) {
+                  const pathParts = f.filepath.split('/');
+                  filename = pathParts[pathParts.length - 1];
+                }
+                return {
+                  filename: filename || 'unknown',
+                  mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream',
+                  size: f.bytes || f.size,
+                };
+              }),
+              uploadIntents,
+            }
+          : undefined,
     });
-    
-    // DEBUG: Log raw unified result
-    logger.info(`[loadEphemeralAgent] DEBUG unifiedResult.tools: ${JSON.stringify(unifiedResult.tools)}`);
-    
+
     // Extract tool selection result from unified result
-    intentResult = unifiedResult.tools;
-    
-    // Log if LLM fallback was used
-    if (unifiedResult.usedLlmFallback) {
-      logger.info(`[loadEphemeralAgent] Used LLM fallback for tool selection (regex confidence was low)`);
-    }
-    
-    logger.info(`[loadEphemeralAgent] autoToolSelection: ENABLED - running intent analysis`);
+    intentResult = unifiedResult.toolsResult;
   } else {
     // autoToolSelection is disabled - use all toolsAutoEnabled + userSelected tools by default
-    // This is the legacy behavior where tools are always included
     intentResult = {
-      tools: availableTools, // All auto-enabled + user-selected tools
+      tools: availableTools,
       confidence: 1.0,
       reasoning: 'autoToolSelection disabled - using all toolsAutoEnabled tools by default',
       contextPrompts: [],
     };
-    logger.info(`[loadEphemeralAgent] autoToolSelection: DISABLED - using all toolsAutoEnabled tools`);
   }
-  
-  logger.info(`[loadEphemeralAgent] ===== EPHEMERAL AGENT SETUP =====`);
-  logger.info(`[loadEphemeralAgent] Query: "${queryText.substring(0, 80)}..."`);
-  logger.info(`[loadEphemeralAgent] Files attached: ${requestFiles.length}`);
-  if (requestFiles.length > 0) {
-    logger.info(`[loadEphemeralAgent] File intents: ${uploadIntents.join(', ')}`);
-  }
-  logger.info(`[loadEphemeralAgent] Tools sent to analyzer: [${availableTools.map(t => toolToCapability(t)).join(', ')}]`);
-  logger.info(`[loadEphemeralAgent] Auto-enabled: [${autoEnabledTools.map(t => toolToCapability(t)).join(', ')}]`);
-  logger.info(`[loadEphemeralAgent] Intent result - picked: [${intentResult.tools.map(t => toolToCapability(t)).join(', ')}]`);
-  logger.info(`[loadEphemeralAgent] Intent reasoning: ${intentResult.reasoning}`);
-  
-  // Log clarification if detected
-  if (intentResult.clarificationPrompt) {
-    logger.info(`[loadEphemeralAgent] Clarification needed: "${intentResult.clarificationPrompt}"`);
-    logger.info(`[loadEphemeralAgent] Options: ${JSON.stringify(intentResult.clarificationOptions)}`);
-  }
+
   /** @type {string[]} */
   const tools = [];
-  
+
   // Add tools based on intent analysis (includes auto-enabled tools)
   for (const tool of intentResult.tools) {
     const capability = toolToCapability(tool);
@@ -251,7 +260,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
     // artifacts is handled separately via ephemeralAgent.artifacts
   }
-  
+
   // Legacy fallback: Also add tools based on modelSpec if not already added
   if (modelSpec?.executeCode === true && !tools.includes(Tools.execute_code)) {
     tools.push(Tools.execute_code);
@@ -282,51 +291,32 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
 
   // Build instructions from promptPrefix
   const instructions = req.body.promptPrefix || '';
-  
+
   // Handle artifacts - check if intent analyzer detected it or user explicitly enabled
   // Just set the artifacts mode here - initializeAgent will generate the prompt using generateArtifactsPrompt
-  const hasArtifactsIntent = intentResult.tools.some(t => toolToCapability(t) === 'artifacts');
+  const hasArtifactsIntent = intentResult.tools.some((t) => toolToCapability(t) === 'artifacts');
   const artifactsMode = ephemeralAgent?.artifacts;
-  
-  // MODEL ROUTING: Use the tier from unified analyzer (already computed during tool selection)
-  // The unified analyzer already determines: tools + model tier in ONE call
-  // No need for a second routeModel call!
+
+  // MODEL ROUTING: Use the model from unified router (already computed with all routing rules)
+  // The router handles: regex → LLM classifier → tool elevation → final model selection
   let finalModel = model;
-  
-  // Get model tier from unified result (if autoToolSelection was enabled)
-  if (autoToolSelectionEnabled && unifiedResult?.model?.tier) {
-    let tier = unifiedResult.model.tier;
-    
-    // Elevate tier if artifacts is detected (Nova Pro can't handle artifact format)
-    if (hasArtifactsIntent && (tier === 'trivial' || tier === 'simple')) {
-      tier = 'moderate';
-      logger.info(`[loadEphemeralAgent] Tier elevated to MODERATE for artifacts`);
-    }
-    
-    // Map tier to actual model ID
-    const tierToModel = {
-      'trivial': 'us.amazon.nova-lite-v1:0',
-      'simple': 'us.amazon.nova-pro-v1:0',
-      'moderate': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-      'complex': 'global.anthropic.claude-opus-4-5-20251101-v1:0',
-      'expert': 'us.anthropic.claude-opus-4-20250514-v1:0',
-    };
-    
-    const routedModel = tierToModel[tier] || model;
-    if (routedModel !== model) {
-      logger.info(`[loadEphemeralAgent] Model routed: ${model} -> ${routedModel} (tier: ${tier})`);
-      finalModel = routedModel;
-      // Update request for cost tracking
+  let actualTier = 'N/A';
+
+  // Get routed model from unified result (if autoToolSelection was enabled)
+  if (autoToolSelectionEnabled && unifiedResult?.model) {
+    finalModel = unifiedResult.model;
+    actualTier = unifiedResult.tier || 'N/A';
+
+    // Update request for cost tracking
+    if (finalModel !== model) {
       req.body.routedModel = true;
-      req.body.model = routedModel;
+      req.body.model = finalModel;
       if (req.body.endpointOption?.model_parameters) {
-        req.body.endpointOption.model_parameters.model = routedModel;
+        req.body.endpointOption.model_parameters.model = finalModel;
       }
     }
   }
-  
-  logger.info(`[loadEphemeralAgent] Final model: ${finalModel}`);
-  
+
   const result = {
     id: agent_id,
     instructions,
@@ -337,22 +327,24 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   };
 
   // If clarification is needed, store it on result - initializeAgent will prepend to instructions
-  // (instructions come FIRST in system prompt, before artifacts prompt)
   if (intentResult.clarificationPrompt) {
     result.clarificationPrompt = intentResult.clarificationPrompt;
     result.clarificationOptions = intentResult.clarificationOptions || [];
-    logger.info(`[loadEphemeralAgent] Clarification stored: "${intentResult.clarificationPrompt}"`);
   }
 
-  logger.info(`[loadEphemeralAgent] Final tools array: [${tools.join(', ')}]`);
-
-  // Set artifacts mode on result if enabled (initializeAgent will add the prompt)
-  // Use 'default' mode to match ArtifactModes.DEFAULT - this ensures generateArtifactsPrompt works correctly
+  // Set artifacts mode on result if enabled
   if (hasArtifactsIntent || (artifactsMode != null && artifactsMode)) {
     result.artifacts = artifactsMode || 'default';
-    logger.info(`[loadEphemeralAgent] Artifacts enabled (mode: ${result.artifacts})`);
   }
-  
+
+  // Single consolidated log line with all key info
+  const toolsStr = tools.join(', ') || 'none';
+  const artifactsStr = result.artifacts ? `, Artifacts: ${result.artifacts}` : '';
+  const method = unifiedResult?.usedLlmFallback ? 'LLM' : 'regex';
+  logger.info(
+    `[Router] Tools: [${toolsStr}] | Model: ${finalModel.split('.').pop()?.replace('-v1:0', '') || finalModel} | Tier: ${actualTier.toUpperCase()} | Method: ${method}${artifactsStr}`,
+  );
+
   return result;
 };
 

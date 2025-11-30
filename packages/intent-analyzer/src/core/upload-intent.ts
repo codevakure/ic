@@ -123,30 +123,23 @@ export function analyzeUploadIntent(file: FileInfo): UploadIntentResult {
   const extension = getExtension(file.filename);
   const mimetype = file.mimetype.toLowerCase();
 
-  console.log(`[IntentAnalyzer:Upload] File: ${file.filename}, ext: ${extension}, mime: ${mimetype}`);
-
   // Check by extension first (most reliable for our use case)
   if (extension && EXTENSION_MAP[extension]) {
-    const result = { intent: EXTENSION_MAP[extension], confidence: 0.95 };
-    console.log(`[IntentAnalyzer:Upload] Matched by extension → ${result.intent} (confidence: ${result.confidence})`);
-    return result;
+    return { intent: EXTENSION_MAP[extension], confidence: 0.95 };
   }
 
   // Fallback to MIME type
   for (const { pattern, intent } of MIME_PATTERNS) {
     if (typeof pattern === 'string') {
       if (mimetype.includes(pattern)) {
-        console.log(`[IntentAnalyzer:Upload] Matched by MIME pattern '${pattern}' → ${intent} (confidence: 0.85)`);
         return { intent, confidence: 0.85 };
       }
     } else if (pattern.test(mimetype)) {
-      console.log(`[IntentAnalyzer:Upload] Matched by MIME regex → ${intent} (confidence: 0.85)`);
       return { intent, confidence: 0.85 };
     }
   }
 
   // Default to FILE_SEARCH for unknown types (RAG can handle most text)
-  console.log(`[IntentAnalyzer:Upload] No match, defaulting to FILE_SEARCH (confidence: 0.5)`);
   return {
     intent: UploadIntent.FILE_SEARCH,
     confidence: 0.5,

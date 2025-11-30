@@ -372,30 +372,6 @@ function detectExplicitToolRequests(query: string): Tool[] {
 }
 
 /**
- * Context prompts to inject based on tool selection
- * 
- * IMPORTANT: These prompts emphasize that tools are OPTIONAL.
- * The LLM should use its own knowledge first and only invoke tools when truly needed.
- */
-const CONTEXT_PROMPTS: Record<Tool, string> = {
-  [Tool.FILE_SEARCH]: `You have access to file search capability. Only use it when the user's question specifically requires information from their uploaded documents. If you can answer from your own knowledge or the question is general, respond directly without using file search. When you do use it, cite your sources.`,
-  [Tool.CODE_INTERPRETER]: `You have access to a code interpreter. Only use it when the task genuinely requires code execution, data analysis, calculations, or visualizations that cannot be done mentally. For simple questions or explanations, respond directly from your knowledge. Files are available at /mnt/data/ when needed.`,
-  [Tool.ARTIFACTS]: `You can create interactive artifacts (React components, HTML pages, visualizations). Only use this when the user explicitly wants a visual/interactive output. For explanations, code examples in text, or general questions, respond normally without creating artifacts.`,
-  [Tool.WEB_SEARCH]: `You have access to web search. Only use it when you need current/real-time information that you don't have, or when the user explicitly asks you to search online. For questions you can answer from your training knowledge, respond directly without searching.`,
-};
-
-/**
- * File-based context prompts
- * 
- * These are added when files are attached - but still emphasize that tool use is optional.
- */
-const FILE_CONTEXT_PROMPTS: Record<UploadIntent, string> = {
-  [UploadIntent.IMAGE]: `The user has attached images. Analyze them using your vision capabilities if the question relates to the images.`,
-  [UploadIntent.FILE_SEARCH]: `The user has attached documents (PDF, text, etc.). If their question requires information from these documents, use file search. For general questions unrelated to the documents, respond from your knowledge.`,
-  [UploadIntent.CODE_INTERPRETER]: `The user has attached data files (spreadsheet, CSV, code files). If they ask you to analyze or process this data, the files are available at /mnt/data/. For questions about the data that don't require processing, you can respond directly.`,
-};
-
-/**
  * Patterns that indicate the query is referencing uploaded/attached documents
  * When these match AND files are attached, we should prefer FILE_SEARCH over WEB_SEARCH
  */
@@ -464,42 +440,28 @@ function scoreQueryIntent(query: string, tool: Tool, hasAttachments: boolean = f
  * Determine tools from attached files
  */
 function getToolsFromAttachments(attachedFiles?: AttachedFileContext): Tool[] {
-  if (!attachedFiles) {
-    console.log(`[IntentAnalyzer:Query] No attachedFiles provided`);
+  if (!attachedFiles || !attachedFiles.uploadIntents?.length) {
     return [];
   }
-  
-  if (!attachedFiles.uploadIntents?.length) {
-    console.log(`[IntentAnalyzer:Query] attachedFiles provided but no uploadIntents: ${JSON.stringify(attachedFiles)}`);
-    return [];
-  }
-
-  console.log(`[IntentAnalyzer:Query] Processing ${attachedFiles.uploadIntents.length} upload intents: [${attachedFiles.uploadIntents.join(', ')}]`);
 
   const tools: Tool[] = [];
   
   for (const intent of attachedFiles.uploadIntents) {
-    console.log(`[IntentAnalyzer:Query] Mapping intent "${intent}" to tool...`);
     switch (intent) {
       case UploadIntent.FILE_SEARCH:
         if (!tools.includes(Tool.FILE_SEARCH)) {
           tools.push(Tool.FILE_SEARCH);
-          console.log(`[IntentAnalyzer:Query] → Added FILE_SEARCH tool`);
         }
         break;
       case UploadIntent.CODE_INTERPRETER:
         if (!tools.includes(Tool.CODE_INTERPRETER)) {
           tools.push(Tool.CODE_INTERPRETER);
-          console.log(`[IntentAnalyzer:Query] → Added CODE_INTERPRETER tool`);
         }
         break;
       // Images don't map to a tool - they use vision built into the model
-      default:
-        console.log(`[IntentAnalyzer:Query] → No tool mapping for intent "${intent}"`);
     }
   }
 
-  console.log(`[IntentAnalyzer:Query] Tools from attachments: [${tools.join(', ')}]`);
   return tools;
 }
 
@@ -618,18 +580,7 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     userSelectedTools = [],
   } = context;
   
-  console.log(`[IntentAnalyzer:Query] ========== TOOL SELECTION START ==========`);
-  console.log(`[IntentAnalyzer:Query] Query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`);
-  console.log(`[IntentAnalyzer:Query] Available tools: [${availableTools.join(', ')}]`);
-  console.log(`[IntentAnalyzer:Query] Auto-enabled tools: [${autoEnabledTools.join(', ')}]`);
-  console.log(`[IntentAnalyzer:Query] User-selected tools: [${userSelectedTools.join(', ')}]`);
-  if (attachedFiles?.files?.length) {
-    console.log(`[IntentAnalyzer:Query] Attached files: ${attachedFiles.files.map(f => f.filename).join(', ')}`);
-    console.log(`[IntentAnalyzer:Query] File upload intents: [${attachedFiles.uploadIntents?.join(', ')}]`);
-  }
-  
   const selectedTools: Tool[] = [];
-  const contextPrompts: string[] = [];
   const reasoning: string[] = [];
 
   // Step 1: Add user explicitly selected tools (highest priority)
@@ -642,13 +593,10 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
 
   // Step 1.5: Detect explicit tool requests in query (e.g., "use code interpreter", "with file search")
   const explicitlyRequestedTools = detectExplicitToolRequests(query);
-  if (explicitlyRequestedTools.length > 0) {
-    console.log(`[IntentAnalyzer:Query] Explicit tool requests detected: [${explicitlyRequestedTools.join(', ')}]`);
-    for (const tool of explicitlyRequestedTools) {
-      if (availableTools.includes(tool) && !selectedTools.includes(tool)) {
-        selectedTools.push(tool);
-        reasoning.push(`${toolToCapability(tool)} explicitly requested in query`);
-      }
+  for (const tool of explicitlyRequestedTools) {
+    if (availableTools.includes(tool) && !selectedTools.includes(tool)) {
+      selectedTools.push(tool);
+      reasoning.push(`${toolToCapability(tool)} explicitly requested in query`);
     }
   }
 
@@ -661,36 +609,17 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     }
   }
 
-  // Add file context prompts
-  if (attachedFiles?.uploadIntents) {
-    for (const intent of attachedFiles.uploadIntents) {
-      const prompt = FILE_CONTEXT_PROMPTS[intent];
-      if (prompt && !contextPrompts.includes(prompt)) {
-        contextPrompts.push(prompt);
-      }
-    }
-  }
-
   // Step 3: Analyze query intent for all available tools
   // Check if query references documents (affects web search scoring when files are attached)
   const hasAttachments = attachmentTools.length > 0;
   const referencesDocuments = queryReferencesDocuments(query);
   
-  if (hasAttachments && referencesDocuments) {
-    console.log(`[IntentAnalyzer:Query] Query references documents with files attached - suppressing web search`);
-  }
-  
-  console.log(`[IntentAnalyzer:Query] --- Keyword Pattern Matching ---`);
   const queryScores = new Map<Tool, number>();
   for (const tool of availableTools) {
     const score = scoreQueryIntent(query, tool, hasAttachments, referencesDocuments);
     if (score > 0) {
       queryScores.set(tool, score);
-      console.log(`[IntentAnalyzer:Query] Pattern score for ${tool}: ${score.toFixed(2)}`);
     }
-  }
-  if (queryScores.size === 0) {
-    console.log(`[IntentAnalyzer:Query] No keyword patterns matched`);
   }
 
   // Step 4: CONSERVATIVE tool selection for auto-enabled tools
@@ -721,14 +650,6 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     }
   }
 
-  // Step 6: Add context prompts for all selected tools
-  for (const tool of selectedTools) {
-    const prompt = CONTEXT_PROMPTS[tool];
-    if (prompt && !contextPrompts.includes(prompt)) {
-      contextPrompts.push(prompt);
-    }
-  }
-
   // Calculate overall confidence based on the best signal
   const userSelectedConfidence = userSelectedTools.length > 0 ? 1.0 : 0;
   const attachmentConfidence = attachmentTools.length > 0 ? 0.9 : 0;
@@ -737,23 +658,9 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   const bestSelectedScore = selectedToolScores.length > 0 ? Math.max(...selectedToolScores) : 0;
   const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestSelectedScore, 0.3);
 
-  console.log(`[IntentAnalyzer:Query] --- FINAL RESULT ---`);
-  console.log(`[IntentAnalyzer:Query] Selected tools: [${selectedTools.map(t => toolToCapability(t)).join(', ')}]`);
-  console.log(`[IntentAnalyzer:Query] Confidence: ${confidence.toFixed(2)}`);
-  console.log(`[IntentAnalyzer:Query] Context prompts added: ${contextPrompts.length}`);
-  if (contextPrompts.length > 0) {
-    contextPrompts.forEach((p, i) => console.log(`[IntentAnalyzer:Query] Prompt ${i + 1}: "${p.substring(0, 80)}..."`));
-  }
-  console.log(`[IntentAnalyzer:Query] Reasoning: ${reasoning.join('; ') || 'No specific tool intent detected'}`);
-
   // Step 7: Check if regex selected multiple tools - ask for clarification
   // This is for HIGH confidence cases. LOW confidence will fall back to LLM.
   const multiToolClarification = generateMultiToolClarification(query, selectedTools, confidence);
-  if (multiToolClarification) {
-    console.log(`[IntentAnalyzer:Query] Multi-tool clarification: "${multiToolClarification.prompt}"`);
-  }
-
-  console.log(`[IntentAnalyzer:Query] ========== TOOL SELECTION END ==========`);
 
   // Return result with optional clarification
   // - If confidence >= 0.4 and multiple tools: regex handles clarification
@@ -761,7 +668,6 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   return {
     tools: selectedTools,
     confidence,
-    contextPrompts,
     reasoning: reasoning.join('; ') || 'No specific tool intent detected',
     ...(multiToolClarification && {
       clarificationPrompt: multiToolClarification.prompt,
@@ -776,19 +682,4 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
 export function shouldUseTool(tool: Tool, context: QueryContext): boolean {
   const result = analyzeQueryIntent(context);
   return result.tools.includes(tool);
-}
-
-/**
- * Get all context prompts for selected tools
- * Used to inject into the system prompt before execution
- */
-export function getToolContextPrompts(tools: Tool[]): string[] {
-  const prompts: string[] = [];
-  for (const tool of tools) {
-    const prompt = CONTEXT_PROMPTS[tool];
-    if (prompt) {
-      prompts.push(prompt);
-    }
-  }
-  return prompts;
 }

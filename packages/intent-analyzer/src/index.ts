@@ -5,15 +5,18 @@
  * 
  * Routes every query to:
  * 1. The right TOOLS (web_search, execute_code, file_search, artifacts)
- * 2. The right MODEL (5-tier system: trivial → expert)
+ * 2. The right MODEL (4-tier system: simple → moderate → complex → expert)
  *
- * ## 5-TIER MODEL SYSTEM (by cost):
- * - trivial:  Nova Micro      ($0.035/$0.14)  - Greetings only, no tools
- * - simple:   Llama 3.3 70B   ($0.72/$0.72)   - Basic tool calling
- * - moderate: Nova Pro        ($0.80/$3.20)   - Multi-step reasoning
- * - complex:  Haiku 4.5       ($1.00/$5.00)   - Artifacts, UI, code
- * - advanced: Sonnet 4.5      ($3.00/$15.00)  - Debugging, analysis
- * - expert:   Opus 4.5        ($15.00/$75.00) - Architecture, research
+ * ## 4-TIER MODEL SYSTEM (target distribution):
+ * - simple   (~1%)  - Nova Micro   ($0.035/$0.14)  - Greetings, text-only simple responses
+ * - moderate (~80%) - Haiku 4.5    ($1/$5)         - Most tasks, tool usage, standard code
+ * - complex  (~15%) - Sonnet 4.5   ($3/$15)        - Debugging, detailed analysis
+ * - expert   (~4%)  - Opus 4.5     ($15/$75)       - Deep analysis, architecture, research
+ * 
+ * ## Routing Rules:
+ * - Tool usage → Haiku 4.5 minimum (Claude models handle tools better)
+ * - Deep analysis requests → Opus 4.5
+ * - Text-only simple queries → Nova Micro allowed
  * 
  * ## Quick Start
  * ```typescript
@@ -21,14 +24,14 @@
  * 
  * const result = await routeQuery('What are booming stocks today?', {
  *   provider: 'bedrock',
- *   preset: 'costOptimized',
+ *   preset: 'premium',
  *   availableTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
  *   llmFallback: async (prompt) => callNovaMicro(prompt),
  * });
  * 
  * console.log(result.tools);  // ['web_search']
- * console.log(result.model);  // 'us.meta.llama3-3-70b-instruct-v1:0'
- * console.log(result.tier);   // 'simple'
+ * console.log(result.model);  // 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+ * console.log(result.tier);   // 'moderate'
  * ```
  * 
  * ## Modules
@@ -65,7 +68,6 @@ export {
   shouldUseTool,
   capabilityToTool,
   toolToCapability,
-  getToolContextPrompts,
   // Model Routing
   scoreQueryComplexity,
   getTierFromScore,
