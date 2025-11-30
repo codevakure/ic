@@ -204,6 +204,15 @@ export const baseEndpointSchema = z.object({
     .optional(),
   titleEndpoint: z.string().optional(),
   titlePromptTemplate: z.string().optional(),
+  // Custom branding - available for all endpoints
+  iconURL: z.string().optional(),
+  modelDisplayLabel: z.string().optional(),
+  // Extended branding options for system prompts
+  endpointCustomLabel: z.string().optional(),
+  endpointCustomDescription: z.string().optional(),
+  // Router model - cheap/fast model for tool selection & complexity routing when patterns don't match
+  // Used as fallback by both intent-analyzer (tools) and llm-router (model tier)
+  routerModel: z.string().optional(),
 });
 
 export type TBaseEndpoint = z.infer<typeof baseEndpointSchema>;
@@ -640,7 +649,7 @@ export type TStartupConfig = {
   turnstile?: TTurnstileConfig;
   balance?: TBalanceConfig;
   transactions?: TTransactionsConfig;
-  llmRouter?: TLLMRouterConfig;
+  intentAnalyzer?: TIntentAnalyzerConfig;
   discordLoginEnabled: boolean;
   facebookLoginEnabled: boolean;
   githubLoginEnabled: boolean;
@@ -842,28 +851,59 @@ export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
-// LLM Router Schema - for automatic model selection based on prompt complexity
-// Uses rule-based pattern matching to route simple queries to cheap models (Nova Lite)
-// and complex queries to powerful models (Claude Sonnet 4.5)
-const llmRouterEndpointSchema = z.object({
+// =============================================================================
+// Intent Analyzer Schema - Unified Tool Selection + Model Routing
+// Uses @librechat/intent-analyzer package
+// =============================================================================
+const intentAnalyzerEndpointSchema = z.object({
+  /** Enable intent analyzer for this endpoint */
   enabled: z.boolean().optional().default(false),
-  threshold: z.number().min(0).max(1).optional(),
-  preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional(),
-  strongModel: z.string().optional(),
-  weakModel: z.string().optional(),
+  /** 
+   * Model used for LLM classification when regex patterns don't match.
+   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
+   */
+  classifierModel: z.string().optional(),
 });
 
-export const llmRouterSchema = z.object({
-  enabled: z.boolean().optional().default(false),
-  // Threshold: 0.35 recommended. Lower = more queries to strong model, Higher = more to weak model
-  // Simple greetings score ~0.05, complex coding tasks score ~0.5-0.7
-  threshold: z.number().min(0).max(1).optional().default(0.35),
-  // Preset model pairs: 'costOptimized' (Sonnet 4.5 + Nova Lite), 'premium' (Sonnet 4.5 + Haiku 4.5), 'ultraCheap' (Haiku 4.5 + Nova Micro)
+export const intentAnalyzerSchema = z.object({
+  /** 
+   * Enable automatic tool selection based on query intent.
+   * When true: Tools are selected based on query analysis (smart selection)
+   * When false: toolsAutoEnabled tools are always included for every request
+   */
+  autoToolSelection: z.boolean().optional().default(false),
+  
+  /**
+   * Enable 5-tier model routing based on query complexity.
+   * Routes simple queries to cheap models, complex queries to powerful models.
+   * 
+   * Tiers: TRIVIAL (Nova Lite) → SIMPLE (Nova Pro) → MODERATE (Haiku) 
+   *        → COMPLEX (Sonnet) → EXPERT (Opus)
+   */
+  modelRouting: z.boolean().optional().default(false),
+  
+  /** 
+   * Preset determines the maximum model tier for routing:
+   * - 'premium': Routes up to Opus 4.5 (most capable, highest cost)
+   * - 'costOptimized': Routes up to Sonnet 4.5 (balanced)  
+   * - 'ultraCheap': Routes up to Haiku 4.5 (cheapest)
+   */
   preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional().default('costOptimized'),
-  endpoints: z.record(z.string(), llmRouterEndpointSchema).optional(),
+  
+  /** 
+   * Model used for LLM classification fallback when regex patterns don't match.
+   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
+   */
+  classifierModel: z.string().optional(),
+  
+  /** Enable verbose debug logging */
+  debug: z.boolean().optional().default(false),
+  
+  /** Per-endpoint configuration */
+  endpoints: z.record(z.string(), intentAnalyzerEndpointSchema).optional(),
 });
 
-export type TLLMRouterConfig = z.infer<typeof llmRouterSchema>;
+export type TIntentAnalyzerConfig = z.infer<typeof intentAnalyzerSchema>;
 
 export const configSchema = z.object({
   version: z.string(),
@@ -871,7 +911,8 @@ export const configSchema = z.object({
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
-  llmRouter: llmRouterSchema.optional(),
+  /** Unified intent analyzer configuration (tool selection + model routing) */
+  intentAnalyzer: intentAnalyzerSchema.optional(),
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
   includedTools: z.array(z.string()).optional(),
@@ -1102,7 +1143,9 @@ export const bedrockModels = [
   // 'cohere.command-light-text-v14', // no conversation history
   'cohere.command-r-v1:0',
   'cohere.command-r-plus-v1:0',
-  // Meta Llama models
+  // Meta Llama models (inference profiles with us. prefix)
+  'us.meta.llama3-3-70b-instruct-v1:0',
+  // Meta Llama models (direct)
   'meta.llama2-13b-chat-v1',
   'meta.llama2-70b-chat-v1',
   'meta.llama3-8b-instruct-v1:0',
@@ -1838,4 +1881,22 @@ export function getEndpointField<
     return undefined;
   }
   return config[property];
+}
+
+/**
+ * Gets the display label for an endpoint.
+ * Priority: modelDisplayLabel from config > alternateName > endpoint name
+ */
+export function getEndpointLabel(
+  endpointsConfig: TEndpointsConfig | undefined | null,
+  endpoint: EModelEndpoint | string | null | undefined,
+): string {
+  if (!endpoint) {
+    return '';
+  }
+  const modelDisplayLabel = getEndpointField(endpointsConfig, endpoint, 'modelDisplayLabel');
+  if (modelDisplayLabel) {
+    return modelDisplayLabel;
+  }
+  return (alternateName as Record<string, string>)[endpoint] ?? endpoint;
 }

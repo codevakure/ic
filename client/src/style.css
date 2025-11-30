@@ -1376,12 +1376,12 @@ button {
 .btn-primary {
   --tw-bg-opacity: 1;
   --tw-text-opacity: 1;
-  background-color: rgba(16, 163, 127, var(--tw-bg-opacity));
+  background-color: var(--blue-primary);
   color: rgba(255, 255, 255, var(--tw-text-opacity));
 }
 .btn-primary:hover {
   --tw-bg-opacity: 1;
-  background-color: rgba(26, 127, 100, var(--tw-bg-opacity));
+  background-color: var(--blue-primary-hover);
 }
 .btn-primary:focus {
   --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width)
@@ -1398,15 +1398,15 @@ button {
 }
 .btn-primary.focus-visible {
   --tw-ring-opacity: 1;
-  --tw-ring-color: rgba(25, 195, 125, var(--tw-ring-opacity));
+  --tw-ring-color: var(--blue-border);
 }
 .btn-primary:focus-visible {
   --tw-ring-opacity: 1;
-  --tw-ring-color: rgba(25, 195, 125, var(--tw-ring-opacity));
+  --tw-ring-color: var(--blue-border);
 }
 .btn-primary:disabled:hover {
   --tw-bg-opacity: 1;
-  background-color: rgba(16, 163, 127, var(--tw-bg-opacity));
+  background-color: var(--blue-primary);
 }
 .btn-secondary {
   --tw-border-opacity: 1;
@@ -2478,7 +2478,7 @@ html {
 .prose > ol > li > *:last-child,
 .markdown > ul > li > *:last-child,
 .markdown > ol > li > *:last-child {
-  margin-bottom: 1.25em;
+  margin-bottom: 0;
 }
 
 /* Ensure proper marker color */

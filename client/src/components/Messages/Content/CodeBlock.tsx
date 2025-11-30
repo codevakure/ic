@@ -135,7 +135,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const showOutput = hasOutput && showCodeOutput;
 
   return (
-    <div className="w-full rounded-md bg-gray-900 text-xs text-white/80">
+    <div className="w-full rounded-md bg-gray-900 text-xs text-white/80 mt-3">
       <CodeBar
         lang={lang}
         error={error}

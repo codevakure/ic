@@ -214,8 +214,8 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
           (conversationId == null || conversationId === Constants.NEW_CONVO) &&
           !isSubmitting &&
           conversation?.messages?.length === 0
-          ? 'transition-all duration-200 sm:mb-28'
-          : 'sm:mb-10',
+          ? 'transition-all duration-200 sm:mb-14'
+          : 'sm:mb-5',
       )}
     >
       <div className="relative flex h-full flex-1 items-stretch md:flex-col">

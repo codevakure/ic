@@ -13,8 +13,15 @@ const buildOptions = (endpoint, parsedBody) => {
     greeting,
     spec,
     artifacts,
+    model,
     ...model_parameters
   } = parsedBody;
+  
+  // Re-add model to model_parameters if it was destructured
+  if (model) {
+    model_parameters.model = model;
+  }
+  
   const endpointOption = removeNullishValues({
     endpoint,
     name,
@@ -30,7 +37,7 @@ const buildOptions = (endpoint, parsedBody) => {
   });
 
   if (typeof artifacts === 'string') {
-    endpointOption.artifactsPrompt = generateArtifactsPrompt({ endpoint, artifacts });
+    endpointOption.artifactsPrompt = generateArtifactsPrompt({ endpoint, artifacts, model });
   }
 
   return endpointOption;

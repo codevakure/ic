@@ -5,13 +5,14 @@ const { ResourceType, SystemRoles, Tools, actionDelimiter } = require('librechat
 const { GLOBAL_PROJECT_NAME, EPHEMERAL_AGENT_ID, mcp_all, mcp_delimiter } =
   require('librechat-data-provider').Constants;
 const {
-  analyzeQueryIntent,
+  analyzeQuery,
   analyzeUploadIntent,
   Tool,
   UploadIntent,
   capabilityToTool,
   toolToCapability,
 } = require('@librechat/intent-analyzer');
+const { llmClassifierFallback } = require('~/server/services/LLMRouter');
 const {
   removeAgentFromAllProjects,
   removeAgentIdsFromProject,
@@ -133,6 +134,10 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
   }
   
+  // Get intentAnalyzer config - check if autoToolSelection is enabled
+  const intentAnalyzerConfig = req.config?.intentAnalyzer || {};
+  const autoToolSelectionEnabled = intentAnalyzerConfig.autoToolSelection === true;
+  
   // Map auto-enabled capabilities to Tool enum
   const autoEnabledTools = toolsAutoEnabled
     .map(cap => capabilityToTool(cap))
@@ -153,29 +158,67 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   // 2. Explicitly selected by user in the UI
   const availableTools = [...new Set([...autoEnabledTools, ...userSelectedTools])];
   
-  // Run intent analysis
-  const intentResult = analyzeQueryIntent({
-    query: queryText,
-    attachedFiles: uploadIntents.length > 0 ? {
-      files: requestFiles.map(f => {
-        // Extract filename from filepath if not directly available
-        let filename = f.filename || f.name || f.originalname;
-        if (!filename && f.filepath) {
-          const pathParts = f.filepath.split('/');
-          filename = pathParts[pathParts.length - 1];
-        }
-        return { 
-          filename: filename || 'unknown', 
-          mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream', 
-          size: f.bytes || f.size 
-        };
-      }),
-      uploadIntents,
-    } : undefined,
-    availableTools,
-    autoEnabledTools,
-    userSelectedTools,
-  });
+  // Determine which tools to use based on autoToolSelection config:
+  // - If autoToolSelection: true → Run unified intent analyzer with LLM fallback
+  // - If autoToolSelection: false → Use all toolsAutoEnabled + userSelected tools by default
+  let intentResult;
+  let unifiedResult = null; // Store unified result for model routing
+  
+  if (autoToolSelectionEnabled) {
+    // Use conversation history from request (already fetched by buildEndpointOption) or empty array
+    const conversationHistory = req.conversationHistory || [];
+    
+    // Run unified intent analysis with LLM fallback for ambiguous queries
+    // This uses regex first (free, fast), then falls back to Nova Micro if confidence < 0.4
+    unifiedResult = await analyzeQuery({
+      query: queryText,
+      attachedFiles: uploadIntents.length > 0 ? {
+        files: requestFiles.map(f => {
+          // Extract filename from filepath if not directly available
+          let filename = f.filename || f.name || f.originalname;
+          if (!filename && f.filepath) {
+            const pathParts = f.filepath.split('/');
+            filename = pathParts[pathParts.length - 1];
+          }
+          return { 
+            filename: filename || 'unknown', 
+            mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream', 
+            size: f.bytes || f.size 
+          };
+        }),
+        uploadIntents,
+      } : undefined,
+      availableTools,
+      autoEnabledTools,
+      userSelectedTools,
+      conversationHistory, // Pass conversation history to help LLM understand follow-ups
+      llmFallback: llmClassifierFallback, // Use Nova Micro when regex confidence is low
+      fallbackThreshold: 0.4, // Trigger LLM if confidence < 40%
+    });
+    
+    // DEBUG: Log raw unified result
+    logger.info(`[loadEphemeralAgent] DEBUG unifiedResult.tools: ${JSON.stringify(unifiedResult.tools)}`);
+    
+    // Extract tool selection result from unified result
+    intentResult = unifiedResult.tools;
+    
+    // Log if LLM fallback was used
+    if (unifiedResult.usedLlmFallback) {
+      logger.info(`[loadEphemeralAgent] Used LLM fallback for tool selection (regex confidence was low)`);
+    }
+    
+    logger.info(`[loadEphemeralAgent] autoToolSelection: ENABLED - running intent analysis`);
+  } else {
+    // autoToolSelection is disabled - use all toolsAutoEnabled + userSelected tools by default
+    // This is the legacy behavior where tools are always included
+    intentResult = {
+      tools: availableTools, // All auto-enabled + user-selected tools
+      confidence: 1.0,
+      reasoning: 'autoToolSelection disabled - using all toolsAutoEnabled tools by default',
+      contextPrompts: [],
+    };
+    logger.info(`[loadEphemeralAgent] autoToolSelection: DISABLED - using all toolsAutoEnabled tools`);
+  }
   
   logger.info(`[loadEphemeralAgent] ===== EPHEMERAL AGENT SETUP =====`);
   logger.info(`[loadEphemeralAgent] Query: "${queryText.substring(0, 80)}..."`);
@@ -188,6 +231,11 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   logger.info(`[loadEphemeralAgent] Intent result - picked: [${intentResult.tools.map(t => toolToCapability(t)).join(', ')}]`);
   logger.info(`[loadEphemeralAgent] Intent reasoning: ${intentResult.reasoning}`);
   
+  // Log clarification if detected
+  if (intentResult.clarificationPrompt) {
+    logger.info(`[loadEphemeralAgent] Clarification needed: "${intentResult.clarificationPrompt}"`);
+    logger.info(`[loadEphemeralAgent] Options: ${JSON.stringify(intentResult.clarificationOptions)}`);
+  }
   /** @type {string[]} */
   const tools = [];
   
@@ -233,21 +281,68 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   }
 
   // Build instructions from promptPrefix
-  let instructions = req.body.promptPrefix || '';
+  const instructions = req.body.promptPrefix || '';
   
   // Handle artifacts - check if intent analyzer detected it or user explicitly enabled
   // Just set the artifacts mode here - initializeAgent will generate the prompt using generateArtifactsPrompt
   const hasArtifactsIntent = intentResult.tools.some(t => toolToCapability(t) === 'artifacts');
   const artifactsMode = ephemeralAgent?.artifacts;
   
+  // MODEL ROUTING: Use the tier from unified analyzer (already computed during tool selection)
+  // The unified analyzer already determines: tools + model tier in ONE call
+  // No need for a second routeModel call!
+  let finalModel = model;
+  
+  // Get model tier from unified result (if autoToolSelection was enabled)
+  if (autoToolSelectionEnabled && unifiedResult?.model?.tier) {
+    let tier = unifiedResult.model.tier;
+    
+    // Elevate tier if artifacts is detected (Nova Pro can't handle artifact format)
+    if (hasArtifactsIntent && (tier === 'trivial' || tier === 'simple')) {
+      tier = 'moderate';
+      logger.info(`[loadEphemeralAgent] Tier elevated to MODERATE for artifacts`);
+    }
+    
+    // Map tier to actual model ID
+    const tierToModel = {
+      'trivial': 'us.amazon.nova-lite-v1:0',
+      'simple': 'us.amazon.nova-pro-v1:0',
+      'moderate': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      'complex': 'us.anthropic.claude-sonnet-4-5-20250514-v1:0',
+      'expert': 'us.anthropic.claude-opus-4-20250514-v1:0',
+    };
+    
+    const routedModel = tierToModel[tier] || model;
+    if (routedModel !== model) {
+      logger.info(`[loadEphemeralAgent] Model routed: ${model} -> ${routedModel} (tier: ${tier})`);
+      finalModel = routedModel;
+      // Update request for cost tracking
+      req.body.routedModel = true;
+      req.body.model = routedModel;
+      if (req.body.endpointOption?.model_parameters) {
+        req.body.endpointOption.model_parameters.model = routedModel;
+      }
+    }
+  }
+  
+  logger.info(`[loadEphemeralAgent] Final model: ${finalModel}`);
+  
   const result = {
     id: agent_id,
     instructions,
     provider: endpoint,
     model_parameters,
-    model,
+    model: finalModel,
     tools,
   };
+
+  // If clarification is needed, store it on result - initializeAgent will prepend to instructions
+  // (instructions come FIRST in system prompt, before artifacts prompt)
+  if (intentResult.clarificationPrompt) {
+    result.clarificationPrompt = intentResult.clarificationPrompt;
+    result.clarificationOptions = intentResult.clarificationOptions || [];
+    logger.info(`[loadEphemeralAgent] Clarification stored: "${intentResult.clarificationPrompt}"`);
+  }
 
   logger.info(`[loadEphemeralAgent] Final tools array: [${tools.join(', ')}]`);
 

@@ -44,6 +44,7 @@ const { getFormattedMemories, deleteMemory, setMemory } = require('~/models');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { getProviderConfig } = require('~/server/services/Endpoints');
 const { createContextHandlers } = require('~/app/clients/prompts');
+const { generateBrandingPrompt } = require('~/app/clients/prompts/brandingPrompt');
 const { checkCapability } = require('~/server/services/Config');
 const BaseClient = require('~/app/clients/BaseClient');
 const { getRoleByName } = require('~/models/Role');
@@ -428,6 +429,22 @@ class AgentClient extends BaseClient {
         logger.error('[AgentClient] Failed to inject MCP instructions:', error);
       }
     }
+
+    // Generate and inject branding prompt with user context and timezone
+    // This provides consistent identity and behavior across all models
+    const appConfig = this.options.req.config;
+    // For agents, get config from the agent's provider (e.g., 'bedrock'), not 'agents' endpoint
+    const providerEndpoint = this.options.agent?.provider || this.options.endpoint;
+    const endpointConfig = appConfig?.endpoints?.[providerEndpoint];
+
+    const brandingPrompt = generateBrandingPrompt({
+      req: this.options.req,
+      endpointConfig,
+    });
+
+    // Prepend branding to system content for consistent model behavior
+    systemContent = brandingPrompt + '\n\n' + systemContent;
+    logger.debug('[AgentClient] Injected branding prompt');
 
     if (systemContent) {
       this.options.agent.instructions = systemContent;
@@ -814,19 +831,19 @@ class AgentClient extends BaseClient {
       const savings = originalTotalCost - actualTotalCost;
       const savingsPercent = originalTotalCost > 0 ? ((savings / originalTotalCost) * 100).toFixed(1) : 0;
       
-      logger.info('[LLMRouter] ========== ACTUAL USAGE METRICS ==========');
-      logger.info(`[LLMRouter] Original Model: ${originalModel}`);
-      logger.info(`[LLMRouter] Routed Model: ${actualModel}`);
-      logger.info(`[LLMRouter] Input Tokens: ${input_tokens}`);
-      logger.info(`[LLMRouter] Output Tokens: ${output_tokens}`);
-      logger.info(`[LLMRouter] Total Tokens: ${input_tokens + output_tokens}`);
-      logger.info('[LLMRouter] ---------- ACTUAL COSTS ----------');
-      logger.info(`[LLMRouter] Routed Input Cost: $${actualInputCost.toFixed(6)}`);
-      logger.info(`[LLMRouter] Routed Output Cost: $${actualOutputCost.toFixed(6)}`);
-      logger.info(`[LLMRouter] Routed Total Cost: $${actualTotalCost.toFixed(6)}`);
-      logger.info(`[LLMRouter] Original Would Have Cost: $${originalTotalCost.toFixed(6)}`);
-      logger.info(`[LLMRouter] SAVINGS: $${savings.toFixed(6)} (${savingsPercent}%)`);
-      logger.info('[LLMRouter] ==============================================');
+      logger.info('[IntentAnalyzer] ========== ACTUAL USAGE METRICS ==========');
+      logger.info(`[IntentAnalyzer] Original Model: ${originalModel}`);
+      logger.info(`[IntentAnalyzer] Routed Model: ${actualModel}`);
+      logger.info(`[IntentAnalyzer] Input Tokens: ${input_tokens}`);
+      logger.info(`[IntentAnalyzer] Output Tokens: ${output_tokens}`);
+      logger.info(`[IntentAnalyzer] Total Tokens: ${input_tokens + output_tokens}`);
+      logger.info('[IntentAnalyzer] ---------- ACTUAL COSTS ----------');
+      logger.info(`[IntentAnalyzer] Routed Input Cost: $${actualInputCost.toFixed(6)}`);
+      logger.info(`[IntentAnalyzer] Routed Output Cost: $${actualOutputCost.toFixed(6)}`);
+      logger.info(`[IntentAnalyzer] Routed Total Cost: $${actualTotalCost.toFixed(6)}`);
+      logger.info(`[IntentAnalyzer] Original Would Have Cost: $${originalTotalCost.toFixed(6)}`);
+      logger.info(`[IntentAnalyzer] SAVINGS: $${savings.toFixed(6)} (${savingsPercent}%)`);
+      logger.info('[IntentAnalyzer] ==============================================');
     }
   }
 

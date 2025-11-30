@@ -66,10 +66,28 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
     model = '',
     assistantName,
     agentName,
+    modelLabel,
   } = props;
 
+  // Helper to get display name with fallback
+  const getDisplayName = (defaultName: string) => modelLabel || defaultName;
+
+  // Helper to render custom icon from config URL
+  const renderCustomIcon = (iconSrc: string, altText: string) => (
+    <img 
+      src={iconSrc} 
+      alt={altText} 
+      className="h-full w-full object-contain"
+      style={{ width: size * 0.7, height: size * 0.7 }}
+    />
+  );
+
+  // Check if iconURL is a local asset (from config) vs http URL (avatar)
+  const isConfigIcon = iconURL && !iconURL.includes('http') && iconURL.startsWith('/');
+  const isAvatarIcon = iconURL && iconURL.includes('http');
+
   const assistantsIcon = {
-    icon: iconURL ? (
+    icon: isAvatarIcon ? (
       <div className="relative flex h-6 w-6 items-center justify-center">
         <div
           title={assistantName}
@@ -87,6 +105,8 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
           />
         </div>
       </div>
+    ) : isConfigIcon ? (
+      renderCustomIcon(iconURL, assistantName || 'Assistant')
     ) : (
       <div className="h-6 w-6">
         <div className="shadow-stroke flex h-6 w-6 items-center justify-center overflow-hidden rounded-full">
@@ -94,11 +114,12 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
         </div>
       </div>
     ),
-    name: endpoint,
+    name: getDisplayName(assistantName || 'Assistant'),
+    bg: isConfigIcon ? 'transparent' : undefined,
   };
 
   const agentsIcon = {
-    icon: iconURL ? (
+    icon: isAvatarIcon ? (
       <div className="relative flex h-6 w-6 items-center justify-center">
         <div
           title={agentName}
@@ -116,6 +137,8 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
           />
         </div>
       </div>
+    ) : isConfigIcon ? (
+      renderCustomIcon(iconURL, agentName || 'Agent')
     ) : (
       <div className="h-6 w-6">
         <div className="shadow-stroke flex h-6 w-6 items-center justify-center overflow-hidden rounded-full">
@@ -123,7 +146,8 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
         </div>
       </div>
     ),
-    name: endpoint,
+    name: getDisplayName(agentName || alternateName[EModelEndpoint.agents] as string),
+    bg: isConfigIcon ? 'transparent' : undefined,
   };
 
   const endpointIcons: {
@@ -133,37 +157,39 @@ const MessageEndpointIcon: React.FC<IconProps> = (props) => {
     [EModelEndpoint.agents]: agentsIcon,
     [EModelEndpoint.azureAssistants]: assistantsIcon,
     [EModelEndpoint.azureOpenAI]: {
-      icon: <AzureMinimalIcon size={size * 0.5555555555555556} />,
-      bg: 'linear-gradient(0.375turn, #61bde2, #4389d0)',
-      name: 'ChatGPT',
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Azure OpenAI') : <AzureMinimalIcon size={size * 0.5555555555555556} />,
+      bg: isConfigIcon ? 'transparent' : 'linear-gradient(0.375turn, #61bde2, #4389d0)',
+      name: getDisplayName('ChatGPT'),
     },
     [EModelEndpoint.openAI]: {
-      icon: <GPTIcon size={size * 0.5555555555555556} />,
-      bg: getOpenAIColor(model),
-      name: 'ChatGPT',
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'OpenAI') : <GPTIcon size={size * 0.5555555555555556} />,
+      bg: isConfigIcon ? 'transparent' : getOpenAIColor(model),
+      name: getDisplayName('ChatGPT'),
     },
     [EModelEndpoint.gptPlugins]: {
-      icon: <Plugin size={size * 0.7} />,
-      bg: `rgba(69, 89, 164, ${button === true ? 0.75 : 1})`,
-      name: 'Plugins',
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Plugins') : <Plugin size={size * 0.7} />,
+      bg: isConfigIcon ? 'transparent' : `rgba(69, 89, 164, ${button === true ? 0.75 : 1})`,
+      name: getDisplayName('Plugins'),
     },
     [EModelEndpoint.google]: {
-      icon: getGoogleIcon(model, size),
-      name: getGoogleModelName(model),
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Google') : getGoogleIcon(model, size),
+      bg: isConfigIcon ? 'transparent' : undefined,
+      name: getDisplayName(getGoogleModelName(model)),
     },
     [EModelEndpoint.anthropic]: {
-      icon: <AnthropicIcon size={size * 0.5555555555555556} />,
-      bg: '#d09a74',
-      name: 'Claude',
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Anthropic') : <AnthropicIcon size={size * 0.5555555555555556} />,
+      bg: isConfigIcon ? 'transparent' : '#d09a74',
+      name: getDisplayName('Claude'),
     },
     [EModelEndpoint.bedrock]: {
-      icon: <BedrockIcon className="icon-xl text-white" />,
-      bg: '#268672',
-      name: alternateName[EModelEndpoint.bedrock],
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Bedrock') : <BedrockIcon className="icon-xl text-white" />,
+      bg: isConfigIcon ? 'transparent' : '#268672',
+      name: getDisplayName(alternateName[EModelEndpoint.bedrock] as string),
     },
     [EModelEndpoint.custom]: {
-      icon: <CustomMinimalIcon size={size * 0.7} />,
-      name: 'Custom',
+      icon: isConfigIcon ? renderCustomIcon(iconURL, 'Custom') : <CustomMinimalIcon size={size * 0.7} />,
+      bg: isConfigIcon ? 'transparent' : undefined,
+      name: getDisplayName('Custom'),
     },
     null: { icon: <GPTIcon size={size * 0.7} />, bg: 'grey', name: 'N/A' },
     default: {

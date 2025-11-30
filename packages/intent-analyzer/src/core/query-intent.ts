@@ -161,18 +161,24 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(interactive|dynamic)\b.*\b(component|widget|dashboard|ui|interface|element|visualization)\b/i,
       // Render/display UI patterns
       /\b(render|display|show|present)\b.*\b(html|component|react|ui|interface|page|widget)\b/i,
-      // Build UI patterns
-      /\b(build|create|design)\b.*\b(ui|user\s*interface|dashboard|layout|mockup)\b/i,
+      // Build UI patterns - includes generate for dashboard creation
+      /\b(build|create|design|generate|make)\b.*\b(ui|user\s*interface|dashboard|layout|mockup)\b/i,
       // Web component patterns
       /\b(web\s*component|custom\s*element|html\s*element)\b/i,
       // SVG/Canvas patterns
       /\b(svg|canvas)\b.*\b(draw|render|create|generate)\b/i,
       // Form/input patterns
       /\b(create|build|make)\b.*\b(form|input|button|modal|dialog|dropdown|menu|nav)\b/i,
+      // Mermaid/diagram patterns - artifacts renders these
+      /\b(mermaid|flowchart|sequence\s*diagram|class\s*diagram|er\s*diagram|gantt)\b/i,
+      // Create diagram/chart patterns
+      /\b(create|build|make|generate|draw)\b.*\b(diagram|flowchart|chart|graph|visualization)\b/i,
+      // HTML page creation
+      /\b(create|build|make|generate)\b.*\b(html|webpage|web\s*page)\b/i,
     ],
     medium: [
-      // Generic component/UI creation
-      /\b(create|build|make|generate)\b.*\b(component|ui|interface|widget|element|view)\b/i,
+      // Generic component/UI creation - includes dashboard
+      /\b(create|build|make|generate)\b.*\b(component|ui|interface|widget|element|view|dashboard)\b/i,
       // Framework-specific keywords
       /\b(react|vue|angular|svelte|html|css)\b.*\b(component|element|page|view|template)\b/i,
       // Design patterns
@@ -183,6 +189,9 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(animate|animation|transition|motion|framer)\b/i,
       // Card/list patterns
       /\b(card|cards|list|grid|table)\b.*\b(component|layout|view)\b/i,
+      // Visualize patterns
+      /\b(visualize|visualise)\b.*\b(this|it|data|the)\b/i,
+      /\bhow\b.*\b(look|visuali[zs]e)\b/i,
     ],
     low: [
       // Generic interactive/dashboard mentions
@@ -191,6 +200,8 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(react|vue|angular|html|component)\b/i,
       // Visual/display keywords
       /\b(visual|display|render|show|present)\b/i,
+      // Diagram keywords alone
+      /\b(diagram|flowchart|visualization)\b/i,
     ],
   },
   [Tool.WEB_SEARCH]: {
@@ -198,18 +209,85 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       // Explicit web search requests
       /\b(search|look\s*up|find|google|bing)\b.*\b(on\s+the\s+)?(web|internet|online)\b/i,
       /\b(web|internet|online)\b.*\b(search|look\s*up|find|query)\b/i,
+      
       // Current/live information patterns
-      /\b(current|latest|recent|today|now|live|real.?time)\b.*\b(news|price|weather|events?|updates?|information|data|stock|market)\b/i,
+      /\b(current|latest|recent|today|now|live|real.?time)\b.*\b(news|price|weather|events?|updates?|information|data|stock|market|score|results?)\b/i,
+      
+      // "Current" questions about people, positions, states - inherently time-sensitive
+      /\b(who\s+is|who'?s)\b.*\b(current|the)\b.*\b(president|prime\s*minister|ceo|cfo|chairman|leader|mayor|governor|secretary|director)\b/i,
+      /\b(current|acting|incumbent)\b.*\b(president|prime\s*minister|ceo|cfo|chairman|leader|mayor|governor|secretary|director)\b/i,
+      /\b(who\s+(is|are)|what\s+is)\b.*\b(running|leading|winning|in\s+charge)\b/i,
+      
+      // Weather queries - inherently require real-time data
+      /\b(weather|forecast|temperature|humidity|rain|snow|sunny|cloudy|storm)\b.*\b(in|at|for|near|around)?\s*[A-Z][a-z]+/i,
+      /\b(what|how|check|get)\b.*\b(weather|forecast|temperature)\b/i,
+      /\b(is\s+it|will\s+it)\b.*\b(rain|raining|snow|snowing|sunny|hot|cold|warm|cool|humid|windy)\b/i,
+      /\b(how\s+)(hot|cold|warm|cool|humid|windy)\s+(is|are)\s+it\b/i,  // "How hot is it in Phoenix"
+      /\b(weather|forecast)\s+(for|in|at|near)\b/i,  // "Weather forecast for New York"
+      
+      // Stock/crypto price queries - inherently real-time
+      /\b(stock|share|crypto|bitcoin|ethereum|btc|eth|doge|solana|xrp)\s*(price|value|quote|ticker)?\b/i,
+      /\b(price|value|quote)\s*(of|for)\b.*\b(stock|share|crypto|bitcoin|ethereum|btc|eth)\b/i,
+      /\b(how\s+much\s+is|what\s+is\s+the\s+price)\b.*\b(stock|share|bitcoin|ethereum|crypto)\b/i,
+      
+      // Sports scores, results, standings - inherently real-time
+      /\b(score|scores|result|results|standing|standings|fixture|fixtures)\b.*\b(of|for|from)?\b/i,
+      /\b(latest|recent|current|live|final)\b.*\b(score|scores|result|results|game|match|standing)\b/i,
+      /\b(get|show|tell|what)\b.*\b(score|scores|result|results)\b/i,
+      /\b(who\s+won|who\s+is\s+winning|did\s+.+\s+win|final\s+score)\b/i,
+      /\b(how\s+did|how\s+is|how\s+are)\b.*\b(play|playing|do|doing)\b.*\b(game|match|today|yesterday|last\s+night)\b/i,
+      /\b(nfl|nba|mlb|nhl|premier\s*league|champions\s*league|world\s*cup|la\s*liga|bundesliga|serie\s*a|mls|ufc|f1|formula\s*1)\b/i,
+      
+      // Elections, politics, current events
+      /\b(election|elections|poll|polls|vote|voting|ballot)\b.*\b(results?|winner|leading|update)\b/i,
+      /\b(who\s+(is|are)\s+)?(winning|leading|ahead)\b.*\b(election|poll|race|primary)\b/i,
+      
       // Time-sensitive queries
       /\b(what\s+is|who\s+is|when\s+is|where\s+is|how\s+is)\b.*\b(happening|going\s+on|today|now|currently)\b/i,
+      
       // Real-time data patterns
       /\b(real.?time|live|up.?to.?the.?minute)\b.*\b(data|information|updates?|feed|stream)\b/i,
+      
       // Explicit year/date patterns (current events)
-      /\b(in\s+)?20\d{2}\b.*\b(news|events?|updates?|release|announcement)\b/i,
+      /\b(in\s+)?202[4-9]\b/i,  // Years 2024-2029 suggest current/recent events
+      /\b(this\s+)?(week|month|year)\b.*\b(news|events?|release|launch|announce)\b/i,
+      
       // Breaking news patterns
-      /\b(breaking|latest|trending|viral)\b.*\b(news|story|stories|headline)\b/i,
+      /\b(breaking|latest|trending|viral|just\s+happened|just\s+announced)\b/i,
+      
       // Current price/stock patterns
       /\b(current|today'?s?|live)\b.*\b(price|value|rate|stock|forex|crypto|bitcoin|ethereum)\b/i,
+      
+      // Product releases, updates, availability
+      /\b(release\s*date|launch\s*date|available|availability|coming\s+out|released)\b.*\b(when|new|latest)\b/i,
+      /\b(when\s+(is|does|will)|is\s+.+\s+out|has\s+.+\s+released)\b/i,
+      
+      // Company/business current info
+      /\b(stock|share|market\s*cap|revenue|earnings|quarterly|annual\s*report)\b.*\b(today|current|latest|recent)\b/i,
+      
+      // Travel and logistics - often need current info
+      /\b(flight|flights|train|bus)\b.*\b(status|delay|schedule|time|price|cost|book)\b/i,
+      /\b(traffic|road\s*conditions?|highway|route)\b.*\b(now|current|today)\b/i,
+      
+      // Events and schedules
+      /\b(when\s+is|schedule|scheduled|timing|time\s+of)\b.*\b(game|match|show|concert|event|meeting|conference|super\s*bowl|world\s*cup|olympics|finals?|playoff)\b/i,
+      /\b(what\s*(?:is|'s)\s+(?:on|happening|playing))\b.*\b(tonight|today|this\s+weekend|now)\b/i,
+      /\b(what\s+is)\b.*\b(happening|playing|on)\b.*\b(tonight|today|this\s+weekend|now)\b/i,
+      /\b(when\s+is)\b.*\b(the\s+)?(super\s*bowl|world\s*cup|olympics|world\s*series|nba\s*finals?|stanley\s*cup|championship)\b/i,
+      
+      // Currency and exchange rates - inherently real-time
+      /\b(exchange\s*rate|currency|forex)\b.*\b(current|today|now|live)\b/i,
+      /\b(current|today'?s?|live)\b.*\b(exchange\s*rate|currency|forex)\b/i,
+      /\b(convert|conversion)\b.*\b(usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen|currency)\b/i,
+      /\b(usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen)\b.*\b(to|into|in)\b.*\b(usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen)\b/i,
+      /\b(how\s+much\s+is)\b.*\b(in|to)\b.*\b(usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen)\b/i,
+      /\b(exchange\s*rate)\b.*\b(usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen)\b/i,
+      
+      // Temporal indicators - "yesterday", "last week", etc. suggest recent events
+      /\b(yesterday|last\s+(week|month|night)|this\s+(morning|week|month))\b.*\b(announce|happen(ed)?|release|news|update)\b/i,
+      /\b(announce|happen(ed)?|release|news|update)\b.*\b(yesterday|last\s+(week|month|night)|this\s+(morning|week|month))\b/i,
+      /\b(what|who)\b.*\b(happen(ed)?|announce[d]?|release[d]?)\b.*\b(yesterday|last\s+(week|month)|this\s+(week|month))\b/i,
+      /\b(recent|latest)\b.*\b(developments?|updates?|news|changes?)\b/i,
     ],
     medium: [
       // Generic search patterns
@@ -218,6 +296,8 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(news|article|blog|website|post|publication)\b/i,
       // Market/price with time context
       /\b(stock|price|market|weather|forex|crypto)\b.*\b(today|current|now|latest)\b/i,
+      // Weather-related terms without explicit location
+      /\b(weather|forecast|temperature|humidity)\b/i,
       // Recent updates patterns
       /\b(what\s*'?s|what\s+is)\b.*\b(new|latest|happening)\b/i,
       // External source patterns
@@ -225,7 +305,10 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       // URL/link patterns
       /\b(visit|check|open|go\s+to)\b.*\b(website|site|url|link|page)\b/i,
       // Social media patterns
-      /\b(twitter|x\.com|facebook|reddit|linkedin|instagram|tiktok)\b/i,
+      /\b(twitter|x\.com|facebook|reddit|linkedin|instagram|tiktok|youtube)\b/i,
+      // Generic "latest" or "current" questions
+      /\b(what|who|where|when|how)\b.*\b(current|latest|recent|now|today)\b/i,
+      /\b(current|latest|recent)\b.*\b(what|who|where|when|how)\b/i,
     ],
     low: [
       // Time-related keywords (might indicate need for current info)
@@ -313,14 +396,45 @@ const FILE_CONTEXT_PROMPTS: Record<UploadIntent, string> = {
 };
 
 /**
+ * Patterns that indicate the query is referencing uploaded/attached documents
+ * When these match AND files are attached, we should prefer FILE_SEARCH over WEB_SEARCH
+ */
+const DOCUMENT_REFERENCE_PATTERNS: RegExp[] = [
+  /\b(in\s+the\s+)?(document|file|pdf|attachment|upload|paper|report|contract|agreement)\b/i,
+  /\b(the|this|that|these|those|my|our)\s+(document|file|pdf|attachment|upload|paper|report)\b/i,
+  /\b(uploaded|attached|provided|given|shared)\s+(document|file|pdf|data|information)\b/i,
+  /\b(according\s+to|based\s+on|from|per)\s+(the\s+)?(document|file|pdf|attachment|report)\b/i,
+  /\b(in\s+)?(this|that|the)\s+(pdf|doc|file|attachment)\b/i,
+  /\bthe\s+(attached|uploaded|provided)\b/i,
+];
+
+/**
+ * Check if query references uploaded/attached documents
+ */
+function queryReferencesDocuments(query: string): boolean {
+  return DOCUMENT_REFERENCE_PATTERNS.some(pattern => pattern.test(query));
+}
+
+/**
  * Calculate intent score from query patterns
  * Uses tiered confidence: high (0.4), medium (0.25), low (0.1)
+ * 
+ * @param query - The user's query
+ * @param tool - The tool to score for
+ * @param hasAttachments - Whether the user has attached files
+ * @param referencesDocuments - Whether the query references documents
  */
-function scoreQueryIntent(query: string, tool: Tool): number {
+function scoreQueryIntent(query: string, tool: Tool, hasAttachments: boolean = false, referencesDocuments: boolean = false): number {
   const patterns = QUERY_PATTERNS[tool];
   if (!patterns) return 0;
   
   let score = 0;
+  
+  // If user has attachments AND references documents in query,
+  // suppress web search scoring (they're likely asking about their files)
+  if (tool === Tool.WEB_SEARCH && hasAttachments && referencesDocuments) {
+    return 0;
+  }
   
   // High confidence patterns
   for (const pattern of patterns.high) {
@@ -416,6 +530,77 @@ export function toolToCapability(tool: Tool): string {
 }
 
 /**
+ * Patterns that suggest visual/UI intent - passed to LLM for context
+ */
+const VISUAL_INTENT_PATTERNS = [
+  /\b(visuali[zs]e|visual|show|display)\b/i,
+  /\b(create|make|build|generate)\b.*\b(view|visual)\b/i,
+  /\bhow\b.*\b(look|appear)\b/i,
+  /\b(diagram|chart|graph)\b/i,
+];
+
+/**
+ * Patterns that suggest both artifacts and code_interpreter could work
+ */
+const MULTI_TOOL_AMBIGUOUS_PATTERNS = [
+  /\b(chart|graph|plot|visuali[zs]ation)\b/i, // Could be React chart or matplotlib
+  /\b(data|analyze|analysis)\b.*\b(visual|display|show)\b/i, // Could need code analysis + UI
+];
+
+/**
+ * Generate clarification prompt when REGEX selects multiple tools
+ * This is for HIGH confidence cases where regex is certain but tools conflict
+ * LOW confidence cases fall back to LLM which handles its own clarification
+ */
+function generateMultiToolClarification(
+  query: string,
+  selectedTools: Tool[],
+  confidence: number,
+): { prompt: string; options: string[] } | null {
+  // Only generate clarification if:
+  // 1. Multiple tools selected by regex
+  // 2. Confidence is reasonably high (>= 0.4) - otherwise LLM will handle it
+  if (selectedTools.length < 2 || confidence < 0.4) {
+    return null;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const hasArtifacts = selectedTools.some(t => t === Tool.ARTIFACTS);
+  const hasCodeInterpreter = selectedTools.some(t => t === Tool.CODE_INTERPRETER);
+  
+  // Case: Both artifacts and execute_code selected - ambiguous visualization
+  if (hasArtifacts && hasCodeInterpreter) {
+    const isChartRelated = MULTI_TOOL_AMBIGUOUS_PATTERNS.some(p => p.test(lowerQuery));
+    if (isChartRelated) {
+      return {
+        prompt: "I can create this visualization in different ways. Which would you prefer?",
+        options: [
+          "Interactive React component (web-based, shareable)",
+          "Python chart (matplotlib/seaborn, for data analysis)",
+          "Both: Analyze with Python, then create interactive UI",
+        ],
+      };
+    }
+  }
+
+  // Generic multi-tool clarification
+  const toolNames = selectedTools.map(t => {
+    switch (t) {
+      case Tool.ARTIFACTS: return 'UI component';
+      case Tool.CODE_INTERPRETER: return 'Python code';
+      case Tool.WEB_SEARCH: return 'web search';
+      case Tool.FILE_SEARCH: return 'document search';
+      default: return t;
+    }
+  });
+
+  return {
+    prompt: `I can help with this using multiple approaches. Which would you prefer?`,
+    options: toolNames.map(name => `Use ${name}`).concat(['Use all of them']),
+  };
+}
+
+/**
  * Analyze query to determine which tools to use
  * 
  * Priority order:
@@ -487,10 +672,18 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   }
 
   // Step 3: Analyze query intent for all available tools
+  // Check if query references documents (affects web search scoring when files are attached)
+  const hasAttachments = attachmentTools.length > 0;
+  const referencesDocuments = queryReferencesDocuments(query);
+  
+  if (hasAttachments && referencesDocuments) {
+    console.log(`[IntentAnalyzer:Query] Query references documents with files attached - suppressing web search`);
+  }
+  
   console.log(`[IntentAnalyzer:Query] --- Keyword Pattern Matching ---`);
   const queryScores = new Map<Tool, number>();
   for (const tool of availableTools) {
-    const score = scoreQueryIntent(query, tool);
+    const score = scoreQueryIntent(query, tool, hasAttachments, referencesDocuments);
     if (score > 0) {
       queryScores.set(tool, score);
       console.log(`[IntentAnalyzer:Query] Pattern score for ${tool}: ${score.toFixed(2)}`);
@@ -536,11 +729,13 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     }
   }
 
-  // Calculate overall confidence
+  // Calculate overall confidence based on the best signal
   const userSelectedConfidence = userSelectedTools.length > 0 ? 1.0 : 0;
   const attachmentConfidence = attachmentTools.length > 0 ? 0.9 : 0;
-  const queryConfidence = sortedByScore.length > 0 ? sortedByScore[0]?.[1] ?? 0 : 0;
-  const confidence = Math.max(userSelectedConfidence, attachmentConfidence, queryConfidence, 0.3);
+  // Get the highest query score from any SELECTED tool (not just the sortedByScore filtered list)
+  const selectedToolScores = selectedTools.map(t => queryScores.get(t) ?? 0);
+  const bestSelectedScore = selectedToolScores.length > 0 ? Math.max(...selectedToolScores) : 0;
+  const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestSelectedScore, 0.3);
 
   console.log(`[IntentAnalyzer:Query] --- FINAL RESULT ---`);
   console.log(`[IntentAnalyzer:Query] Selected tools: [${selectedTools.map(t => toolToCapability(t)).join(', ')}]`);
@@ -550,13 +745,28 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     contextPrompts.forEach((p, i) => console.log(`[IntentAnalyzer:Query] Prompt ${i + 1}: "${p.substring(0, 80)}..."`));
   }
   console.log(`[IntentAnalyzer:Query] Reasoning: ${reasoning.join('; ') || 'No specific tool intent detected'}`);
+
+  // Step 7: Check if regex selected multiple tools - ask for clarification
+  // This is for HIGH confidence cases. LOW confidence will fall back to LLM.
+  const multiToolClarification = generateMultiToolClarification(query, selectedTools, confidence);
+  if (multiToolClarification) {
+    console.log(`[IntentAnalyzer:Query] Multi-tool clarification: "${multiToolClarification.prompt}"`);
+  }
+
   console.log(`[IntentAnalyzer:Query] ========== TOOL SELECTION END ==========`);
 
+  // Return result with optional clarification
+  // - If confidence >= 0.4 and multiple tools: regex handles clarification
+  // - If confidence < 0.4: LLM fallback will be triggered and LLM handles clarification
   return {
     tools: selectedTools,
     confidence,
     contextPrompts,
     reasoning: reasoning.join('; ') || 'No specific tool intent detected',
+    ...(multiToolClarification && {
+      clarificationPrompt: multiToolClarification.prompt,
+      clarificationOptions: multiToolClarification.options,
+    }),
   };
 }
 

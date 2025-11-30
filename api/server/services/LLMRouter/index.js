@@ -1,139 +1,178 @@
 /**
- * LLM Router Service - 5-Tier Automatic Model Routing
+ * Intent Analyzer Service - Unified Tool Selection + Model Routing
  * 
- * Routes requests to optimal model tier based on complexity:
- *   TRIVIAL  (0.00-0.15): Nova Micro  - Greetings, acknowledgments
- *   SIMPLE   (0.15-0.35): Nova Lite   - Basic Q&A, definitions
+ * Uses @librechat/intent-analyzer for:
+ * 1. autoToolSelection - Smart tool selection based on query intent
+ * 2. modelRouting - 5-Tier automatic model routing based on complexity
+ * 
+ * Model Tiers (when modelRouting is enabled):
+ *   TRIVIAL  (0.00-0.15): Nova Lite   - Greetings, yes/no, acknowledgments (multimodal)
+ *   SIMPLE   (0.15-0.35): Nova Pro    - Basic Q&A, simple tools
  *   MODERATE (0.35-0.60): Haiku 4.5   - Explanations, standard coding
  *   COMPLEX  (0.60-0.80): Sonnet 4.5  - Debugging, detailed analysis
  *   EXPERT   (0.80-1.00): Opus 4.5    - System design, complex algorithms
  * 
- * Configuration is loaded from librechat.yaml under the `llmRouter` key.
+ * Note: Nova Micro is only used for classifierModel (internal routing) - NOT for user-facing responses.
+ * 
+ * LLM Fallback:
+ *   When regex patterns don't match confidently, the system falls back to
+ *   using Nova Micro ($0.035/$0.14 per 1M tokens) as a classifier to understand
+ *   user intent. This ensures accurate tool/model selection for ambiguous queries.
+ * 
+ * Configuration is loaded from librechat.yaml under the `intentAnalyzer` key.
  */
 
 const { logger } = require('@librechat/data-schemas');
 const { EModelEndpoint } = require('librechat-data-provider');
+const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
-// Lazy-loaded router instances per endpoint
-const routers = new Map();
+// Lazy-loaded intent analyzer module
+let intentAnalyzer = null;
 
-// 5-Tier Model pricing (per 1M tokens) - matches llm-router bedrock.ts
+// Lazy-loaded Bedrock client for LLM classification
+let bedrockClient = null;
+
+/**
+ * Get or create Bedrock client for LLM classification
+ */
+function getBedrockClient() {
+  if (!bedrockClient) {
+    bedrockClient = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+    });
+  }
+  return bedrockClient;
+}
+
+/**
+ * LLM Fallback function - calls Nova Micro for classification
+ * This is used when regex patterns don't match confidently
+ * 
+ * @param {string} prompt - The classification prompt
+ * @returns {Promise<string>} The LLM response
+ */
+async function llmClassifierFallback(prompt) {
+  const client = getBedrockClient();
+  const classifierModel = 'us.amazon.nova-micro-v1:0';
+  
+  try {
+    logger.info('[IntentAnalyzer] Using LLM classifier (Nova Micro) for ambiguous query');
+    
+    const command = new InvokeModelCommand({
+      modelId: classifierModel,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: [{ text: prompt }],
+          },
+        ],
+        inferenceConfig: {
+          maxTokens: 500,
+          temperature: 0.1, // Low temperature for consistent classification
+        },
+      }),
+    });
+    
+    const response = await client.send(command);
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    
+    // Extract text from Nova response format
+    const text = responseBody.output?.message?.content?.[0]?.text || '';
+    
+    logger.info(`[IntentAnalyzer] LLM classifier response: ${text.substring(0, 200)}...`);
+    
+    return text;
+  } catch (error) {
+    logger.error('[IntentAnalyzer] LLM classifier fallback failed:', error.message);
+    return ''; // Return empty string on failure, will fall back to regex result
+  }
+}
+
+// 5-Tier Model pricing (per 1M tokens) - matches intent-analyzer bedrock.ts
 const MODEL_PRICING = {
-  // EXPERT tier - Complex algorithms, system design
+  // EXPERT tier - System design, complex algorithms
   'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 5.00, output: 25.00, tier: 'expert' },
   // COMPLEX tier - Debugging, detailed analysis
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00, tier: 'complex' },
   // MODERATE tier - Explanations, standard coding
   'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00, tier: 'moderate' },
-  // SIMPLE tier - Basic Q&A
-  'us.amazon.nova-lite-v1:0': { input: 0.06, output: 0.24, tier: 'simple' },
-  // TRIVIAL tier - Greetings, acknowledgments
-  'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14, tier: 'trivial' },
-  // Legacy models (for reference)
-  'us.amazon.nova-pro-v1:0': { input: 0.80, output: 3.20, tier: 'moderate' },
+  // SIMPLE tier - Basic Q&A, simple tools
+  'us.amazon.nova-pro-v1:0': { input: 0.80, output: 3.20, tier: 'simple' },
+  // TRIVIAL tier - Greetings, yes/no, acknowledgments (multimodal)
+  'us.amazon.nova-lite-v1:0': { input: 0.06, output: 0.24, tier: 'trivial' },
+  // CLASSIFIER - Used for LLM classification fallback only (NOT for routing)
+  'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14, tier: 'classifier' },
 };
 
 /**
- * Default router configuration for 5-tier routing
+ * Default intent analyzer configuration
  */
 const DEFAULT_CONFIG = {
-  enabled: false,
-  preset: 'premium', // Use full 5-tier routing with all models
-  debug: false,      // Enable detailed pattern/cost logging
+  autoToolSelection: false,
+  modelRouting: false,
+  preset: 'costOptimized',
+  debug: false,
+  classifierModel: 'us.amazon.nova-micro-v1:0',
   endpoints: {
     [EModelEndpoint.bedrock]: {
-      enabled: true,
-      preset: 'premium',
-    },
-    [EModelEndpoint.openAI]: {
-      enabled: false,
-    },
-    [EModelEndpoint.anthropic]: {
       enabled: false,
     },
   },
 };
 
 /**
- * Get or create a router instance for the given endpoint
- * @param {string} endpoint - The endpoint type (bedrock, openAI, etc.)
- * @param {object} config - Router configuration
- * @returns {Promise<object|null>} Router instance or null if routing is disabled
+ * Lazy load the intent-analyzer module
  */
-async function getRouter(endpoint, config) {
-  if (!config?.enabled) {
-    return null;
-  }
-
-  const cacheKey = `${endpoint}-${config.preset || 'premium'}`;
-  
-  if (routers.has(cacheKey)) {
-    return routers.get(cacheKey);
-  }
-
-  try {
-    // Dynamic import to avoid loading if not needed
-    const llmRouter = await import('@librechat/llm-router');
-    
-    let router;
-    const preset = config.preset ?? 'premium';
-    
-    switch (endpoint) {
-      case EModelEndpoint.bedrock:
-        // createBedrockRouter(preset) - 5-tier routing
-        router = llmRouter.createBedrockRouter(preset);
-        break;
-        
-      case EModelEndpoint.openAI:
-        // createOpenAIRouter(preset) - 5-tier routing
-        router = llmRouter.createOpenAIRouter(preset);
-        break;
-        
-      default:
-        // For custom endpoints, try to use custom router if models are provided
-        if (config.models) {
-          // createCustomRouter(endpoint, models, options)
-          router = llmRouter.createCustomRouter(endpoint, config.models);
-        } else {
-          return null;
-        }
+async function getIntentAnalyzer() {
+  if (!intentAnalyzer) {
+    try {
+      intentAnalyzer = await import('@librechat/intent-analyzer');
+      logger.info('[IntentAnalyzer] Loaded @librechat/intent-analyzer module');
+    } catch (error) {
+      logger.error('[IntentAnalyzer] Failed to load @librechat/intent-analyzer:', error.message);
+      throw error;
     }
-    
-    routers.set(cacheKey, router);
-    logger.info(`[LLMRouter] Created 5-tier router for ${endpoint} with preset '${preset}'`);
-    return router;
-  } catch (error) {
-    logger.warn('[LLMRouter] Failed to load @librechat/llm-router package:', error.message);
-    logger.warn('[LLMRouter] Error details:', error.stack);
-    return null;
   }
+  return intentAnalyzer;
 }
 
 /**
- * Get router configuration from app config
+ * Get intent analyzer configuration from app config
  * @param {object} appConfig - Application configuration
  * @param {string} endpoint - The endpoint type
- * @returns {object} Router configuration for the endpoint
+ * @returns {object} Intent analyzer configuration for the endpoint
  */
-function getRouterConfig(appConfig, endpoint) {
-  const globalConfig = appConfig?.llmRouter || DEFAULT_CONFIG;
-  
-  if (!globalConfig.enabled) {
-    return { enabled: false };
-  }
-  
+function getIntentAnalyzerConfig(appConfig, endpoint) {
+  const globalConfig = appConfig?.intentAnalyzer || DEFAULT_CONFIG;
   const endpointConfig = globalConfig.endpoints?.[endpoint] || {};
   
+  // Check if endpoint is enabled
+  if (!endpointConfig.enabled) {
+    return { 
+      autoToolSelection: false, 
+      modelRouting: false,
+      enabled: false,
+    };
+  }
+  
   return {
-    enabled: endpointConfig.enabled ?? globalConfig.enabled ?? false,
-    preset: endpointConfig.preset ?? globalConfig.preset ?? 'premium',
-    debug: endpointConfig.debug ?? globalConfig.debug ?? false,
-    models: endpointConfig.models,
+    enabled: true,
+    autoToolSelection: globalConfig.autoToolSelection ?? false,
+    modelRouting: globalConfig.modelRouting ?? false,
+    preset: globalConfig.preset ?? 'costOptimized',
+    debug: globalConfig.debug ?? false,
+    classifierModel: endpointConfig.classifierModel ?? globalConfig.classifierModel ?? 'us.amazon.nova-micro-v1:0',
   };
 }
 
 /**
  * Route a request to the optimal model based on prompt complexity (5-tier)
+ * 
+ * NOTE: This is for NON-AGENTS endpoints only. Agents endpoint does routing
+ * in loadEphemeralAgent AFTER tool selection (so artifacts can elevate tier).
  * 
  * @param {object} params - Routing parameters
  * @param {string} params.endpoint - The endpoint type (bedrock, openAI, etc.)
@@ -141,47 +180,62 @@ function getRouterConfig(appConfig, endpoint) {
  * @param {string} params.currentModel - The currently selected model
  * @param {string} [params.userId] - Optional user ID for logging
  * @param {object} [params.appConfig] - Application configuration (from req.config)
+ * @param {Array<{role: string, content: string}>} [params.conversationHistory] - Recent conversation messages for context
  * @returns {Promise<string|null>} The routed model ID, or null if no routing needed
  */
-async function routeModel({ endpoint, prompt, currentModel, userId, appConfig }) {
-  // Get configuration
-  const config = getRouterConfig(appConfig || global.appConfig, endpoint);
+async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, conversationHistory = [] }) {
+  // Get configuration from intentAnalyzer
+  const config = getIntentAnalyzerConfig(appConfig || global.appConfig, endpoint);
   const debug = config.debug;
   
   if (debug) {
-    logger.info('[LLMRouter] ========== 5-TIER ROUTING REQUEST ==========');
-    logger.info('[LLMRouter] Configuration:', {
+    logger.info('[IntentAnalyzer] ========== ROUTING REQUEST ==========');
+    logger.info('[IntentAnalyzer] Configuration:', {
       enabled: config.enabled,
+      autoToolSelection: config.autoToolSelection,
+      modelRouting: config.modelRouting,
       preset: config.preset,
+      classifierModel: config.classifierModel,
       endpoint,
     });
   }
   
-  if (!config.enabled) {
-    if (debug) logger.info('[LLMRouter] Routing DISABLED - using default model selection');
+  // Check if model routing is enabled
+  if (!config.enabled || !config.modelRouting) {
+    if (debug) logger.info('[IntentAnalyzer] Model routing DISABLED - using default model');
     return null;
   }
   
   // Skip routing if no prompt
   if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-    if (debug) logger.info('[LLMRouter] No prompt provided - skipping routing');
+    if (debug) logger.info('[IntentAnalyzer] No prompt provided - skipping routing');
     return null;
   }
   
   try {
-    const router = await getRouter(endpoint, config);
+    const analyzer = await getIntentAnalyzer();
     
-    if (!router) {
-      logger.warn('[LLMRouter] No router available for endpoint:', endpoint);
-      return null;
-    }
+    // Map endpoint to provider
+    const providerMap = {
+      [EModelEndpoint.bedrock]: 'bedrock',
+      [EModelEndpoint.openAI]: 'openai',
+      [EModelEndpoint.anthropic]: 'anthropic',
+    };
+    const provider = providerMap[endpoint] || 'bedrock';
     
     // Estimate input tokens (rough: ~4 chars per token)
     const estimatedInputTokens = Math.ceil(prompt.length / 4);
     
-    // Route the prompt (async for 5-tier routing)
+    // Route the prompt using unified analyzer
+    // For non-agents endpoints: no tool selection, just model tier routing
     const startTime = Date.now();
-    const result = await router.route(prompt);
+    const result = await analyzer.routeQuery(prompt, {
+      provider,
+      preset: config.preset,
+      availableTools: [], // No tools for non-agents endpoints
+      conversationHistory: conversationHistory.slice(-5), // Last 5 messages for context
+      fallbackThreshold: 0.4,
+    });
     const routingTimeMs = Date.now() - startTime;
     
     // Get pricing for both models
@@ -206,56 +260,56 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig })
     
     // 5-Tier logging
     if (debug) {
-      logger.info('[LLMRouter] ═══════════════════════════════════════════════════════════');
-      logger.info('[LLMRouter] 5-TIER ROUTING DECISION');
-      logger.info('[LLMRouter] ───────────────────────────────────────────────────────────');
-      logger.info(`[LLMRouter] Prompt: "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"`);
-      logger.info(`[LLMRouter] Score: ${result.strongWinRate?.toFixed(4) || 'N/A'}`);
-      logger.info(`[LLMRouter] Tier: ${result.tier?.toUpperCase()} | Reason: ${result.reason}`);
-      logger.info('[LLMRouter] ───────────────────────────────────────────────────────────');
-      logger.info(`[LLMRouter] Model: ${getShortName(currentModel)} → ${getShortName(result.model)}`);
-      logger.info(`[LLMRouter] Changed: ${result.model !== currentModel ? 'YES' : 'NO (same model)'}`);
-      logger.info('[LLMRouter] ───────────────────────────────────────────────────────────');
-      logger.info(`[LLMRouter] Est. Tokens: ~${estimatedInputTokens} input, ~${estimatedOutputTokens} output`);
-      logger.info(`[LLMRouter] Cost: $${routedTotalCost.toFixed(6)} (was $${currentTotalCost.toFixed(6)})`);
-      logger.info(`[LLMRouter] Savings: $${costSavings.toFixed(6)} (${costSavingsPercent}%)`);
-      logger.info(`[LLMRouter] Routing: ${routingTimeMs}ms`);
-      logger.info('[LLMRouter] ═══════════════════════════════════════════════════════════');
+      logger.info('[IntentAnalyzer] ═══════════════════════════════════════════════════════════');
+      logger.info('[IntentAnalyzer] 5-TIER ROUTING DECISION');
+      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
+      logger.info(`[IntentAnalyzer] Prompt: "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"`);
+      logger.info(`[IntentAnalyzer] Tier: ${result.tier?.toUpperCase()} | Reason: ${result.reason}`);
+      logger.info(`[IntentAnalyzer] Tools: ${result.tools?.length > 0 ? result.tools.join(', ') : 'none'}`);
+      logger.info(`[IntentAnalyzer] Used LLM Fallback: ${result.usedLlmFallback ? 'YES' : 'NO'}`);
+      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
+      logger.info(`[IntentAnalyzer] Model: ${getShortName(currentModel)} → ${getShortName(result.model)}`);
+      logger.info(`[IntentAnalyzer] Changed: ${result.model !== currentModel ? 'YES' : 'NO (same model)'}`);
+      logger.info('[IntentAnalyzer] ───────────────────────────────────────────────────────────');
+      logger.info(`[IntentAnalyzer] Est. Tokens: ~${estimatedInputTokens} input, ~${estimatedOutputTokens} output`);
+      logger.info(`[IntentAnalyzer] Cost: $${routedTotalCost.toFixed(6)} (was $${currentTotalCost.toFixed(6)})`);
+      logger.info(`[IntentAnalyzer] Savings: $${costSavings.toFixed(6)} (${costSavingsPercent}%)`);
+      logger.info(`[IntentAnalyzer] Routing: ${routingTimeMs}ms`);
+      logger.info('[IntentAnalyzer] ═══════════════════════════════════════════════════════════');
     } else {
       // Compact logging when debug is off
-      logger.info(`[LLMRouter] ${result.tier?.toUpperCase()} | Score: ${result.strongWinRate?.toFixed(2)} | ${getShortName(result.model)} | Saved: ${costSavingsPercent}%`);
+      logger.info(`[IntentAnalyzer] ${result.tier?.toUpperCase()} | ${getShortName(result.model)} | Tools: ${result.tools?.length || 0} | LLM: ${result.usedLlmFallback ? 'Y' : 'N'} | Saved: ${costSavingsPercent}%`);
     }
     
     return result.model;
   } catch (error) {
-    logger.error('[LLMRouter] Error routing model:', error);
+    logger.error('[IntentAnalyzer] Error routing model:', error);
     return null;
   }
 }
 
 /**
- * Clear all cached router instances
- * Useful for testing or when configuration changes
+ * Clear cached modules (for testing)
  */
-function clearRouterCache() {
-  routers.clear();
+function clearIntentAnalyzerCache() {
+  intentAnalyzer = null;
 }
 
 /**
- * Get routing statistics for monitoring
- * @returns {object} Statistics about router usage
+ * Get intent analyzer statistics for monitoring
+ * @returns {object} Statistics about intent analyzer usage
  */
-function getRouterStats() {
+function getIntentAnalyzerStats() {
   return {
-    cachedRouters: routers.size,
-    endpoints: Array.from(routers.keys()),
+    moduleLoaded: intentAnalyzer !== null,
   };
 }
 
 module.exports = {
   routeModel,
-  clearRouterCache,
-  getRouterStats,
-  getRouterConfig,
+  llmClassifierFallback, // Export for use in Agent.js tool selection
+  clearIntentAnalyzerCache,
+  getIntentAnalyzerStats,
+  getIntentAnalyzerConfig,
   DEFAULT_CONFIG,
 };

@@ -24,9 +24,13 @@ export default function Header() {
     [startupConfig],
   );
 
-  // Check if LLM Router is enabled (Auto Mode)
+  // Check if Intent Analyzer model routing is enabled (Auto Mode)
   const isAutoModeEnabled = useMemo(() => {
-    return startupConfig?.llmRouter?.enabled === true;
+    const intentAnalyzer = startupConfig?.intentAnalyzer;
+    // Auto mode is enabled when modelRouting is true AND at least one endpoint is enabled
+    const hasEnabledEndpoint = intentAnalyzer?.endpoints && 
+      Object.values(intentAnalyzer.endpoints).some(ep => (ep as { enabled?: boolean })?.enabled === true);
+    return intentAnalyzer?.modelRouting === true && hasEnabledEndpoint;
   }, [startupConfig]);
 
   const hasAccessToBookmarks = useHasAccess({

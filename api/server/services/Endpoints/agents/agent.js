@@ -206,15 +206,41 @@ const initializeAgent = async ({
   }
 
   if (typeof agent.artifacts === 'string' && agent.artifacts !== '') {
-    logger.info(`[initializeAgent] Generating artifacts prompt for provider: ${agent.provider}, mode: ${agent.artifacts}`);
     agent.additional_instructions = generateArtifactsPrompt({
       endpoint: agent.provider,
       artifacts: agent.artifacts,
+      model: agent.model,
     });
-    logger.info(`[initializeAgent] Artifacts prompt generated: ${agent.additional_instructions ? 'yes (' + agent.additional_instructions.length + ' chars)' : 'no'}`);
+    logger.info(`[initializeAgent] Artifacts prompt generated for model: ${agent.model}, length: ${agent.additional_instructions?.length || 0} chars`);
+  } else {
+    logger.info(`[initializeAgent] No artifacts prompt - artifacts value: "${agent.artifacts}" (type: ${typeof agent.artifacts})`);
   }
 
-  logger.info(`[initializeAgent] Returning agent with ${tools?.length || 0} tools: [${tools?.map(t => t.name).join(', ') || 'none'}]`);
+  // Prepend clarification to instructions (which comes FIRST in system prompt)
+  // This ensures the model sees clarification BEFORE the massive artifacts prompt
+  if (agent.clarificationPrompt) {
+    const options = agent.clarificationOptions?.length > 0
+      ? `\n\nSuggest these options:\n${agent.clarificationOptions.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}`
+      : '';
+    const clarification = `**CRITICAL: CLARIFICATION REQUIRED BEFORE PROCEEDING**
+
+Your FIRST and ONLY response must be to ask this clarification question:
+"${agent.clarificationPrompt}"${options}
+
+Do NOT:
+- Answer the question
+- Use any tools  
+- Generate any code
+- Make assumptions about what they want
+
+ONLY ask the clarification question above, then STOP and wait for their response.
+
+---
+
+`;
+    agent.instructions = clarification + (agent.instructions || '');
+    logger.info(`[initializeAgent] Clarification prepended to instructions: "${agent.clarificationPrompt}"`);
+  }
 
   return {
     ...agent,

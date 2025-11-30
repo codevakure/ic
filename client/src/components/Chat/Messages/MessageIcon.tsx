@@ -46,6 +46,11 @@ const MessageIcon = memo(
       [endpointsConfig, endpoint],
     );
 
+    const modelDisplayLabel = useMemo(
+      () => getEndpointField(endpointsConfig, endpoint, 'modelDisplayLabel'),
+      [endpointsConfig, endpoint],
+    );
+
     if (iconData?.isCreatedByUser !== true && iconURL != null && iconURL.includes('http')) {
       return (
         <ConvoIconURL
@@ -67,6 +72,7 @@ const MessageIcon = memo(
         endpoint={endpoint}
         iconURL={avatarURL || endpointIconURL}
         model={iconData?.model}
+        modelLabel={iconData?.modelLabel ?? modelDisplayLabel}
         assistantName={assistantName}
         agentName={agentName}
         size={28.8}

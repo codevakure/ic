@@ -33,16 +33,6 @@ export const OpenAIModels: Record<string, ModelConfig> = {
     provider: 'openai',
   },
 
-  'gpt-4-1106-preview': {
-    id: 'gpt-4-1106-preview',
-    name: 'GPT-4 Turbo Preview',
-    tier: 'complex',
-    costPer1kTokens: { input: 0.01, output: 0.03 },
-    maxTokens: 128000,
-    capabilities: ['reasoning', 'coding', 'analysis', 'tools'],
-    provider: 'openai',
-  },
-
   'o1-preview': {
     id: 'o1-preview',
     name: 'o1 Preview',
@@ -78,7 +68,7 @@ export const OpenAIModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
-  // SIMPLE/TRIVIAL TIER - Simple queries, chat, fast responses
+  // SIMPLE TIER - Simple queries, chat, fast responses
   // ============================================================================
 
   'gpt-3.5-turbo': {
@@ -94,7 +84,7 @@ export const OpenAIModels: Record<string, ModelConfig> = {
   'gpt-3.5-turbo-0125': {
     id: 'gpt-3.5-turbo-0125',
     name: 'GPT-3.5 Turbo 0125',
-    tier: 'trivial',
+    tier: 'trivial',  // Cheapest tier for simple greetings
     costPer1kTokens: { input: 0.0005, output: 0.0015 },
     maxTokens: 16385,
     capabilities: ['general', 'fast'],
@@ -110,11 +100,11 @@ export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
    * Premium tier: Full GPT-4 family
    */
   premium: {
-    expert: 'gpt-4o',
+    expert: 'o1-preview',
     complex: 'gpt-4o',
     moderate: 'gpt-4o-mini',
     simple: 'gpt-4o-mini',
-    trivial: 'gpt-3.5-turbo',
+    trivial: 'gpt-3.5-turbo-0125',
   },
 
   /**
@@ -125,7 +115,7 @@ export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
     complex: 'gpt-4o',
     moderate: 'gpt-4o-mini',
     simple: 'gpt-3.5-turbo',
-    trivial: 'gpt-3.5-turbo',
+    trivial: 'gpt-3.5-turbo-0125',
   },
 
   /**
@@ -136,7 +126,7 @@ export const OpenAIRoutingPairs: Record<OpenAIPresetTier, ModelPair> = {
     complex: 'gpt-4o-mini',
     moderate: 'gpt-4o-mini',
     simple: 'gpt-3.5-turbo',
-    trivial: 'gpt-3.5-turbo',
+    trivial: 'gpt-3.5-turbo-0125',
   },
 };
 
@@ -159,6 +149,13 @@ export function getOpenAIModelsByTier(tier: ModelTier): ModelConfig[] {
  */
 export function getOpenAIRoutingPair(tier: OpenAIPresetTier): ModelPair {
   return OpenAIRoutingPairs[tier];
+}
+
+/**
+ * Get model ID for a specific tier from a preset
+ */
+export function getOpenAIModelForTier(tier: ModelTier, preset: OpenAIPresetTier = 'standard'): string {
+  return OpenAIRoutingPairs[preset][tier];
 }
 
 /**

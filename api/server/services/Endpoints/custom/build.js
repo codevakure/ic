@@ -33,7 +33,7 @@ const buildOptions = (endpoint, parsedBody, endpointType) => {
   });
 
   if (typeof artifacts === 'string') {
-    endpointOption.artifactsPrompt = generateArtifactsPrompt({ endpoint, artifacts });
+    endpointOption.artifactsPrompt = generateArtifactsPrompt({ endpoint, artifacts, model: modelOptions?.model });
   }
 
   return endpointOption;

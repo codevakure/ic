@@ -88,8 +88,8 @@ export interface AppConfig {
   secureImageLinks?: TCustomConfig['secureImageLinks'];
   /** Processed model specifications */
   modelSpecs?: TCustomConfig['modelSpecs'];
-  /** LLM Router configuration */
-  llmRouter?: TCustomConfig['llmRouter'];
+  /** Intent Analyzer configuration (unified tool selection + model routing) */
+  intentAnalyzer?: TCustomConfig['intentAnalyzer'];
   /** Available tools */
   availableTools?: Record<string, FunctionTool>;
   endpoints?: {

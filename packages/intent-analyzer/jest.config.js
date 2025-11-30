@@ -7,6 +7,14 @@ module.exports = {
   moduleNameMapper: {
     '^~/(.*)$': '<rootDir>/src/$1',
   },
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.spec.json',
+      },
+    ],
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.test.ts',

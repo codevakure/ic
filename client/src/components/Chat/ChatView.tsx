@@ -15,7 +15,6 @@ import Presentation from './Presentation';
 import ChatForm from './Input/ChatForm';
 import Landing from './Landing';
 import Header from './Header';
-import Footer from './Footer';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -71,7 +70,8 @@ function ChatView({ index = 0 }: { index?: number }) {
   } else if (!isLandingPage) {
     content = <MessagesView messagesTree={messagesTree} />;
   } else {
-    content = <Landing centerFormOnLanding={centerFormOnLanding} />;
+    // always center the form on landing (feature enforced)
+    content = <Landing centerFormOnLanding={!!centerFormOnLanding} />;
   }
 
   return (
@@ -85,6 +85,7 @@ function ChatView({ index = 0 }: { index?: number }) {
                 <div
                   className={cn(
                     'flex flex-col',
+                    // Always keep chat input at bottom by default; when landing, center form if enabled
                     isLandingPage
                       ? 'flex-1 items-center justify-end sm:justify-center'
                       : 'h-full overflow-y-auto',
@@ -98,10 +99,9 @@ function ChatView({ index = 0 }: { index?: number }) {
                     )}
                   >
                     <ChatForm index={index} />
-                    {isLandingPage ? <ConversationStarters /> : <Footer />}
+                    {isLandingPage ? <ConversationStarters /> : null}
                   </div>
                 </div>
-                {isLandingPage && <Footer />}
               </>
             </div>
           </Presentation>

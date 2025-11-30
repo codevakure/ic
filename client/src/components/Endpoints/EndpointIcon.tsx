@@ -33,6 +33,7 @@ export default function EndpointIcon({
 
   const endpointType = getEndpointField(endpointsConfig, endpoint, 'type');
   const endpointIconURL = getEndpointField(endpointsConfig, endpoint, 'iconURL');
+  const modelDisplayLabel = getEndpointField(endpointsConfig, endpoint, 'modelDisplayLabel');
 
   // Handle assistants
   const assistant = isAssistantsEndpoint(endpoint)
@@ -75,7 +76,7 @@ export default function EndpointIcon({
         className={className}
         isCreatedByUser={false}
         chatGptLabel={undefined}
-        modelLabel={undefined}
+        modelLabel={conversation?.modelLabel ?? modelDisplayLabel}
       />
     );
   }

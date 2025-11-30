@@ -53,20 +53,20 @@ const getDefinedEndpoint = (endpointsConfig: TEndpointsConfig) => {
 };
 
 /**
- * Get the first enabled endpoint from LLM Router config.
- * Reads from llmRouter.endpoints in startupConfig and returns the first enabled one.
+ * Get the first enabled endpoint from Intent Analyzer config.
+ * Reads from intentAnalyzer.endpoints in startupConfig and returns the first enabled one.
  */
-const getLLMRouterDefaultEndpoint = (
+const getIntentAnalyzerDefaultEndpoint = (
   startupConfig: TStartupConfig | undefined,
   endpointsConfig: TEndpointsConfig,
 ): EModelEndpoint | null => {
-  const llmRouterEndpoints = startupConfig?.llmRouter?.endpoints;
-  if (!llmRouterEndpoints) {
+  const intentAnalyzerEndpoints = startupConfig?.intentAnalyzer?.endpoints;
+  if (!intentAnalyzerEndpoints) {
     return null;
   }
 
-  // Find the first enabled endpoint in llmRouter.endpoints config
-  for (const [endpointName, config] of Object.entries(llmRouterEndpoints)) {
+  // Find the first enabled endpoint in intentAnalyzer.endpoints config
+  for (const [endpointName, config] of Object.entries(intentAnalyzerEndpoints)) {
     if (config?.enabled === true && endpointsConfig?.[endpointName]) {
       return endpointName as EModelEndpoint;
     }
@@ -78,13 +78,13 @@ const getLLMRouterDefaultEndpoint = (
 /**
  * Get the default endpoint for a new conversation.
  * 
- * Priority (when LLM Router is ENABLED):
+ * Priority (when Intent Analyzer is ENABLED):
  * 1. Endpoint from convoSetup if EXPLICITLY set (e.g., user clicked "Start Chat" on an agent)
- * 2. LLM Router default endpoint from llmRouter.endpoints config (e.g., bedrock)
+ * 2. Intent Analyzer default endpoint from intentAnalyzer.endpoints config (e.g., bedrock)
  * 3. First enabled endpoint from defined order
  * Note: Skips localStorage to prevent remembering last endpoint
  * 
- * Priority (when LLM Router is DISABLED - legacy behavior):
+ * Priority (when Intent Analyzer is DISABLED - legacy behavior):
  * 1. Endpoint from convoSetup (preset/template) if explicitly set
  * 2. Last used endpoint from localStorage
  * 3. First enabled endpoint from defined order
@@ -94,7 +94,12 @@ const getDefaultEndpoint = ({
   endpointsConfig,
   startupConfig,
 }: TDefaultEndpoint): EModelEndpoint | undefined => {
-  const isLLMRouterEnabled = startupConfig?.llmRouter?.enabled === true;
+  // Check if Intent Analyzer has any endpoint enabled (modelRouting or autoToolSelection)
+  const intentAnalyzerConfig = startupConfig?.intentAnalyzer;
+  const hasEnabledEndpoint = intentAnalyzerConfig?.endpoints && 
+    Object.values(intentAnalyzerConfig.endpoints).some(ep => (ep as { enabled?: boolean })?.enabled === true);
+  const isIntentAnalyzerEnabled = hasEnabledEndpoint && 
+    (intentAnalyzerConfig?.modelRouting === true || intentAnalyzerConfig?.autoToolSelection === true);
 
   // Always check convoSetup first - if user explicitly selected an endpoint (e.g., Start Chat on Agent)
   const setupEndpoint = getEndpointFromSetup(convoSetup, endpointsConfig);
@@ -102,13 +107,13 @@ const getDefaultEndpoint = ({
     return setupEndpoint;
   }
 
-  if (isLLMRouterEnabled) {
-    // When LLM Router is enabled and no explicit endpoint, use llmRouter.endpoints config
-    const llmRouterEndpoint = getLLMRouterDefaultEndpoint(startupConfig, endpointsConfig);
-    if (llmRouterEndpoint) {
-      return llmRouterEndpoint;
+  if (isIntentAnalyzerEnabled) {
+    // When Intent Analyzer is enabled and no explicit endpoint, use intentAnalyzer.endpoints config
+    const intentAnalyzerEndpoint = getIntentAnalyzerDefaultEndpoint(startupConfig, endpointsConfig);
+    if (intentAnalyzerEndpoint) {
+      return intentAnalyzerEndpoint;
     }
-    // Fallback to first defined endpoint if no llmRouter endpoint found
+    // Fallback to first defined endpoint if no intentAnalyzer endpoint found
     return getDefinedEndpoint(endpointsConfig);
   }
 

@@ -105,4 +105,86 @@ export interface QueryIntentResult {
   contextPrompts: string[];
   /** Brief reasoning for tool selection */
   reasoning: string;
+  /** 
+   * Optional clarification prompt when intent is ambiguous
+   * UI can show this to help user specify their intent
+   */
+  clarificationPrompt?: string;
+  /**
+   * Suggested options for clarification (if clarificationPrompt is set)
+   * e.g., ["Create a React dashboard", "Create an HTML page", "Generate a diagram"]
+   */
+  clarificationOptions?: string[];
+}
+
+// ============================================================================
+// Model Routing Types (merged from llm-router)
+// ============================================================================
+
+/**
+ * Model tier for routing queries to appropriate LLM
+ * 
+ * 5-TIER SYSTEM (cost order):
+ * - trivial:  Nova Lite    ($0.06/$0.24)   - Greetings, yes/no, acknowledgments (multimodal)
+ * - simple:   Nova Pro     ($0.80/$3.20)   - Basic Q&A, simple tools
+ * - moderate: Haiku 4.5    ($1.00/$5.00)   - Explanations, standard code
+ * - complex:  Sonnet 4.5   ($3.00/$15.00)  - Debugging, analysis
+ * - expert:   Opus 4.5     ($15.00/$75.00) - Architecture, research
+ * 
+ * Note: Nova Micro is used only for classifierModel (internal routing), NOT for user-facing responses
+ */
+export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple' | 'trivial';
+
+/**
+ * Result of model routing analysis
+ */
+export interface ModelRoutingResult {
+  /** Recommended model tier */
+  tier: ModelTier;
+  /** Complexity score 0-1 */
+  score: number;
+  /** Detected categories (code, reasoning, etc.) */
+  categories: string[];
+  /** Brief reasoning for tier selection */
+  reasoning: string;
+}
+
+/**
+ * Unified query analysis result combining tool and model routing
+ */
+export interface UnifiedQueryResult {
+  /** Tool selection result */
+  tools: QueryIntentResult;
+  /** Model routing result */
+  model: ModelRoutingResult;
+  /** Whether LLM fallback was used */
+  usedLlmFallback: boolean;
+}
+
+/**
+ * LLM fallback function signature - injectable for flexibility
+ * The caller provides the LLM function, keeping this package pure
+ */
+export type LlmFallbackFunction = (prompt: string) => Promise<string>;
+
+/**
+ * Options for unified query analysis
+ */
+export interface UnifiedAnalysisOptions {
+  /** The user's query */
+  query: string;
+  /** Available tools */
+  availableTools: Tool[];
+  /** Attached files context */
+  attachedFiles?: AttachedFileContext;
+  /** Conversation history for context */
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** Optional LLM fallback function for low-confidence cases */
+  llmFallback?: LlmFallbackFunction;
+  /** Confidence threshold below which to use LLM fallback (default: 0.4) */
+  fallbackThreshold?: number;
+  /** Tools that are auto-enabled (will always be added if applicable) */
+  autoEnabledTools?: Tool[];
+  /** Tools explicitly selected by user in UI */
+  userSelectedTools?: Tool[];
 }

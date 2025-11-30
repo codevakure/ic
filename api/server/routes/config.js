@@ -139,7 +139,7 @@ router.get('/', async function (req, res) {
       interface: appConfig?.interfaceConfig,
       turnstile: appConfig?.turnstileConfig,
       modelSpecs: appConfig?.modelSpecs,
-      llmRouter: appConfig?.llmRouter,
+      intentAnalyzer: appConfig?.intentAnalyzer,
       balance: balanceConfig,
       sharedLinksEnabled,
       publicSharedLinksEnabled,

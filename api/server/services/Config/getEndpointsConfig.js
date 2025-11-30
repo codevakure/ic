@@ -50,7 +50,7 @@ async function getEndpointsConfig(req) {
     mergedConfig[EModelEndpoint.assistants] &&
     appConfig?.endpoints?.[EModelEndpoint.assistants]
   ) {
-    const { disableBuilder, retrievalModels, capabilities, version, ..._rest } =
+    const { disableBuilder, retrievalModels, capabilities, version, iconURL, modelDisplayLabel, ..._rest } =
       appConfig.endpoints[EModelEndpoint.assistants];
 
     mergedConfig[EModelEndpoint.assistants] = {
@@ -59,10 +59,12 @@ async function getEndpointsConfig(req) {
       retrievalModels,
       disableBuilder,
       capabilities,
+      iconURL,
+      modelDisplayLabel,
     };
   }
   if (mergedConfig[EModelEndpoint.agents] && appConfig?.endpoints?.[EModelEndpoint.agents]) {
-    const { disableBuilder, capabilities, allowedProviders, toolsAutoEnabled, ..._rest } =
+    const { disableBuilder, capabilities, allowedProviders, toolsAutoEnabled, iconURL, modelDisplayLabel, ..._rest } =
       appConfig.endpoints[EModelEndpoint.agents];
 
     mergedConfig[EModelEndpoint.agents] = {
@@ -71,6 +73,8 @@ async function getEndpointsConfig(req) {
       disableBuilder,
       capabilities,
       toolsAutoEnabled,
+      iconURL,
+      modelDisplayLabel,
     };
   }
 
@@ -78,7 +82,7 @@ async function getEndpointsConfig(req) {
     mergedConfig[EModelEndpoint.azureAssistants] &&
     appConfig?.endpoints?.[EModelEndpoint.azureAssistants]
   ) {
-    const { disableBuilder, retrievalModels, capabilities, version, ..._rest } =
+    const { disableBuilder, retrievalModels, capabilities, version, iconURL, modelDisplayLabel, ..._rest } =
       appConfig.endpoints[EModelEndpoint.azureAssistants];
 
     mergedConfig[EModelEndpoint.azureAssistants] = {
@@ -87,15 +91,46 @@ async function getEndpointsConfig(req) {
       retrievalModels,
       disableBuilder,
       capabilities,
+      iconURL,
+      modelDisplayLabel,
     };
   }
 
   if (mergedConfig[EModelEndpoint.bedrock] && appConfig?.endpoints?.[EModelEndpoint.bedrock]) {
-    const { availableRegions } = appConfig.endpoints[EModelEndpoint.bedrock];
+    const { availableRegions, iconURL, modelDisplayLabel, endpointCustomLabel, endpointCustomDescription } = appConfig.endpoints[EModelEndpoint.bedrock];
     mergedConfig[EModelEndpoint.bedrock] = {
       ...mergedConfig[EModelEndpoint.bedrock],
       availableRegions,
+      iconURL,
+      modelDisplayLabel,
+      endpointCustomLabel,
+      endpointCustomDescription,
     };
+  }
+
+  // Apply iconURL, modelDisplayLabel, and custom branding to all endpoints if configured
+  const endpointsToCheck = [
+    EModelEndpoint.openAI,
+    EModelEndpoint.anthropic,
+    EModelEndpoint.google,
+    EModelEndpoint.azureOpenAI,
+    EModelEndpoint.gptPlugins,
+    EModelEndpoint.chatGPTBrowser,
+  ];
+
+  for (const endpoint of endpointsToCheck) {
+    if (mergedConfig[endpoint] && appConfig?.endpoints?.[endpoint]) {
+      const { iconURL, modelDisplayLabel, endpointCustomLabel, endpointCustomDescription } = appConfig.endpoints[endpoint];
+      if (iconURL || modelDisplayLabel || endpointCustomLabel || endpointCustomDescription) {
+        mergedConfig[endpoint] = {
+          ...mergedConfig[endpoint],
+          ...(iconURL && { iconURL }),
+          ...(modelDisplayLabel && { modelDisplayLabel }),
+          ...(endpointCustomLabel && { endpointCustomLabel }),
+          ...(endpointCustomDescription && { endpointCustomDescription }),
+        };
+      }
+    }
   }
 
   const endpointsConfig = orderEndpointsConfig(mergedConfig);

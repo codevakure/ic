@@ -2,10 +2,10 @@ import React, { useMemo, useCallback } from 'react';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
 import {
   Permissions,
-  alternateName,
   EModelEndpoint,
   PermissionTypes,
   getEndpointField,
+  getEndpointLabel,
 } from 'librechat-data-provider';
 import type {
   TEndpointsConfig,
@@ -95,7 +95,7 @@ export const useEndpoints = ({
       // Base result object with formatted default icon
       const result: Endpoint = {
         value: ep,
-        label: alternateName[ep] || ep,
+        label: getEndpointLabel(endpointsConfig, ep),
         hasModels,
         icon: Icon
           ? React.createElement(Icon, {

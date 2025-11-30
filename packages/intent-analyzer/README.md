@@ -1,17 +1,27 @@
 # @librechat/intent-analyzer
 
-Intent analyzer for routing attachments and tool selection in LibreChat.
+Unified intent analyzer for LibreChat that handles **both tool selection AND model routing** in a single package.
 
 ## Overview
 
-This package provides intelligent routing capabilities for:
+This package provides intelligent routing for:
 
-1. **Upload Intent** - Determine how files should be uploaded (IMAGE, FILE_SEARCH, CODE_INTERPRETER)
-2. **Query Intent** - Analyze queries to determine which tools to use
-3. **Attachment Routing** - Route file attachments to appropriate upload strategies
-4. **Tool Selection** - Automatically select tools based on user query and context
+1. **Tool Selection** - Which tools to use (web_search, execute_code, file_search, artifacts)
+2. **Model Routing** - Which model tier to use (simple → expert)
+3. **Upload Intent** - Where to upload files (IMAGE, FILE_SEARCH, CODE_INTERPRETER)
 
-> **Note**: For LLM routing/model selection based on task complexity, use the separate `@librechat/llm-router` package.
+All in **ONE call** with optional LLM fallback for edge cases.
+
+## 4-Tier Model Routing
+
+| Tier | Score Range | Model | Use Case |
+|------|-------------|-------|----------|
+| SIMPLE | 0.00-0.35 | Nova Pro | Basic Q&A, greetings, simple tools |
+| MODERATE | 0.35-0.60 | Haiku 4.5 | Explanations, standard coding |
+| COMPLEX | 0.60-0.80 | Sonnet 4.5 | Debugging, detailed analysis |
+| EXPERT | 0.80-1.00 | Opus 4.5 | System design, complex algorithms |
+
+> **Note**: Nova Micro is used only for `titleModel`/`classifierModel`, NOT for routing. This is because Nova Micro can't handle tools or conversation context properly.
 
 ## Installation
 
@@ -19,164 +29,230 @@ This package provides intelligent routing capabilities for:
 npm install @librechat/intent-analyzer
 ```
 
-## Usage
+## Quick Start
 
-### Core Module (Recommended)
+### Universal Routing (Recommended)
 
-The core module provides lightweight intent analysis without external dependencies.
-
-#### Upload Intent
-
-Analyze files to determine the best upload strategy:
+Get both tools AND model in one call:
 
 ```typescript
-import { analyzeUploadIntent, analyzeUploadIntents, UploadIntent } from '@librechat/intent-analyzer';
+import { routeQuery, Tool } from '@librechat/intent-analyzer';
 
-// Single file
-const result = analyzeUploadIntent({
-  filename: 'photo.jpg',
-  type: 'image/jpeg',
-  size: 50000,
+const result = await routeQuery('What are booming stocks today?', {
+  provider: 'bedrock',
+  preset: 'costOptimized',
+  availableTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
 });
 
-console.log(result.intent);      // UploadIntent.IMAGE
-console.log(result.endpoint);    // '/api/files/images'
-console.log(result.toolResource); // 'images'
-
-// Multiple files
-const batchResult = analyzeUploadIntents([
-  { filename: 'photo.jpg', type: 'image/jpeg', size: 50000 },
-  { filename: 'data.csv', type: 'text/csv', size: 10000 },
-  { filename: 'report.pdf', type: 'application/pdf', size: 100000 },
-]);
-
-console.log(batchResult.results);
-// [
-//   { intent: 'IMAGE', endpoint: '/api/files/images', ... },
-//   { intent: 'CODE_INTERPRETER', endpoint: '/api/files/code_interpreter', ... },
-//   { intent: 'FILE_SEARCH', endpoint: '/api/files/file_search', ... },
-// ]
+console.log(result.tools);  // ['web_search']
+console.log(result.model);  // 'us.amazon.nova-pro-v1:0'
+console.log(result.tier);   // 'simple'
+console.log(result.reason); // 'Query needs real-time data'
 ```
 
-#### Upload Intents
+### With LLM Fallback
 
-| Intent | Description | File Types |
-|--------|-------------|------------|
-| `IMAGE` | Vision/image processing | JPG, PNG, GIF, WebP, SVG, etc. |
-| `CODE_INTERPRETER` | Code interpreter execution | Excel, CSV, Python, JS, JSON, etc. |
-| `FILE_SEARCH` | RAG embeddings/search | PDF, DOC, TXT, MD, HTML, etc. |
+For queries that don't match regex patterns, use an LLM to classify:
 
-#### Query Intent
+```typescript
+import { routeQuery, Tool } from '@librechat/intent-analyzer';
 
-Analyze queries to determine which tools to enable:
+const result = await routeQuery('Find me trending tech stocks', {
+  provider: 'bedrock',
+  preset: 'premium',
+  availableTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
+  llmFallback: async (prompt) => {
+    // Call Nova Micro (cheapest) for classification
+    return await callNovaMicro(prompt);
+  },
+});
+
+console.log(result.usedLlmFallback); // true if LLM was needed
+```
+
+## Routing Flow
+
+```
+Query comes in
+     ↓
+┌─────────────────────────────────────┐
+│ 1. Try REGEX patterns (FREE, fast) │
+│    - Tool patterns → which tools   │
+│    - Complexity patterns → tier    │
+└─────────────────────────────────────┘
+     ↓
+Confidence high? ──YES──→ Return result (no LLM cost)
+     ↓ NO
+┌─────────────────────────────────────┐
+│ 2. LLM Fallback (ONE call)         │
+│    - Classifies BOTH tools + tier  │
+│    - Uses cheapest model (Micro)   │
+└─────────────────────────────────────┘
+     ↓
+Return result
+```
+
+## API Reference
+
+### Main Functions
+
+#### `routeQuery(query, config)`
+
+Universal routing - returns both tools and model.
+
+```typescript
+const result = await routeQuery(query, {
+  provider: 'bedrock' | 'openai',
+  preset: 'premium' | 'costOptimized' | 'ultraCheap',
+  availableTools: Tool[],
+  llmFallback?: (prompt: string) => Promise<string>,
+  fallbackThreshold?: number, // default: 0.4
+});
+
+// Returns:
+{
+  tools: Tool[],           // Selected tools
+  model: string,           // Model ID to use
+  tier: ModelTier,         // 'simple' | 'moderate' | 'complex' | 'expert'
+  confidence: number,      // 0-1 confidence score
+  reason: string,          // Explanation
+  usedLlmFallback: boolean // Whether LLM was used
+}
+```
+
+#### `analyzeQuery(options)`
+
+Lower-level analysis - returns detailed results.
+
+```typescript
+const result = await analyzeQuery({
+  query: 'Calculate sales totals',
+  availableTools: [Tool.CODE_INTERPRETER],
+  llmFallback: async (p) => callNovaMicro(p),
+});
+
+// Returns:
+{
+  tools: QueryIntentResult,  // Detailed tool selection
+  model: ModelRoutingResult, // Detailed model routing
+  usedLlmFallback: boolean
+}
+```
+
+#### `getModelForTier(tier, preset?)`
+
+Get model ID for a specific tier.
+
+```typescript
+import { getModelForTier } from '@librechat/intent-analyzer';
+
+getModelForTier('simple');              // 'us.amazon.nova-pro-v1:0'
+getModelForTier('expert', 'premium');   // 'global.anthropic.claude-opus-4-5-20251101-v1:0'
+getModelForTier('expert', 'costOptimized'); // 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+```
+
+### Upload Intent
+
+Analyze files for upload routing:
+
+```typescript
+import { analyzeUploadIntent, UploadIntent } from '@librechat/intent-analyzer';
+
+const result = analyzeUploadIntent({
+  filename: 'data.xlsx',
+  mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+});
+
+console.log(result.intent); // UploadIntent.CODE_INTERPRETER
+```
+
+### Tool Selection Only
 
 ```typescript
 import { analyzeQueryIntent, Tool } from '@librechat/intent-analyzer';
 
 const result = analyzeQueryIntent({
-  query: 'Calculate the sum of sales in this spreadsheet',
-  attachedFiles: [
-    { filename: 'sales.xlsx', type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-  ],
-  availableTools: [Tool.CODE_INTERPRETER, Tool.FILE_SEARCH, Tool.WEB_SEARCH],
+  query: 'Search the web for latest news',
+  availableTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
 });
 
-console.log(result.tools);           // [Tool.CODE_INTERPRETER]
-console.log(result.contextPrompts);  // ['Spreadsheet attached for analysis...']
-console.log(result.confidence);      // 0.9
+console.log(result.tools);      // [Tool.WEB_SEARCH]
+console.log(result.confidence); // 0.85
 ```
 
-### Legacy Modules
-
-For advanced use cases, the package also exports detailed routing functions:
-
-#### Attachment Routing (Detailed)
+### Model Routing Only
 
 ```typescript
-import { routeAttachment, routeAttachments } from '@librechat/intent-analyzer';
+import { scoreQueryComplexity } from '@librechat/intent-analyzer';
 
-const result = routeAttachment({
-  file_id: '123',
-  filename: 'data.xlsx',
-  mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  size: 5000,
-});
+const result = scoreQueryComplexity('Design a microservices architecture');
 
-console.log(result.primaryStrategy);      // 'code_executor'
-console.log(result.backgroundStrategies); // ['file_search']
-console.log(result.shouldEmbed);          // true
-console.log(result.category);             // 'spreadsheet'
+console.log(result.tier);       // 'expert'
+console.log(result.score);      // 0.85
+console.log(result.categories); // ['code', 'reasoning']
 ```
 
-#### Tool Selection (Detailed)
+## Configuration
+
+### Presets
+
+| Preset | Expert | Complex | Moderate | Simple |
+|--------|--------|---------|----------|--------|
+| `premium` | Opus 4.5 | Sonnet 4.5 | Haiku 4.5 | Nova Pro |
+| `costOptimized` | Sonnet 4.5 | Sonnet 4.5 | Haiku 4.5 | Nova Pro |
+| `ultraCheap` | Haiku 4.5 | Haiku 4.5 | Nova Pro | Nova Pro |
+
+> **Note**: Nova Micro is NOT in routing presets. It's only used for `classifierModel` (LLM fallback).
+
+### librechat.yaml Configuration
+
+```yaml
+intentAnalyzer:
+  autoToolSelection: true   # Smart tool selection based on query
+  modelRouting: true        # 4-tier model routing based on complexity
+  preset: 'premium'         # or 'costOptimized' or 'ultraCheap'
+  debug: true               # Enable detailed logging
+  endpoints:
+    bedrock:
+      enabled: true
+      classifierModel: 'us.amazon.nova-micro-v1:0'  # Only for classification fallback
+```
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `WEB_SEARCH` | Search the internet for current information |
+| `CODE_INTERPRETER` | Execute code, analyze data, create charts |
+| `FILE_SEARCH` | Search through uploaded documents (RAG) |
+| `ARTIFACTS` | Create interactive UI components |
+
+## Constants
 
 ```typescript
-import { selectTools, ToolType } from '@librechat/intent-analyzer';
+import { CLASSIFIER_MODEL } from '@librechat/intent-analyzer';
 
-const result = selectTools({
-  query: 'Calculate the sum of values in this spreadsheet',
-  availableTools: [
-    { type: ToolType.CODE_INTERPRETER, name: 'Code Interpreter', enabled: true },
-    { type: ToolType.FILE_SEARCH, name: 'File Search', enabled: true },
-  ],
-  attachments: [
-    { file_id: '1', filename: 'data.xlsx', mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 5000 },
-  ],
-});
-
-console.log(result.selectedTools);    // [{ type: 'code_interpreter', ... }]
-console.log(result.autoEnabledTools); // ['code_interpreter']
-console.log(result.reasoning);        // 'Query suggests code_interpreter...'
+console.log(CLASSIFIER_MODEL); // 'us.amazon.nova-micro-v1:0'
 ```
 
-## API Reference
+## Migration from @librechat/llm-router
 
-### Core Module
+This package replaces `@librechat/llm-router`. Update your imports:
 
-- `analyzeUploadIntent(file)` - Analyze a single file for upload intent
-- `analyzeUploadIntents(files)` - Analyze multiple files for upload intents
-- `getUploadEndpoint(intent)` - Get API endpoint for an upload intent
-- `getToolResource(intent)` - Get tool resource name for an upload intent
-- `analyzeQueryIntent(context)` - Analyze query to determine tools to use
-- `shouldUseTool(tool, context)` - Check if a specific tool should be used
-- `getToolContextPrompts(tools, files)` - Get context prompts for selected tools
+```typescript
+// Before
+import { createBedrockRouter } from '@librechat/llm-router';
+const router = createBedrockRouter('costOptimized');
+const result = await router.route(prompt);
 
-### Legacy Attachment Module
-
-- `routeAttachment(file, config?)` - Route a single file (detailed)
-- `routeAttachments(files, config?)` - Route multiple files (detailed)
-- `categorizeFile(file)` - Get file category
-- `shouldEmbedFile(file, category, config?)` - Check if file should be embedded
-- `needsOCR(file, config?)` - Check if file needs OCR
-- `needsSTT(file, config?)` - Check if file needs speech-to-text
-
-### Legacy Tools Module
-
-- `selectTools(context)` - Select tools based on context (detailed)
-- `shouldEnableTool(toolType, context)` - Check if a tool should be enabled
-
-## Enums
-
-### UploadIntent (Core)
-- `IMAGE` - Vision/image processing
-- `CODE_INTERPRETER` - Code interpreter
-- `FILE_SEARCH` - RAG embeddings/search
-
-### Tool (Core)
-- `CODE_INTERPRETER`, `FILE_SEARCH`, `WEB_SEARCH`, `IMAGE_GEN`, `CALCULATOR`
-
-### UploadStrategy (Legacy)
-- `IMAGE`, `CODE_EXECUTOR`, `FILE_SEARCH`, `TEXT_CONTEXT`, `PROVIDER`
-
-### FileCategory (Legacy)
-- `IMAGE`, `DOCUMENT`, `SPREADSHEET`, `CODE`, `AUDIO`, `VIDEO`, `ARCHIVE`, `UNKNOWN`
-
-### ToolType (Legacy)
-- `CODE_INTERPRETER`, `FILE_SEARCH`, `IMAGE_GENERATION`, `WEB_SEARCH`, `CALCULATOR`, `MCP_TOOL`
-
-## Related Packages
-
-- `@librechat/llm-router` - LLM routing for cost-optimized model selection based on task complexity
+// After
+import { routeQuery, Tool } from '@librechat/intent-analyzer';
+const result = await routeQuery(prompt, {
+  provider: 'bedrock',
+  preset: 'costOptimized',
+  availableTools: [Tool.WEB_SEARCH],
+});
+```
 
 ## License
 

@@ -237,6 +237,8 @@ export const getResponseSender = (endpointOption: t.TEndpointOption): string => 
       return chatGptLabel;
     } else if (modelLabel) {
       return modelLabel;
+    } else if (modelDisplayLabel) {
+      return modelDisplayLabel;
     } else if (model && extractOmniVersion(model)) {
       return extractOmniVersion(model);
     } else if (model && (model.includes('mistral') || model.includes('codestral'))) {
@@ -255,7 +257,7 @@ export const getResponseSender = (endpointOption: t.TEndpointOption): string => 
   }
 
   if (endpoint === EModelEndpoint.bedrock) {
-    return modelLabel || alternateName[endpoint];
+    return modelLabel || modelDisplayLabel || alternateName[endpoint];
   }
 
   if (endpoint === EModelEndpoint.google) {

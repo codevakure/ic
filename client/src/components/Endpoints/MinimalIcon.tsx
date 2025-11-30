@@ -15,6 +15,15 @@ import UnknownIcon from '~/hooks/Endpoint/UnknownIcon';
 import { IconProps } from '~/common';
 import { cn } from '~/utils';
 
+// Helper to render custom icon from URL
+const CustomIconFromURL = ({ iconURL, alt, className }: { iconURL: string; alt: string; className?: string }) => (
+  <img 
+    src={iconURL} 
+    alt={alt} 
+    className={cn('object-contain', className ?? 'icon-sm')}
+  />
+);
+
 const MinimalIcon: React.FC<IconProps> = (props) => {
   const { size = 30, iconURL = '', iconClassName, error } = props;
 
@@ -24,35 +33,54 @@ const MinimalIcon: React.FC<IconProps> = (props) => {
     endpoint = props.endpoint;
   }
 
-  const endpointIcons = {
+  // Get the display name from modelLabel or fallback to default
+  const getDisplayName = (defaultName: string) => props.modelLabel || defaultName;
+
+  // Default icons for each endpoint (used when no custom iconURL is provided)
+  const defaultIcons: Record<string, { icon: React.ReactNode; name: string }> = {
     [EModelEndpoint.azureOpenAI]: {
       icon: <AzureMinimalIcon className={iconClassName} />,
       name: props.chatGptLabel ?? 'ChatGPT',
     },
     [EModelEndpoint.openAI]: {
       icon: <OpenAIMinimalIcon className={iconClassName} />,
-      name: props.chatGptLabel ?? 'ChatGPT',
+      name: props.chatGptLabel ?? getDisplayName('ChatGPT'),
     },
-    [EModelEndpoint.gptPlugins]: { icon: <MinimalPlugin />, name: 'Plugins' },
-    [EModelEndpoint.google]: { icon: <GoogleMinimalIcon />, name: props.modelLabel ?? 'Google' },
+    [EModelEndpoint.gptPlugins]: { 
+      icon: <MinimalPlugin />, 
+      name: getDisplayName('Plugins'),
+    },
+    [EModelEndpoint.google]: { 
+      icon: <GoogleMinimalIcon />, 
+      name: getDisplayName('Google'),
+    },
     [EModelEndpoint.anthropic]: {
       icon: <AnthropicIcon className="icon-md shrink-0 dark:text-white" />,
-      name: props.modelLabel ?? 'Claude',
+      name: getDisplayName('Claude'),
     },
     [EModelEndpoint.custom]: {
       icon: <CustomMinimalIcon />,
-      name: 'Custom',
+      name: getDisplayName('Custom'),
     },
-    [EModelEndpoint.chatGPTBrowser]: { icon: <LightningIcon />, name: 'ChatGPT' },
-    [EModelEndpoint.assistants]: { icon: <Sparkles className="icon-sm" />, name: 'Assistant' },
-    [EModelEndpoint.azureAssistants]: { icon: <Sparkles className="icon-sm" />, name: 'Assistant' },
+    [EModelEndpoint.chatGPTBrowser]: { 
+      icon: <LightningIcon />, 
+      name: getDisplayName('ChatGPT'),
+    },
+    [EModelEndpoint.assistants]: { 
+      icon: <Sparkles className="icon-sm" />, 
+      name: getDisplayName('Assistant'),
+    },
+    [EModelEndpoint.azureAssistants]: { 
+      icon: <Sparkles className="icon-sm" />, 
+      name: getDisplayName('Assistant'),
+    },
     [EModelEndpoint.agents]: {
       icon: <Feather className="icon-sm" />,
-      name: props.modelLabel ?? alternateName[EModelEndpoint.agents],
+      name: getDisplayName(alternateName[EModelEndpoint.agents] as string),
     },
     [EModelEndpoint.bedrock]: {
       icon: <BedrockIcon className="icon-xl text-text-primary" />,
-      name: props.modelLabel ?? alternateName[EModelEndpoint.bedrock],
+      name: getDisplayName(alternateName[EModelEndpoint.bedrock] as string),
     },
     default: {
       icon: <UnknownIcon iconURL={iconURL} endpoint={endpoint} className="icon-sm" context="nav" />,
@@ -60,9 +88,16 @@ const MinimalIcon: React.FC<IconProps> = (props) => {
     },
   };
 
-  let { icon, name } = endpointIcons[endpoint] ?? endpointIcons.default;
-  if (iconURL && endpointIcons[iconURL] != null) {
-    ({ icon, name } = endpointIcons[iconURL]);
+  // Get default icon for endpoint
+  let { icon, name } = defaultIcons[endpoint] ?? defaultIcons.default;
+
+  // If a custom iconURL is provided for the endpoint config, use it instead of default
+  if (iconURL && !iconURL.includes('http') && iconURL.startsWith('/')) {
+    // Local asset URL from endpoint config
+    icon = <CustomIconFromURL iconURL={iconURL} alt={name} />;
+  } else if (iconURL && defaultIcons[iconURL] != null) {
+    // iconURL matches another endpoint (e.g., using openai icon for custom endpoint)
+    ({ icon, name } = defaultIcons[iconURL]);
   }
 
   return (

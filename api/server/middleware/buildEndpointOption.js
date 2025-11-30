@@ -6,6 +6,7 @@ const {
   isAgentsEndpoint,
   parseCompactConvo,
 } = require('librechat-data-provider');
+const { getMessages } = require('~/models/Message');
 const azureAssistants = require('~/server/services/Endpoints/azureAssistants');
 const assistants = require('~/server/services/Endpoints/assistants');
 const { processFiles } = require('~/server/services/Files/process');
@@ -86,25 +87,64 @@ async function buildEndpointOption(req, res, next) {
     // TODO: use object params
     req.body.endpointOption = await builder(endpoint, parsedBody, endpointType);
 
+    // Add modelDisplayLabel and iconURL from endpoint config if not already set
+    const endpointConfig = appConfig?.endpoints?.[endpoint];
+    if (endpointConfig) {
+      if (endpointConfig.modelDisplayLabel && !req.body.endpointOption.modelDisplayLabel) {
+        req.body.endpointOption.modelDisplayLabel = endpointConfig.modelDisplayLabel;
+      }
+      if (endpointConfig.iconURL && !req.body.endpointOption.iconURL) {
+        req.body.endpointOption.iconURL = endpointConfig.iconURL;
+      }
+    }
+
     const originalModel = req.body.endpointOption?.model_parameters?.model || req.body.model;
     
     // LLM Router: Dynamically select the optimal model based on prompt complexity
-    const routedModel = await routeModel({
-      endpoint,
-      prompt: req.body.text || req.body.message || '',
-      currentModel: originalModel,
-      userId: req.user?.id,
-      appConfig: req.config,
-    });
-
-    if (routedModel && routedModel !== originalModel) {
-      logger.info(`[buildEndpointOption] LLM Router changed model: ${originalModel} -> ${routedModel}`);
-      if (req.body.endpointOption?.model_parameters) {
-        req.body.endpointOption.model_parameters.model = routedModel;
+    // For AGENTS endpoint: Skip routing here - loadEphemeralAgent handles it AFTER tool selection
+    // This is critical because artifacts detection requires tool selection first
+    // Fetch recent conversation history for context (if available)
+    let conversationHistory = [];
+    if (req.body.conversationId && req.user?.id) {
+      try {
+        const messages = await getMessages(
+          { conversationId: req.body.conversationId, user: req.user.id },
+          'text sender isCreatedByUser'
+        );
+        // Convert to simple format and take last 5 messages
+        conversationHistory = messages.slice(-5).map(m => ({
+          role: m.isCreatedByUser ? 'user' : 'assistant',
+          content: m.text?.substring(0, 500) || '', // Limit length
+        }));
+      } catch (err) {
+        logger.debug('[buildEndpointOption] Could not fetch conversation history:', err.message);
       }
-      req.body.model = routedModel;
-      req.body.routedModel = true;
-      req.body.originalModel = originalModel;
+    }
+    
+    // Store conversation history on request for use by loadEphemeralAgent (avoids duplicate fetch)
+    req.conversationHistory = conversationHistory;
+    
+    // Only route for non-agents endpoints
+    // Agents endpoint routes in loadEphemeralAgent AFTER tool selection (so artifacts can elevate tier)
+    if (!isAgents) {
+      const routedModel = await routeModel({
+        endpoint,
+        prompt: req.body.text || req.body.message || '',
+        currentModel: originalModel,
+        userId: req.user?.id,
+        appConfig: req.config,
+        conversationHistory,
+      });
+
+      if (routedModel && routedModel !== originalModel) {
+        logger.info(`[buildEndpointOption] LLM Router changed model: ${originalModel} -> ${routedModel}`);
+        if (req.body.endpointOption?.model_parameters) {
+          req.body.endpointOption.model_parameters.model = routedModel;
+        }
+        req.body.model = routedModel;
+        req.body.routedModel = true;
+        req.body.originalModel = originalModel;
+      }
     }
 
     if (req.body.files && !isAgents) {

@@ -7,7 +7,10 @@ export default function useGetSender() {
   const { data: endpointsConfig = {} as TEndpointsConfig } = useGetEndpointsQuery();
   return useCallback(
     (endpointOption: TEndpointOption) => {
-      const { modelDisplayLabel } = endpointsConfig?.[endpointOption.endpoint ?? ''] ?? {};
+      // Prefer modelDisplayLabel from endpointOption (passed from useChatFunctions)
+      // as it's read from query cache synchronously, over async hook fetch
+      const configLabel = endpointsConfig?.[endpointOption.endpoint ?? '']?.modelDisplayLabel;
+      const modelDisplayLabel = endpointOption.modelDisplayLabel ?? configLabel;
       return getResponseSender({ ...endpointOption, modelDisplayLabel });
     },
     [endpointsConfig],

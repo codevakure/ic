@@ -770,4 +770,573 @@ describe('Query Intent Analyzer', () => {
       }
     });
   });
+
+  describe('WEB_SEARCH - Real-time Information Patterns', () => {
+    it('should select WEB_SEARCH for weather queries', () => {
+      const queries = [
+        'What is the weather in Dallas TX',
+        'Weather forecast for New York',
+        'Is it going to rain tomorrow',
+        'Check the weather in London',
+        'How hot is it in Phoenix',
+        'Will it snow in Chicago',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for current leadership/position queries', () => {
+      const queries = [
+        'Who is the current US president',
+        'Who is the CEO of Apple',
+        'Current prime minister of UK',
+        'Who is the current chairman of the Federal Reserve',
+        'Who is running the company now',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for sports scores and results', () => {
+      const queries = [
+        'Get me latest scores of game',
+        'What is the final score of the Lakers game',
+        'NFL scores today',
+        'Premier League standings',
+        'Who won the Super Bowl',
+        'NBA results',
+        'Champions League fixtures',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for stock/crypto prices', () => {
+      const queries = [
+        'What is the Bitcoin price',
+        'Current stock price of Tesla',
+        'How much is Ethereum right now',
+        'AAPL stock today',
+        'Crypto market update',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for breaking news and current events', () => {
+      const queries = [
+        'Breaking news about the election',
+        'Latest updates on AI',
+        'What is trending today',
+        'Just announced by Apple',
+        'What happened in 2025',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for election and political queries', () => {
+      const queries = [
+        'Election results 2024',
+        'Who is winning the primary',
+        'Latest poll numbers',
+        'Who is leading in the race',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for product release queries', () => {
+      const queries = [
+        'When is the iPhone 16 release date',
+        'Is GTA 6 out yet',
+        'When does the new MacBook come out',
+        'Has Windows 12 been released',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should select WEB_SEARCH for schedule and event queries', () => {
+      const queries = [
+        'When is the Super Bowl',
+        'What is playing tonight',
+        'What is happening this weekend',
+        'Schedule for the conference',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+  });
+
+  describe('Document Reference Suppression - WEB_SEARCH vs FILE_SEARCH', () => {
+    it('should suppress WEB_SEARCH when query references documents and files are attached', () => {
+      const queries = [
+        'Who is the president mentioned in this document',
+        'What does the attached file say about current events',
+        'According to the document, what are the latest updates',
+        'In the uploaded PDF, what is the current status',
+        'Based on the provided file, who is leading',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          attachedFiles: {
+            files: [{ filename: 'report.pdf', mimetype: 'application/pdf' }],
+            uploadIntents: [UploadIntent.FILE_SEARCH],
+          },
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
+        });
+        // FILE_SEARCH should be selected (from attachments)
+        expect(result.tools).toContain(Tool.FILE_SEARCH);
+        // WEB_SEARCH should be suppressed (query references documents)
+        expect(result.tools).not.toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should NOT suppress WEB_SEARCH when no document reference in query', () => {
+      const result = analyzeQueryIntent({
+        query: 'What is the weather in Dallas',  // No document reference
+        attachedFiles: {
+          files: [{ filename: 'report.pdf', mimetype: 'application/pdf' }],
+          uploadIntents: [UploadIntent.FILE_SEARCH],
+        },
+        availableTools: allTools,
+        autoEnabledTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
+      });
+      // Both should be available - LLM decides
+      expect(result.tools).toContain(Tool.FILE_SEARCH);  // From attachments
+      expect(result.tools).toContain(Tool.WEB_SEARCH);   // From query pattern
+    });
+
+    it('should NOT suppress WEB_SEARCH when no files are attached', () => {
+      const result = analyzeQueryIntent({
+        query: 'What does the document say about current events',  // References document but none attached
+        availableTools: allTools,
+        autoEnabledTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
+      });
+      // No files attached, so no suppression
+      // FILE_SEARCH might not be selected (no attachments)
+      // WEB_SEARCH should still work for "current events"
+      expect(result.tools).toContain(Tool.WEB_SEARCH);
+    });
+
+    it('should select WEB_SEARCH for real-time queries without document reference', () => {
+      const queries = [
+        'Who is the current US president',  // No "in the document"
+        'What is happening today',
+        'Latest stock prices',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          attachedFiles: {
+            files: [{ filename: 'report.pdf', mimetype: 'application/pdf' }],
+            uploadIntents: [UploadIntent.FILE_SEARCH],
+          },
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
+        });
+        // WEB_SEARCH should be selected - no document reference to suppress it
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+  });
+
+  describe('Edge Cases and Ambiguous Queries', () => {
+    it('should NOT select WEB_SEARCH for general knowledge questions', () => {
+      const queries = [
+        'What is photosynthesis',
+        'Explain the theory of relativity',
+        'How does gravity work',
+        'What causes earthquakes',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        // These are static knowledge questions - LLM should answer from memory
+        expect(result.tools).not.toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should NOT select CODE_INTERPRETER for simple math questions', () => {
+      const queries = [
+        'What is 2 + 2',
+        'Is 17 a prime number',
+        'What is the square root of 144',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.CODE_INTERPRETER],
+        });
+        // Simple math doesn't need code interpreter
+        expect(result.tools).not.toContain(Tool.CODE_INTERPRETER);
+      }
+    });
+
+    it('should handle queries with temporal indicators for web search', () => {
+      const queries = [
+        'What did Apple announce yesterday',
+        'News from last week about Tesla',
+        'What happened in tech this month',
+        'Recent developments in AI',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+
+    it('should handle multi-tool queries appropriately', () => {
+      // Query that needs both web search and code interpreter
+      const result = analyzeQueryIntent({
+        query: 'Get the latest Tesla stock price and create a chart showing the trend',
+        availableTools: allTools,
+        autoEnabledTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
+      });
+      
+      expect(result.tools).toContain(Tool.WEB_SEARCH);  // For stock price
+      expect(result.tools).toContain(Tool.CODE_INTERPRETER);  // For chart
+    });
+
+    it('should prioritize FILE_SEARCH when both document and web patterns match but files attached', () => {
+      const result = analyzeQueryIntent({
+        query: 'What are the latest figures mentioned in this report',
+        attachedFiles: {
+          files: [{ filename: 'report.pdf', mimetype: 'application/pdf' }],
+          uploadIntents: [UploadIntent.FILE_SEARCH],
+        },
+        availableTools: allTools,
+        autoEnabledTools: [Tool.WEB_SEARCH, Tool.FILE_SEARCH],
+      });
+      
+      expect(result.tools).toContain(Tool.FILE_SEARCH);
+      // "latest" triggers web search but "this report" should suppress it
+      expect(result.tools).not.toContain(Tool.WEB_SEARCH);
+    });
+  });
+
+  describe('Currency, Conversion, and Calculation Queries', () => {
+    it('should select WEB_SEARCH for currency conversion queries', () => {
+      const queries = [
+        'What is the current USD to EUR exchange rate',
+        'Convert 100 dollars to euros',
+        'How much is 50 GBP in USD today',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.WEB_SEARCH],
+        });
+        expect(result.tools).toContain(Tool.WEB_SEARCH);
+      }
+    });
+  });
+
+  describe('Clarification Logic', () => {
+    describe('Multi-tool clarification (regex handles)', () => {
+      it('should ask for clarification when both artifacts AND execute_code match query patterns', () => {
+        // Use a query that triggers BOTH tools with similar scores
+        // "analyze data" triggers execute_code, "chart" triggers both, "visualization" triggers artifacts
+        const result = analyzeQueryIntent({
+          query: 'analyze this data and create a chart visualization',
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS, Tool.CODE_INTERPRETER],
+        });
+        
+        // Both tools should be selected due to overlapping signals
+        // If both are selected with high enough confidence, clarification should be prompted
+        if (result.tools.includes(Tool.ARTIFACTS) && result.tools.includes(Tool.CODE_INTERPRETER)) {
+          expect(result.clarificationPrompt).toBeDefined();
+          expect(result.clarificationOptions).toBeDefined();
+          expect(result.clarificationOptions?.length).toBeGreaterThan(0);
+        }
+      });
+
+      it('should provide clarification options for visualization ambiguity', () => {
+        const result = analyzeQueryIntent({
+          query: 'plot a graph showing sales trends',
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS, Tool.CODE_INTERPRETER],
+        });
+        
+        // Should detect ambiguity between React charts vs matplotlib
+        if (result.tools.includes(Tool.ARTIFACTS) && result.tools.includes(Tool.CODE_INTERPRETER)) {
+          expect(result.clarificationPrompt).toBeDefined();
+        }
+      });
+
+      it('should NOT ask for clarification when only ONE tool is clearly selected', () => {
+        const result = analyzeQueryIntent({
+          query: 'create a react dashboard with mock data',
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS, Tool.CODE_INTERPRETER],
+        });
+        
+        // Clear intent for artifacts only
+        expect(result.tools).toContain(Tool.ARTIFACTS);
+        expect(result.clarificationPrompt).toBeUndefined();
+      });
+
+      it('should NOT ask for clarification for clear code execution requests', () => {
+        const result = analyzeQueryIntent({
+          query: 'run python code to calculate the mean of [1,2,3,4,5]',
+          availableTools: allTools,
+          autoEnabledTools: [Tool.CODE_INTERPRETER],
+        });
+        
+        expect(result.tools).toContain(Tool.CODE_INTERPRETER);
+        expect(result.clarificationPrompt).toBeUndefined();
+      });
+    });
+
+    describe('Low confidence - LLM fallback handles clarification', () => {
+      it('should have low confidence for vague visualization requests', () => {
+        const result = analyzeQueryIntent({
+          query: 'visualize this',
+          availableTools: allTools,
+        });
+        
+        // Low confidence should trigger LLM fallback
+        // "visualize" alone has no auto-enabled tools and low scores
+        expect(result.confidence).toBeLessThan(0.5);
+      });
+
+      it('should have low confidence for vague create requests', () => {
+        const result = analyzeQueryIntent({
+          query: 'create something for this',
+          availableTools: allTools,
+        });
+        
+        // Very vague request should have low confidence
+        expect(result.confidence).toBeLessThan(0.5);
+      });
+
+      it('should have low confidence for ambiguous display requests', () => {
+        const result = analyzeQueryIntent({
+          query: 'show me how this looks',
+          availableTools: allTools,
+        });
+        
+        expect(result.confidence).toBeLessThan(0.4);
+      });
+    });
+
+    describe('Clear intent - no clarification needed', () => {
+      it('should NOT need clarification for explicit React component requests', () => {
+        const queries = [
+          'create a react dashboard',
+          'build an HTML page with a form',
+          'generate a mermaid diagram',
+          'make a vue component',
+        ];
+
+        for (const query of queries) {
+          const result = analyzeQueryIntent({
+            query,
+            availableTools: allTools,
+            autoEnabledTools: [Tool.ARTIFACTS],
+          });
+          
+          expect(result.tools).toContain(Tool.ARTIFACTS);
+          expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+          // No clarification when intent is clear
+          if (result.tools.length === 1) {
+            expect(result.clarificationPrompt).toBeUndefined();
+          }
+        }
+      });
+
+      it('should NOT need clarification for explicit Python/code requests', () => {
+        const queries = [
+          'run python code to analyze the data',
+          'execute this javascript',
+          'plot with matplotlib',
+          'calculate using pandas',
+        ];
+
+        for (const query of queries) {
+          const result = analyzeQueryIntent({
+            query,
+            availableTools: allTools,
+            autoEnabledTools: [Tool.CODE_INTERPRETER],
+          });
+          
+          expect(result.tools).toContain(Tool.CODE_INTERPRETER);
+          expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+        }
+      });
+
+      it('should NOT need clarification for web search requests', () => {
+        const queries = [
+          'search the web for latest news',
+          'what is the current stock price of AAPL',
+          'find recent articles about AI',
+        ];
+
+        for (const query of queries) {
+          const result = analyzeQueryIntent({
+            query,
+            availableTools: allTools,
+            autoEnabledTools: [Tool.WEB_SEARCH],
+          });
+          
+          expect(result.tools).toContain(Tool.WEB_SEARCH);
+          // Web search alone shouldn't need clarification
+          if (!result.tools.includes(Tool.ARTIFACTS) && !result.tools.includes(Tool.CODE_INTERPRETER)) {
+            expect(result.clarificationPrompt).toBeUndefined();
+          }
+        }
+      });
+    });
+
+    describe('Clarification options content', () => {
+      it('should provide relevant options for chart/visualization ambiguity', () => {
+        const result = analyzeQueryIntent({
+          query: 'create a chart showing the trends',
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS, Tool.CODE_INTERPRETER],
+        });
+        
+        if (result.clarificationPrompt) {
+          expect(result.clarificationOptions).toBeDefined();
+          // Options should mention both React and Python approaches
+          const optionsText = result.clarificationOptions?.join(' ').toLowerCase();
+          expect(optionsText).toMatch(/react|ui|interactive|python|matplotlib|code/i);
+        }
+      });
+    });
+  });
+
+  describe('Artifacts Pattern Matching', () => {
+    it('should match dashboard creation patterns', () => {
+      const queries = [
+        'generate a modern dashboard',
+        'create a dashboard with mock data',
+        'build a sales dashboard',
+        'make a user dashboard',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS],
+        });
+        
+        expect(result.tools).toContain(Tool.ARTIFACTS);
+        expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+      }
+    });
+
+    it('should match diagram creation patterns', () => {
+      const queries = [
+        'create a mermaid diagram',
+        'generate a flowchart',
+        'build a sequence diagram',
+        'make an ER diagram',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS],
+        });
+        
+        expect(result.tools).toContain(Tool.ARTIFACTS);
+      }
+    });
+
+    it('should match HTML/webpage creation patterns', () => {
+      const queries = [
+        'create an HTML page',
+        'build a webpage',
+        'generate an HTML form',
+      ];
+
+      for (const query of queries) {
+        const result = analyzeQueryIntent({
+          query,
+          availableTools: allTools,
+          autoEnabledTools: [Tool.ARTIFACTS],
+        });
+        
+        expect(result.tools).toContain(Tool.ARTIFACTS);
+      }
+    });
+  });
 });

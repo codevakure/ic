@@ -46,7 +46,9 @@ const initializeClient = async ({ req, res, endpointOption }) => {
     agent.model_parameters.configuration = options.configOptions;
   }
 
+  // Priority: modelDisplayLabel from config > agent.name > getResponseSender
   const sender =
+    endpointOption.modelDisplayLabel ??
     agent.name ??
     getResponseSender({
       ...endpointOption,

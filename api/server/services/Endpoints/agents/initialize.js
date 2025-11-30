@@ -87,6 +87,9 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
     throw new Error('Agent not found');
   }
 
+  // Clarification is now handled via agent instructions injection in loadEphemeralAgent
+  // The agent will ask the user for clarification directly in its response
+
   const modelsConfig = await getModelsConfig(req);
   const validationResult = await validateAgentModel({
     req,

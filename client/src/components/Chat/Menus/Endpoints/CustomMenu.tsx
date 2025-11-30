@@ -63,7 +63,7 @@ export const CustomMenu = React.forwardRef<HTMLDivElement, CustomMenuProps>(func
         preventBodyScroll={false}
         className={cn(
           `${parent ? 'animate-popover-left ml-3' : 'animate-popover'} outline-none! z-50 flex max-h-[min(380px,var(--popover-available-height))] w-full`,
-          'w-[var(--menu-width,auto)] min-w-[260px] flex-col overflow-hidden rounded-xl',
+          'w-[var(--menu-width,auto)] min-w-[260px] flex-col rounded-xl',
           // Light theme: white background with subtle shadow
           'bg-white dark:bg-gray-800',
           'shadow-lg dark:shadow-2xl',
@@ -72,7 +72,7 @@ export const CustomMenu = React.forwardRef<HTMLDivElement, CustomMenuProps>(func
         )}
       >
         <SearchableContext.Provider value={searchable}>
-          <div className="p-1.5">{children}</div>
+          <div className="p-1.5 overflow-y-auto overflow-x-hidden max-h-full">{children}</div>
         </SearchableContext.Provider>
       </Ariakit.Menu>
     </Ariakit.MenuProvider>

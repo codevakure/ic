@@ -85,7 +85,7 @@ export const AppService = async (params?: {
     interfaceConfig,
     turnstileConfig,
     fileStrategies: config.fileStrategies,
-    llmRouter: config.llmRouter,
+    intentAnalyzer: config.intentAnalyzer,
   };
 
   const agentsDefaults = agentsConfigSetup(config);

@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
 import {
   Permissions,
-  alternateName,
   PermissionBits,
   EModelEndpoint,
   PermissionTypes,
   isAgentsEndpoint,
   getConfigDefaults,
   isAssistantsEndpoint,
+  getEndpointLabel,
 } from 'librechat-data-provider';
 import type { TAssistantsMap, TEndpointsConfig } from 'librechat-data-provider';
 import type { MentionOption } from '~/common';
@@ -197,7 +197,7 @@ export default function useMentions({
       })),
       ...(interfaceConfig.modelSelect === true ? validEndpoints : []).map((endpoint) => ({
         value: endpoint,
-        label: alternateName[endpoint as string] ?? endpoint ?? '',
+        label: getEndpointLabel(endpointsConfig, endpoint),
         type: 'endpoint' as const,
         icon: EndpointIcon({
           conversation: { endpoint },
