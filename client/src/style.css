@@ -832,16 +832,17 @@ pre {
 .prose {
   color: var(--tw-prose-body);
   max-width: 65ch;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: var(--markdown-font-size, var(--font-size-base));
-  line-height: calc(
-    22px * var(--markdown-font-size, var(--font-size-base)) / var(--font-size-base)
-  );
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.005em;
 }
 
 .prose :where([class~='lead']):not(:where([class~='not-prose'] *)) {
   color: var(--tw-prose-lead);
   font-size: 1.25em;
-  line-height: 1.3;
+  line-height: 1.5;
   margin-bottom: 1.2em;
   margin-top: 1.2em;
 }
@@ -869,18 +870,20 @@ pre {
 .prose :where(hr):not(:where([class~='not-prose'] *)) {
   border-color: var(--tw-prose-hr);
   border-top-width: 1px;
-  margin-bottom: 0.8em;
-  margin-top: 0.8em;
+  margin-bottom: 1.5em;
+  margin-top: 1.5em;
 }
 .prose :where(blockquote):not(:where([class~='not-prose'] *)) {
   border-left-color: var(--tw-prose-quote-borders);
-  border-left-width: 2px;
+  border-left-width: 3px;
   color: var(--tw-prose-quotes);
   font-style: normal;
   font-weight: 400;
-  margin-bottom: 0.5em;
-  margin-top: 0.5em;
+  margin-bottom: 1em;
+  margin-top: 1em;
   padding-left: 1em;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
   quotes: none;
 }
 .prose :where(blockquote p:first-of-type):not(:where([class~='not-prose'] *)):before {
@@ -891,35 +894,41 @@ pre {
 }
 .prose :where(h1):not(:where([class~='not-prose'] *)) {
   color: var(--tw-prose-headings);
-  font-size: 1.75em;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.5em;
   font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 0.25em;
-  margin-top: 0.5em;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  margin-top: 40px;
 }
 .prose :where(h1 strong):not(:where([class~='not-prose'] *)) {
   color: inherit;
-  font-weight: 900;
+  font-weight: 800;
 }
 .prose :where(h2):not(:where([class~='not-prose'] *)) {
   color: var(--tw-prose-headings);
-  font-size: 1.2em;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.25em;
   font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 0.25em;
-  margin-top: 0.5em;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  margin-bottom: 8px;
+  margin-top: 32px;
 }
 .prose :where(h2 strong):not(:where([class~='not-prose'] *)) {
   color: inherit;
-  font-weight: 800;
+  font-weight: 700;
 }
 .prose :where(h3):not(:where([class~='not-prose'] *)) {
   color: var(--tw-prose-headings);
-  font-size: 1.15em;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.1em;
   font-weight: 600;
-  line-height: 1.3;
-  margin-bottom: 0.2em;
-  margin-top: 0.4em;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+  margin-top: 24px;
 }
 .prose :where(h3 strong):not(:where([class~='not-prose'] *)) {
   color: inherit;
@@ -927,11 +936,13 @@ pre {
 }
 .prose :where(h4):not(:where([class~='not-prose'] *)) {
   color: var(--tw-prose-headings);
-  font-size: 1.05em;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1em;
   font-weight: 600;
-  line-height: 1.3;
-  margin-bottom: 0.15em;
-  margin-top: 0.3em;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+  margin-bottom: 4px;
+  margin-top: 20px;
 }
 .prose :where(h4 strong):not(:where([class~='not-prose'] *)) {
   color: inherit;
@@ -1087,11 +1098,27 @@ pre {
   --tw-prose-invert-th-borders: #4b5563;
   --tw-prose-invert-td-borders: #424242;
   font-size: 1rem;
-  line-height: 1.4;
+  line-height: 1.65;
 }
 .prose :where(p):not(:where([class~='not-prose'] *)) {
-  margin-bottom: 0em;
-  margin-top: 0.7em;
+  margin-bottom: 12px;
+  margin-top: 12px;
+}
+/* First paragraph after heading should have less top margin */
+.prose :where(h1 + p, h2 + p, h3 + p, h4 + p):not(:where([class~='not-prose'] *)) {
+  margin-top: 0;
+}
+/* List immediately after heading should have less top margin */
+.prose :where(h1 + ul, h1 + ol, h2 + ul, h2 + ol, h3 + ul, h3 + ol, h4 + ul, h4 + ol):not(:where([class~='not-prose'] *)) {
+  margin-top: 4px;
+}
+/* Consecutive headers should have reduced spacing */
+.prose :where(h1 + h2, h2 + h3, h3 + h4, h1 + h3, h2 + h4):not(:where([class~='not-prose'] *)) {
+  margin-top: 8px;
+}
+/* First element in prose container should have no top margin */
+.prose > :first-child {
+  margin-top: 0 !important;
 }
 .prose :where(video):not(:where([class~='not-prose'] *)) {
   margin-bottom: 2em;
@@ -1102,11 +1129,22 @@ pre {
   margin-top: 2em;
 }
 .prose :where(li):not(:where([class~='not-prose'] *)) {
-  margin-bottom: 0.25em;
-  margin-top: 0.25em;
+  margin-bottom: 8px;
+  margin-top: 8px;
 }
 .prose :where(ul > li):not(:where([class~='not-prose'] *)) {
-  padding-left: 0.375em;
+  padding-left: 4px;
+}
+/* Lists should have proper spacing */
+.prose :where(ul, ol):not(:where([class~='not-prose'] *)) {
+  margin-bottom: 16px;
+  margin-top: 16px;
+  padding-left: 1.5em;
+}
+/* Nested lists should have less spacing */
+.prose :where(ul ul, ul ol, ol ul, ol ol):not(:where([class~='not-prose'] *)) {
+  margin-bottom: 0.25em;
+  margin-top: 0.25em;
 }
 .prose :where(.prose > ul > li p):not(:where([class~='not-prose'] *)) {
   margin-bottom: 0;
@@ -1126,13 +1164,13 @@ pre {
   margin-top: 0;
 }
 .prose :where(h2 + *):not(:where([class~='not-prose'] *)) {
-  margin-top: 0;
+  margin-top: 0.5em;
 }
 .prose :where(h3 + *):not(:where([class~='not-prose'] *)) {
-  margin-top: 0.625rem;
+  margin-top: 0.5em;
 }
 .prose :where(h4 + *):not(:where([class~='not-prose'] *)) {
-  margin-top: 0;
+  margin-top: 0.375em;
 }
 /* Ensure symmetrical spacing around hr */
 .prose :where(* + hr):not(:where([class~='not-prose'] *)) {
@@ -2655,7 +2693,17 @@ html {
 
 .message-content {
   font-size: var(--markdown-font-size, var(--font-size-base));
-  line-height: 1.4;
+  line-height: 1.65;
+}
+
+/* Ensure first element in message has no top margin */
+.message-content > :first-child {
+  margin-top: 0 !important;
+}
+
+/* Ensure last element in message has no bottom margin */
+.message-content > :last-child {
+  margin-bottom: 0 !important;
 }
 
 .message-content pre code {

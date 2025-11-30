@@ -58,15 +58,15 @@ export function SourceHovercard({
   const domain = getCleanDomain(source.link || '');
 
   return (
-    <span className="relative ml-0.5 inline-block">
+    <span className="relative ml-0.5 inline-block align-baseline">
       <Ariakit.HovercardProvider showTimeout={150} hideTimeout={150}>
-        <span className="flex items-center">
+        <span className="inline-flex items-center">
           <Ariakit.HovercardAnchor
             render={
               isFile ? (
                 <button
                   onClick={onClick}
-                  className="ml-1 inline-block h-5 max-w-36 cursor-pointer items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-border-heavy bg-surface-secondary px-2 text-xs font-medium text-blue-600 no-underline transition-colors hover:bg-surface-hover dark:border-border-medium dark:text-blue-400 dark:hover:bg-surface-tertiary"
+                  className="ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                   title={
@@ -80,7 +80,7 @@ export function SourceHovercard({
                   href={source.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1 inline-block h-5 max-w-36 cursor-pointer items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-xl border border-border-heavy bg-surface-secondary px-2 text-xs font-medium no-underline transition-colors hover:bg-surface-hover dark:border-border-medium dark:hover:bg-surface-tertiary"
+                  className="ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                 >
@@ -89,10 +89,6 @@ export function SourceHovercard({
               )
             }
           />
-          <Ariakit.HovercardDisclosure className="ml-0.5 rounded-full text-text-primary focus:outline-none focus:ring-2 focus:ring-ring">
-            <VisuallyHidden>{localize('com_citation_more_details', { label })}</VisuallyHidden>
-            <ChevronDown className="icon-sm" />
-          </Ariakit.HovercardDisclosure>
 
           <Ariakit.Hovercard
             gutter={16}
