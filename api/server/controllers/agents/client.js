@@ -437,6 +437,13 @@ class AgentClient extends BaseClient {
     const providerEndpoint = this.options.agent?.provider || this.options.endpoint;
     const endpointConfig = appConfig?.endpoints?.[providerEndpoint];
 
+    logger.debug('[AgentClient] Branding config:', {
+      providerEndpoint,
+      hasEndpointConfig: !!endpointConfig,
+      label: endpointConfig?.endpointCustomLabel,
+      description: endpointConfig?.endpointCustomDescription?.substring(0, 50),
+    });
+
     const brandingPrompt = generateBrandingPrompt({
       req: this.options.req,
       endpointConfig,

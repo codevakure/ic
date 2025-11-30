@@ -1,12 +1,13 @@
 /**
  * Branding Prompt Generator
  * 
- * Generates a concise context prompt that includes:
- * - AI assistant identity (label + description)
- * - User context
- * - Current time (for awareness)
+ * Generates a structured context prompt optimized for all models including Amazon Nova.
+ * Follows AWS Nova best practices:
+ * - Clear persona/role definition
+ * - Explicit instructions with hierarchy adherence
+ * - Factual context that MUST be used
  * 
- * Optimized for minimal token usage while maintaining effectiveness.
+ * @see https://docs.aws.amazon.com/nova/latest/userguide/prompting-system-role.html
  */
 
 // Default branding configuration
@@ -25,15 +26,16 @@ function getUserTimezone(req) {
 }
 
 /**
- * Format the current date and time in CST
+ * Format the current date and time
  * @param {string} timezone - IANA timezone string (defaults to CST)
- * @returns {string} Formatted date/time string in CST
+ * @returns {string} Formatted date/time string
  */
 function formatDateTime(timezone = 'America/Chicago') {
   try {
     const now = new Date();
     return now.toLocaleString('en-US', {
-      month: 'short',
+      weekday: 'long',
+      month: 'long',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
@@ -48,7 +50,8 @@ function formatDateTime(timezone = 'America/Chicago') {
     const cstOffset = -6 * 60;
     const cstTime = new Date(now.getTime() + (cstOffset + now.getTimezoneOffset()) * 60000);
     return cstTime.toLocaleString('en-US', {
-      month: 'short',
+      weekday: 'long',
+      month: 'long',
       day: 'numeric', 
       year: 'numeric',
       hour: 'numeric',
@@ -71,8 +74,8 @@ function getBrandingConfig(endpointConfig) {
 }
 
 /**
- * Generate branding and context prompt
- * Contains only: identity, description, user, and time
+ * Generate branding and context prompt with explicit instructions.
+ * Structured for optimal performance with all models including Amazon Nova.
  * 
  * @param {Object} options - Configuration options
  * @returns {string} The formatted branding prompt
@@ -85,7 +88,13 @@ function generateBrandingPrompt(options = {}) {
   const currentDateTime = formatDateTime(getUserTimezone(req));
 
   return `You are ${label}. ${description}
-User: ${userName} | Time: ${currentDateTime}`;
+
+CURRENT_TIME="${currentDateTime}"
+USER="${userName}"
+
+RULES:
+- If user asks for time/date/day, respond with CURRENT_TIME value. No apologies. No disclaimers.
+- All times in CST.`;
 }
 
 /**
