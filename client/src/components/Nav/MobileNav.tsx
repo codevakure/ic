@@ -27,7 +27,7 @@ export default function MobileNav({
         type="button"
         data-testid="mobile-header-new-chat-button"
         aria-label={localize('com_nav_open_sidebar')}
-        className={`m-1 inline-flex size-10 items-center justify-center rounded-full hover:bg-surface-hover ${navVisible ? 'invisible' : ''}`}
+        className={`m-1 inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-hover ${navVisible ? 'invisible' : ''}`}
         onClick={() =>
           setNavVisible((prev) => {
             localStorage.setItem('navVisible', JSON.stringify(!prev));
@@ -42,7 +42,7 @@ export default function MobileNav({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="icon-md"
+          className="h-4 w-4"
         >
           <path
             fillRule="evenodd"
@@ -58,7 +58,7 @@ export default function MobileNav({
       <button
         type="button"
         aria-label={localize('com_ui_new_chat')}
-        className="m-1 inline-flex size-10 items-center justify-center rounded-full hover:bg-surface-hover"
+        className="m-1 inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-hover"
         onClick={() => {
           clearMessagesCache(queryClient, conversation?.conversationId);
           queryClient.invalidateQueries([QueryKeys.messages]);
@@ -71,7 +71,7 @@ export default function MobileNav({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="icon-md"
+          className="h-4 w-4"
         >
           <path
             fillRule="evenodd"

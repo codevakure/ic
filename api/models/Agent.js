@@ -308,7 +308,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
       'trivial': 'us.amazon.nova-lite-v1:0',
       'simple': 'us.amazon.nova-pro-v1:0',
       'moderate': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
-      'complex': 'us.anthropic.claude-sonnet-4-5-20250514-v1:0',
+      'complex': 'global.anthropic.claude-opus-4-5-20251101-v1:0',
       'expert': 'us.anthropic.claude-opus-4-20250514-v1:0',
     };
     

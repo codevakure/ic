@@ -144,7 +144,8 @@ const CodeEditor = memo(
         readOnly={readOnly === true}
         extensions={[autocompletion()]}
         extensionsKeymap={Array.from<KeyBinding>(completionKeymap)}
-        className="hljs language-javascript bg-black"
+        className="hljs language-javascript bg-surface-primary-alt"
+        style={{ color: 'var(--hljs-color)' }}
       />
     );
   },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MenuButton } from '@ariakit/react';
 import { History, Check } from 'lucide-react';
-import { DropdownPopup, TooltipAnchor, Button, useMediaQuery } from '@librechat/client';
+import { DropdownPopup, TooltipAnchor, useMediaQuery } from '@librechat/client';
 import { useLocalize } from '~/hooks';
 
 interface ArtifactVersionProps {
@@ -42,7 +42,7 @@ export default function ArtifactVersion({
       onClick: () => handleValueChange(option.value),
       value: option.value,
       icon: isSelected ? (
-        <Check size={16} className="text-text-primary" aria-hidden="true" />
+        <Check className="h-4 w-4 text-text-primary" aria-hidden="true" />
       ) : undefined,
     };
   });
@@ -59,21 +59,13 @@ export default function ArtifactVersion({
         <TooltipAnchor
           description={localize('com_ui_change_version')}
           render={
-            <Button
-              size="icon"
-              variant="ghost"
-              asChild
-              aria-label={localize('com_ui_change_version')}
-            >
-              <MenuButton>
-                <History
-                  size={18}
-                  className="text-text-secondary"
-                  aria-hidden="true"
-                  focusable="false"
-                />
-              </MenuButton>
-            </Button>
+            <MenuButton className="text-text-secondary hover:text-text-primary">
+              <History
+                className="h-4 w-4"
+                aria-hidden="true"
+                focusable="false"
+              />
+            </MenuButton>
           }
         />
       }

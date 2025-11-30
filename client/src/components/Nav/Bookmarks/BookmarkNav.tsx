@@ -24,7 +24,7 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags, isSmallScreen }: Boo
   );
 
   return (
-    <Menu as="div" className="group relative">
+    <Menu as="div" className="relative">
       {({ open }) => (
         <>
           <TooltipAnchor
@@ -34,17 +34,16 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags, isSmallScreen }: Boo
                 id="bookmark-menu-button"
                 aria-label={localize('com_ui_bookmarks')}
                 className={cn(
-                  'flex items-center justify-center',
-                  'size-10 border-none text-text-primary hover:bg-accent hover:text-accent-foreground',
-                  'rounded-full border-none p-2 hover:bg-surface-hover md:rounded-xl',
+                  'flex h-10 w-10 items-center justify-center rounded-lg p-2 text-text-primary transition-colors duration-200 hover:bg-surface-hover',
+                  isSmallScreen ? 'h-14 w-14 rounded-xl' : '',
                   open ? 'bg-surface-hover' : '',
                 )}
                 data-testid="bookmark-menu"
               >
                 {tags.length > 0 ? (
-                  <BookmarkFilledIcon className="icon-lg text-text-primary" aria-hidden="true" />
+                  <BookmarkFilledIcon className="h-4 w-4 text-text-primary" aria-hidden="true" />
                 ) : (
-                  <BookmarkIcon className="icon-lg text-text-primary" aria-hidden="true" />
+                  <BookmarkIcon className="h-4 w-4 text-text-primary" aria-hidden="true" />
                 )}
               </MenuButton>
             }

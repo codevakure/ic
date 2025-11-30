@@ -10,6 +10,7 @@ import { useAutoScroll } from '~/hooks/Artifacts/useAutoScroll';
 import { ArtifactCodeEditor } from './ArtifactCodeEditor';
 import { useGetStartupConfig } from '~/data-provider';
 import { ArtifactPreview } from './ArtifactPreview';
+import { cn } from '~/utils';
 
 export default function ArtifactTabs({
   artifact,
@@ -41,12 +42,12 @@ export default function ArtifactTabs({
   const { files, fileKey, template, sharedProps } = useArtifactProps({ artifact });
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <>
       <Tabs.Content
         ref={contentRef}
         value="code"
         id="artifacts-code"
-        className="h-full w-full flex-grow overflow-auto"
+        className="h-full flex-grow overflow-auto bg-surface-primary-alt"
         tabIndex={-1}
       >
         <ArtifactCodeEditor
@@ -60,7 +61,11 @@ export default function ArtifactTabs({
         />
       </Tabs.Content>
 
-      <Tabs.Content value="preview" className="h-full w-full flex-grow overflow-auto" tabIndex={-1}>
+      <Tabs.Content 
+        value="preview" 
+        className="h-full flex-grow overflow-hidden bg-surface-primary-alt" 
+        tabIndex={-1}
+      >
         <ArtifactPreview
           files={files}
           fileKey={fileKey}
@@ -71,6 +76,6 @@ export default function ArtifactTabs({
           startupConfig={startupConfig}
         />
       </Tabs.Content>
-    </div>
+    </>
   );
 }

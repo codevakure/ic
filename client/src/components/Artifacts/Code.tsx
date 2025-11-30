@@ -2,7 +2,6 @@ import React, { memo, useEffect, useRef, useState } from 'react';
 import copy from 'copy-to-clipboard';
 import rehypeKatex from 'rehype-katex';
 import ReactMarkdown from 'react-markdown';
-import { Button } from '@librechat/client';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, CircleCheckBig } from 'lucide-react';
 import { handleDoubleClick, langSubset } from '~/utils';
@@ -108,13 +107,12 @@ export const CopyCodeButton: React.FC<{ content: string }> = ({ content }) => {
   };
 
   return (
-    <Button
-      size="icon"
-      variant="ghost"
+    <button
+      className="text-text-secondary hover:text-text-primary"
       onClick={handleCopy}
       aria-label={isCopied ? localize('com_ui_copied') : localize('com_ui_copy_code')}
     >
-      {isCopied ? <CircleCheckBig size={16} /> : <Copy size={16} />}
-    </Button>
+      {isCopied ? <CircleCheckBig className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+    </button>
   );
 };

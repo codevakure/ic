@@ -125,12 +125,28 @@ export async function routeQuery(
   const tierReasoning = analysisResult.model.reasoning;
   const usedLlmFallback = analysisResult.usedLlmFallback;
   
-  // CRITICAL: Elevate tier if artifacts is detected
-  // Artifacts requires a model that can reliably follow complex formatting instructions
-  // Nova Lite/Pro struggle with :::artifact{...} format, need at least Haiku 4.5
+  // CRITICAL: Special routing for artifacts
+  // Artifacts requires Claude models (Haiku 4.5 or Sonnet 4.5), NEVER Opus
+  // - Nova models struggle with :::artifact{...} format
+  // - Opus is overkill for artifact generation
+  // - Use 80% Haiku 4.5 (moderate), 20% Sonnet 4.5 (complex) for cost optimization
   const hasArtifacts = tools.some(t => t === 'artifacts');
-  if (hasArtifacts && (tier === 'trivial' || tier === 'simple')) {
-    tier = 'moderate'; // Haiku 4.5 can handle artifact generation
+  let artifactRouted = false;
+  
+  if (hasArtifacts) {
+    // Cap at complex (Sonnet 4.5) - NEVER use expert (Opus) for artifacts
+    if (tier === 'expert') {
+      tier = 'complex';
+      artifactRouted = true;
+    }
+    // Elevate trivial/simple to Claude models (Haiku/Sonnet)
+    else if (tier === 'trivial' || tier === 'simple') {
+      // 80% chance Haiku 4.5 (moderate), 20% chance Sonnet 4.5 (complex)
+      tier = Math.random() < 0.8 ? 'moderate' : 'complex';
+      artifactRouted = true;
+    }
+    // For moderate tier, keep as-is (Haiku 4.5) - good balance
+    // For complex tier, keep as-is (Sonnet 4.5) - when query genuinely needs it
   }
   
   const model = modelPairs[tier];
@@ -141,8 +157,8 @@ export async function routeQuery(
     model,
     tier,
     confidence: Math.max(toolsResult.confidence, 0.5),
-    reason: hasArtifacts && tier === 'moderate' 
-      ? `${tierReasoning} (elevated for artifacts)` 
+    reason: artifactRouted 
+      ? `${tierReasoning} (artifact routing: ${tier === 'moderate' ? 'Haiku 4.5' : 'Sonnet 4.5'})` 
       : tierReasoning,
     usedLlmFallback,
   };

@@ -65,11 +65,24 @@ export { default as PersonalizationIcon } from './PersonalizationIcon';
 export { default as MCPIcon } from './MCPIcon';
 export { default as VectorIcon } from './VectorIcon';
 export { default as SquirclePlusIcon } from './SquirclePlusIcon';
-export { default as AudioPaths } from './AudioPaths';
-export { default as CodePaths } from './CodePaths';
-export { default as FileIcon } from './FileIcon';
-export { default as FilePaths } from './FilePaths';
-export { default as SheetPaths } from './SheetPaths';
-export { default as TextPaths } from './TextPaths';
-export { default as VideoPaths } from './VideoPaths';
+
+// File type icons - use these for specific file types
+export { default as CodePaths } from './CodePaths';           // .js, .ts, .py, .java, .cpp, etc.
+export { default as FileIcon } from './FileIcon';             // Generic file icon
+export { default as FilePaths } from './FilePaths';           // Generic file paths
+export { default as SheetPaths } from './SheetPaths';         // Generic spreadsheet
+export { default as TextPaths } from './TextPaths';           // .txt, .md, .log files
+export { default as DocumentPaths } from './DocumentPaths';   // .doc, .docx, Word documents
+export { default as PDFPaths } from './PDFPaths';             // .pdf files
+export { default as CSVPaths } from './CSVPaths';             // .csv files
+export { default as ExcelPaths } from './ExcelPaths';         // .xls, .xlsx, Excel files
+export { default as PPTPaths } from './PPTPaths';             // .ppt, .pptx, PowerPoint files
+export { default as ZipPaths } from './ZipPaths';             // .zip, .rar, .7z, archive files
+export { default as HTMLPaths } from './HTMLPaths';           // .html, .htm files
+export { default as AudioPaths } from './AudioPaths';         // .mp3, .wav, .ogg, audio files
+export { default as VideoPaths } from './VideoPaths';         // .mp4, .avi, .mov, video files
+
+// Integration icons
 export { default as SharePointIcon } from './SharePointIcon';
+export { default as Microsoft365Icon } from './Microsoft365Icon';
+

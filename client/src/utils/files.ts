@@ -5,6 +5,13 @@ import {
   AudioPaths,
   VideoPaths,
   SheetPaths,
+  DocumentPaths,
+  PDFPaths,
+  CSVPaths,
+  ExcelPaths,
+  PPTPaths,
+  ZipPaths,
+  HTMLPaths,
 } from '@librechat/client';
 import {
   megabyte,
@@ -22,21 +29,68 @@ export const partialTypes = ['text/x-'];
 
 const textDocument = {
   paths: TextPaths,
-  fill: '#FF5588',
+  fill: 'transparent',
   title: 'Document',
 };
 
+const wordDocument = {
+  paths: DocumentPaths,
+  fill: 'transparent',
+  title: 'Word Document',
+};
+
+const pdfDocument = {
+  paths: PDFPaths,
+  fill: 'transparent',
+  title: 'PDF Document',
+};
+
 const spreadsheet = {
-  paths: SheetPaths,
-  fill: '#10A37F',
+  paths: ExcelPaths,
+  fill: 'transparent',
   title: 'Spreadsheet',
 };
 
+const csvFile = {
+  paths: CSVPaths,
+  fill: 'transparent',
+  title: 'CSV File',
+};
+
+const htmlFile = {
+  paths: HTMLPaths,
+  fill: 'transparent',
+  title: 'HTML File',
+};
+
+const powerPointPresentation = {
+  paths: PPTPaths,
+  fill: 'transparent',
+  title: 'PowerPoint Presentation',
+};
+
+const zipFile = {
+  paths: ZipPaths,
+  fill: 'transparent',
+  title: 'Archive',
+};
+
 const codeFile = {
-  paths: CodePaths,
-  fill: '#FF6E3C',
-  // TODO: make this dynamic to the language
+  paths: HTMLPaths,
+  fill: 'transparent',
   title: 'Code',
+};
+
+const audioFile = {
+  paths: AudioPaths,
+  fill: 'transparent',
+  title: 'Audio',
+};
+
+const videoFile = {
+  paths: VideoPaths,
+  fill: 'transparent',
+  title: 'Video',
 };
 
 const artifact = {
@@ -45,43 +99,114 @@ const artifact = {
   title: 'Code',
 };
 
-const audioFile = {
-  paths: AudioPaths,
-  fill: '#FF6B35',
-  title: 'Audio',
-};
-
-const videoFile = {
-  paths: VideoPaths,
-  fill: '#8B5CF6',
-  title: 'Video',
-};
-
-export const fileTypes = {
+export const fileTypes: Record<string, { paths: React.FC; fill: string; title: string }> = {
   /* Category matches */
   file: {
     paths: FilePaths,
-    fill: '#0000FF',
+    fill: '#a9a9ffff',
     title: 'File',
   },
   text: textDocument,
   txt: textDocument,
   audio: audioFile,
   video: videoFile,
-  // application:,
+  
+  /* PDF Documents */
+  'application/pdf': pdfDocument,
+  pdf: pdfDocument,
 
-  /* Partial matches */
-  csv: spreadsheet,
-  'application/pdf': textDocument,
-  pdf: textDocument,
+  /* CSV Files */
+  'text/csv': csvFile,
+  csv: csvFile,
+
+  /* HTML Files */
+  'text/html': htmlFile,
+  html: htmlFile,
+  htm: htmlFile,
+
+  /* Archive Files */
+  'application/zip': zipFile,
+  'application/x-zip-compressed': zipFile,
+  'application/x-rar-compressed': zipFile,
+  'application/x-7z-compressed': zipFile,
+  'application/x-tar': zipFile,
+  'application/gzip': zipFile,
+  zip: zipFile,
+  rar: zipFile,
+  '7z': zipFile,
+  tar: zipFile,
+  gz: zipFile,
+
+  /* Spreadsheet Files */
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': spreadsheet, // .xlsx
+  'application/vnd.ms-excel': spreadsheet, // .xls
+  'application/vnd.oasis.opendocument.spreadsheet': spreadsheet, // .ods
+  xlsx: spreadsheet,
+  xls: spreadsheet,
+  ods: spreadsheet,
+
+  /* Code Files */
+  'text/javascript': codeFile,
+  'application/javascript': codeFile,
+  'text/typescript': codeFile,
+  'application/typescript': codeFile,
   'text/x-': codeFile,
+  'application/json': codeFile,
+  'text/css': codeFile,
+  'text/xml': codeFile,
+  'application/xml': codeFile,
+  'application/sql': codeFile,
+  'text/sql': codeFile,
+  js: codeFile,
+  ts: codeFile,
+  jsx: codeFile,
+  tsx: codeFile,
+  json: codeFile,
+  css: codeFile,
+  xml: codeFile,
+  py: codeFile,
+  java: codeFile,
+  c: codeFile,
+  cpp: codeFile,
+  h: codeFile,
+  php: codeFile,
+  rb: codeFile,
+  go: codeFile,
+  rs: codeFile,
+  swift: codeFile,
+  kt: codeFile,
+  sql: codeFile,
+  sh: codeFile,
+  bat: codeFile,
+  ps1: codeFile,
+  md: codeFile,
+  yaml: codeFile,
+  yml: codeFile,
+  toml: codeFile,
+  ini: codeFile,
+  conf: codeFile,
+  
+  /* Special files */
   artifact: artifact,
 
-  /* Exact matches */
-  // 'application/json':,
-  // 'text/html':,
-  // 'text/css':,
-  // image,
+  /* Word Documents */
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': wordDocument, // .docx
+  'application/msword': wordDocument, // .doc
+  'application/vnd.oasis.opendocument.text': wordDocument, // .odt
+  'application/rtf': wordDocument, // .rtf
+  'text/rtf': wordDocument, // .rtf alternative
+  docx: wordDocument,
+  doc: wordDocument,
+  odt: wordDocument,
+  rtf: wordDocument,
+
+  /* PowerPoint Presentations */
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': powerPointPresentation, // .pptx
+  'application/vnd.ms-powerpoint': powerPointPresentation, // .ppt
+  'application/vnd.oasis.opendocument.presentation': powerPointPresentation, // .odp
+  pptx: powerPointPresentation,
+  ppt: powerPointPresentation,
+  odp: powerPointPresentation,
 };
 
 // export const getFileType = (type = '') => {

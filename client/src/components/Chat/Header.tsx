@@ -46,13 +46,13 @@ export default function Header() {
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
 
   return (
-    <div className="sticky top-0 z-10 flex h-14 w-full items-center justify-between bg-white p-2 font-semibold text-text-primary dark:bg-gray-800">
-      <div className="hide-scrollbar flex w-full items-center justify-between gap-2 overflow-x-auto">
+    <div className="sticky top-0 z-10 flex h-12 w-full items-center justify-between bg-white px-1 sm:px-2 py-1 font-semibold text-text-primary dark:bg-gray-800">
+      <div className="hide-scrollbar flex w-full items-center justify-between gap-1 overflow-x-auto">
         <div className="mx-1 flex items-center">
           <AnimatePresence initial={false}>
             {!navVisible && (
               <motion.div
-                className={`flex items-center gap-2`}
+                className={`flex items-center gap-1`}
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: 'auto', opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
@@ -65,7 +65,7 @@ export default function Header() {
             )}
           </AnimatePresence>
 
-          <div className={navVisible ? 'flex items-center gap-2' : 'ml-2 flex items-center gap-2'}>
+          <div className={navVisible ? 'flex items-center gap-1' : 'ml-2 flex items-center gap-1'}>
             {/* When LLM Router is enabled, don't show model selector or auto indicator - routing is automatic */}
             {!isAutoModeEnabled && (
               <ModelSelector startupConfig={startupConfig} />
@@ -84,7 +84,7 @@ export default function Header() {
           </div>
         </div>
         {!isSmallScreen && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <ExportAndShareMenu
               isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}
             />

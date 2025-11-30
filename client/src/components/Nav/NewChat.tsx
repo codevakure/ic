@@ -59,12 +59,12 @@ export default function NewChat({
               className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
               onClick={toggleNav}
             >
-              <Sidebar className="max-md:hidden" />
-              <MobileSidebar className="m-1 inline-flex size-10 items-center justify-center md:hidden" />
+              <Sidebar className="h-4 w-4 max-md:hidden" />
+              <MobileSidebar className="m-1 inline-flex h-4 w-4 items-center justify-center md:hidden" />
             </Button>
           }
         />
-        <div className="flex gap-0.5">
+        <div className="flex items-center gap-1">
           {headerButtons}
 
           <TooltipAnchor
@@ -72,13 +72,13 @@ export default function NewChat({
             render={
               <Button
                 size="icon"
-                variant="outline"
+                variant="ghost"
                 data-testid="nav-new-chat-button"
                 aria-label={localize('com_ui_new_chat')}
-                className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
+                className="border-none bg-transparent p-2 hover:bg-surface-hover"
                 onClick={clickHandler}
               >
-                <NewChatIcon className="icon-lg text-text-primary" />
+                <NewChatIcon className="h-4 w-4 text-text-primary" />
               </Button>
             }
           />

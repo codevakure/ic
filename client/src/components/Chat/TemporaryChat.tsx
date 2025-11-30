@@ -44,7 +44,7 @@ export function TemporaryChat() {
             onClick={handleBadgeToggle}
             aria-label={localize(temporaryBadge.label)}
             className={cn(
-              'inline-flex size-10 flex-shrink-0 items-center justify-center rounded-xl border border-border-light text-text-primary transition-all ease-in-out hover:bg-surface-tertiary',
+              'inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-border-light text-text-primary transition-all ease-in-out hover:bg-surface-tertiary',
               isTemporary
                 ? 'bg-surface-active shadow-md'
                 : 'bg-transparent shadow-sm hover:bg-surface-hover hover:shadow-md',
@@ -53,7 +53,7 @@ export function TemporaryChat() {
           >
             {temporaryBadge.icon && (
               <temporaryBadge.icon
-                className={cn('relative h-5 w-5 md:h-4 md:w-4', !temporaryBadge.label && 'mx-auto')}
+                className={cn('relative h-4 w-4', !temporaryBadge.label && 'mx-auto')}
               />
             )}
           </button>

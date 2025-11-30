@@ -60,12 +60,20 @@ export const ArtifactPreview = memo(function ({
       {...sharedProps}
       template={template}
     >
-      <SandpackPreview
-        showOpenInCodeSandbox={false}
-        showRefreshButton={false}
-        tabIndex={0}
-        ref={previewRef}
-      />
+      <div className="h-full w-full">
+        <SandpackPreview
+          showOpenInCodeSandbox={false}
+          showRefreshButton={false}
+          tabIndex={0}
+          ref={previewRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            borderRadius: '0',
+          }}
+        />
+      </div>
     </SandpackProvider>
   );
 });

@@ -349,11 +349,69 @@
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] {
-  scrollbar-gutter: stable !important;
-  background-color: rgba(205, 205, 205, 0.66) !important;
+/* Artifact Preview Tab Content - Proper layout for preview */
+/* Set specific width for preview tab content to push scrollbar to edge */
+.w-full.h-full.overflow-y-auto.overflow-x-hidden.bg-surface-secondary {
+  width: 100.5% !important;
 }
 
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  width: 101.7% !important;
+  overflow: hidden !important;
+}
+
+/* Fix preview content to fill available space */
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] > div {
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Sandpack preview container sizing */
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-wrapper,
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-preview,
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-preview-container {
+  height: 100% !important;
+  flex: 1 !important;
+}
+
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-preview-iframe {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Sandbox Preview Loading Text - Make text black */
+iframe[title="Sandpack Preview"] ~ div,
+iframe[title="Sandpack Preview"] + div,
+.sp-preview-iframe ~ div,
+.sp-preview-iframe + div,
+div[class*="sp-status"],
+div[class*="sp-loading"],
+div[aria-live="polite"],
+div[aria-label*="Loading"],
+div[aria-label*="Starting"],
+span[aria-label*="Loading"],
+span[aria-label*="Starting"],
+.sp-preview-container div[style*="color"],
+.sp-preview div[style*="color"],
+div[role="tabpanel"][id*="preview"] div[style*="white"],
+div[role="tabpanel"][id*="preview"] span[style*="white"],
+.sp-wrapper div[style*="white"],
+.sp-wrapper span[style*="white"] {
+  color: #000000 !important;
+}
+
+/* Artifact preview background - light gray */
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] {
+  scrollbar-gutter: stable !important;
+  background-color: rgba(243, 243, 243, 0.955) !important;
+}
+
+/* Artifact preview scrollbar styling */
 div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"]::-webkit-scrollbar {
   width: 12px !important;
 }
