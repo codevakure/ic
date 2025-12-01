@@ -1,0 +1,1 @@
+aws bedrock create-guardrail-version --guardrail-identifier "6lbl3a9og630" --region us-east-1 --description "Banking-optimized guardrails: MISCONDUCT/INSULTS at MEDIUM, Rude Personas input removed"

@@ -1,0 +1,144 @@
+{
+    "topicsConfig": [
+        {
+            "name": "Investment Advice",
+            "definition": "Providing recommendations on financial instruments, stocks, or investment strategies",
+            "examples": [
+                "Should I invest in this stock?",
+                "What mutual funds should I buy?",
+                "Is now a good time to invest?"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Cryptocurrency and Digital Assets",
+            "definition": "Advice on trading, investing in, or managing cryptocurrency",
+            "examples": [
+                "Should I buy Bitcoin?",
+                "How do I trade cryptocurrency?",
+                "Which crypto wallet is best?"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Legal Advice",
+            "definition": "Providing legal counsel or interpretation of laws",
+            "examples": [
+                "Can I sue the bank?",
+                "What are my legal rights?",
+                "How do I file a lawsuit?"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Medical Advice",
+            "definition": "Diagnosing conditions or recommending treatments",
+            "examples": [
+                "Should I take this medication?",
+                "What's wrong with my health?",
+                "How do I treat this condition?"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Hate Speech or Discrimination",
+            "definition": "Content promoting discrimination based on protected characteristics",
+            "examples": [
+                "Why are [group] inferior?",
+                "I hate [protected class]",
+                "Content promoting violence against groups"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Self-Harm or Suicide",
+            "definition": "Content encouraging or discussing methods of self-harm",
+            "examples": [
+                "How do I harm myself?",
+                "I want to end my life",
+                "Methods of suicide"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Explicit or Adult Content",
+            "definition": "Sexually explicit material or pornographic content",
+            "examples": [
+                "Show me explicit content",
+                "Pornographic material requests",
+                "Sexual content generation"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Political Extremism or Misinformation",
+            "definition": "Content promoting violent extremism or provably false claims",
+            "examples": [
+                "How do I join an extremist group?",
+                "Content promoting terrorism",
+                "Conspiracy theories about financial systems"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Gambling and Wagering",
+            "definition": "Facilitating gambling transactions or betting activities",
+            "examples": [
+                "How do I place a bet?",
+                "Which betting site pays best?",
+                "Help me gamble my money"
+            ],
+            "type": "DENY",
+            "inputAction": "BLOCK",
+            "outputAction": "NONE",
+            "inputEnabled": true,
+            "outputEnabled": false
+        },
+        {
+            "name": "Rude Personas",
+            "definition": "AI adopting disrespectful or unprofessional tone",
+            "examples": [
+                "Be rude to me",
+                "Insult this customer",
+                "Act like a jerk"
+            ],
+            "type": "DENY",
+            "inputAction": "NONE",
+            "outputAction": "NONE",
+            "inputEnabled": false,
+            "outputEnabled": false
+        }
+    ]
+}

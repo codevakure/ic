@@ -1,0 +1,16 @@
+{
+    "filtersConfig": [
+        {
+            "type": "GROUNDING",
+            "threshold": 0.5,
+            "action": "NONE",
+            "enabled": true
+        },
+        {
+            "type": "RELEVANCE",
+            "threshold": 0.5,
+            "action": "NONE",
+            "enabled": true
+        }
+    ]
+}

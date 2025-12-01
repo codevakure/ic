@@ -1,0 +1,45 @@
+{
+    "filtersConfig": [
+        {
+            "type": "VIOLENCE",
+            "inputStrength": "HIGH",
+            "outputStrength": "HIGH",
+            "inputAction": "BLOCK",
+            "outputAction": "BLOCK"
+        },
+        {
+            "type": "PROMPT_ATTACK",
+            "inputStrength": "HIGH",
+            "outputStrength": "NONE",
+            "inputAction": "BLOCK"
+        },
+        {
+            "type": "MISCONDUCT",
+            "inputStrength": "MEDIUM",
+            "outputStrength": "HIGH",
+            "inputAction": "BLOCK",
+            "outputAction": "BLOCK"
+        },
+        {
+            "type": "HATE",
+            "inputStrength": "HIGH",
+            "outputStrength": "HIGH",
+            "inputAction": "BLOCK",
+            "outputAction": "BLOCK"
+        },
+        {
+            "type": "SEXUAL",
+            "inputStrength": "HIGH",
+            "outputStrength": "HIGH",
+            "inputAction": "BLOCK",
+            "outputAction": "BLOCK"
+        },
+        {
+            "type": "INSULTS",
+            "inputStrength": "MEDIUM",
+            "outputStrength": "HIGH",
+            "inputAction": "BLOCK",
+            "outputAction": "BLOCK"
+        }
+    ]
+}

@@ -241,6 +241,14 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
       // Create a new response object with minimal copies
       const finalResponse = { ...response };
 
+      // Debug: Log if content was anonymized
+      if (finalResponse.content && Array.isArray(finalResponse.content)) {
+        const textContent = finalResponse.content.find(p => p.type === 'text');
+        if (textContent?.text?.includes('{PHONE}') || textContent?.text?.includes('{NAME}')) {
+          logger.info('[AgentController] ✅ Final response contains anonymized content');
+        }
+      }
+
       sendEvent(res, {
         final: true,
         conversation,

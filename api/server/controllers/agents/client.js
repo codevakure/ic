@@ -309,6 +309,20 @@ class AgentClient extends BaseClient {
       .join('\n')
       .trim();
 
+    // 🛡️ GUARDRAILS: Use high-level handler from @librechat/guardrails package
+    // Extracts guardrail context from message history and provides systemNote for LLM
+    // All guardrails logic is centralized in the package for maintainability
+    const { getGuardrailsService } = require('@librechat/guardrails');
+    const guardrailsService = getGuardrailsService();
+    const guardrailContext = guardrailsService.extractGuardrailContext(orderedMessages);
+    
+    if (guardrailContext.hasGuardrailContext && guardrailContext.systemNote) {
+      systemContent = [systemContent, guardrailContext.systemNote]
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
+    }
+
     if (this.options.attachments) {
       const attachments = await this.options.attachments;
       const latestMessage = orderedMessages[orderedMessages.length - 1];
@@ -731,6 +745,15 @@ class AgentClient extends BaseClient {
     });
 
     const completion = filterMalformedContentParts(this.contentParts);
+    
+    // Debug: Check if content was anonymized
+    if (completion && Array.isArray(completion)) {
+      const textContent = completion.find(p => p.type === 'text');
+      if (textContent?.text?.includes('{PHONE}') || textContent?.text?.includes('{NAME}')) {
+        logger.info('[AgentClient] ✅ Completion contains anonymized content (PII masked)');
+      }
+    }
+    
     const metadata = this.agentIdMap ? { agentIdMap: this.agentIdMap } : undefined;
 
     return { completion, metadata };
@@ -1093,6 +1116,68 @@ class AgentClient extends BaseClient {
         }
       } catch (error) {
         logger.error('[AgentClient] Error capturing agent ID map:', error);
+      }
+
+      // 🛡️ OUTPUT MODERATION: Check completed response before finalizing
+      // NOTE: We only moderate TEXT content, not THINK (thinking/reasoning) content
+      try {
+        const { getGuardrailsService } = require('@librechat/guardrails');
+        const guardrailsService = getGuardrailsService();
+        
+        // Extract text content from contentParts for moderation
+        let completionText = '';
+        if (this.contentParts && Array.isArray(this.contentParts)) {
+          completionText = this.contentParts
+            .filter(part => part.type === ContentTypes.TEXT && typeof part.text === 'string')
+            .map(part => part.text)
+            .join('\n');
+        }
+
+        if (guardrailsService.isEnabled() && completionText && completionText.length > 0) {
+          const outputResult = await guardrailsService.handleOutputModeration(completionText);
+          
+          if (outputResult.blocked && outputResult.modifiedResponse) {
+            // LOG AND HANDLE BLOCKED CONTENT
+            logger.warn('[AgentClient] 🚫 OUTPUT BLOCKED', {
+              violations: outputResult.violations?.map(v => `${v.type}:${v.category}`) || []
+            });
+            
+            // Replace all text content with block message
+            this.contentParts = [{
+              type: ContentTypes.TEXT,
+              text: outputResult.modifiedResponse.text
+            }];
+            
+            // Store metadata for database save
+            if (!this.metadata) {
+              this.metadata = {};
+            }
+            this.metadata = outputResult.modifiedResponse.metadata;
+          } else if (!outputResult.blocked && outputResult.content && outputResult.content !== completionText) {
+            // HANDLE ANONYMIZED CONTENT - content was modified but not blocked
+            logger.info('[AgentClient] 🔒 OUTPUT ANONYMIZED - PII redacted from response');
+            logger.debug('[AgentClient] Anonymized content preview:', outputResult.content.substring(0, 200));
+            
+            // Find and update TEXT content parts with anonymized content
+            // The anonymized content is a single string, so we need to replace all text parts
+            const nonTextParts = this.contentParts.filter(part => part.type !== ContentTypes.TEXT);
+            
+            // Replace all text parts with a single anonymized text part
+            this.contentParts = [
+              ...nonTextParts,
+              {
+                type: ContentTypes.TEXT,
+                text: outputResult.content
+              }
+            ];
+            
+            logger.debug('[AgentClient] Updated contentParts with anonymized content');
+          }
+          // No logging for unmodified content (too verbose)
+        }
+      } catch (error) {
+        logger.error('[AgentClient] ❌ OUTPUT moderation error:', error.message);
+        // Don't block on moderation errors - let response through
       }
     } catch (err) {
       logger.error(

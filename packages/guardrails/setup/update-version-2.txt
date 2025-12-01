@@ -1,0 +1,20 @@
+# AWS Bedrock Guardrails Update - Version 2
+# Rude Personas OUTPUT disabled to allow LLM to explain blocked content
+
+aws bedrock update-guardrail \
+  --guardrail-identifier 6lbl3a9og630 \
+  --name "Texas-Capital-Bank-Guardrails" \
+  --description "Banking-optimized guardrails - Version 2: Rude Personas OUTPUT disabled" \
+  --blocked-input-messaging "Your message was blocked by our automated content policy system. Please revise your request and try again." \
+  --blocked-outputs-messaging "I cannot provide that response due to content policy violations." \
+  --content-policy-config file://contentPolicy.json \
+  --topic-policy-config file://topicPolicy.json \
+  --sensitive-information-policy-config file://sensitiveInformationPolicy.json \
+  --word-policy-config file://wordPolicy.json \
+  --region us-east-1
+
+# After update, create Version 2:
+aws bedrock create-guardrail-version \
+  --guardrail-identifier 6lbl3a9og630 \
+  --description "Version 2: Rude Personas OUTPUT disabled - allows LLM to explain violations" \
+  --region us-east-1

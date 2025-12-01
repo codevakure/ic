@@ -1,0 +1,52 @@
+{
+    "piiEntitiesConfig": [
+        {
+            "type": "US_PASSPORT_NUMBER",
+            "action": "BLOCK",
+            "inputAction": "BLOCK",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        },
+        {
+            "type": "US_SOCIAL_SECURITY_NUMBER",
+            "action": "BLOCK",
+            "inputAction": "BLOCK",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        },
+        {
+            "type": "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER",
+            "action": "BLOCK",
+            "inputAction": "BLOCK",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        },
+        {
+            "type": "US_BANK_ACCOUNT_NUMBER",
+            "action": "BLOCK",
+            "inputAction": "NONE",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        },
+        {
+            "type": "DRIVER_ID",
+            "action": "BLOCK",
+            "inputAction": "BLOCK",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        },
+        {
+            "type": "CREDIT_DEBIT_CARD_NUMBER",
+            "action": "BLOCK",
+            "inputAction": "BLOCK",
+            "outputAction": "ANONYMIZE",
+            "inputEnabled": true,
+            "outputEnabled": true
+        }
+    ]
+}
