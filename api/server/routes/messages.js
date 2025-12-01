@@ -2,6 +2,7 @@ const express = require('express');
 const { unescapeLaTeX } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
 const { ContentTypes } = require('librechat-data-provider');
+const { recordLLMFeedback } = require('@librechat/datadog-llm-observability');
 const {
   saveConvo,
   getMessage,
@@ -304,6 +305,34 @@ router.put('/:conversationId/:messageId/feedback', validateMessageReq, async (re
       },
       { context: 'updateFeedback' },
     );
+
+    // Record feedback in LLM observability with user and agent context
+    if (feedback && (feedback.tag || feedback.rating || feedback.text)) {
+      try {
+        // Get the message to extract model and agent info
+        const message = await getMessage({ user: req.user.id, messageId });
+
+        await recordLLMFeedback({
+          provider: message?.endpoint || 'custom',
+          model: message?.model || updatedMessage.model || 'unknown',
+          userId: req.user.id,
+          conversationId,
+          messageId,
+          feedback: {
+            tag: feedback.tag,
+            rating: feedback.rating,
+            text: feedback.text,
+            user_id: req.user.id,
+            user_name: req.user.name,
+            user_email: req.user.email,
+            agent_name: message?.sender,
+            model_used: message?.model,
+          },
+        });
+      } catch (obsErr) {
+        logger.error('[Feedback] Failed to record in LLM observability:', obsErr.message);
+      }
+    }
 
     res.json({
       messageId,

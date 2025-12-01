@@ -9,6 +9,17 @@ const {
 const { disposeClient, clientRegistry, requestDataMap } = require('~/server/cleanup');
 const { saveMessage } = require('~/models');
 
+// Datadog LLM Observability - optional tracing
+let traceLLMCallWithUser, LLM_PROVIDERS, LLM_OPERATION_TYPES;
+try {
+  const ddObservability = require('@librechat/datadog-llm-observability');
+  traceLLMCallWithUser = ddObservability.traceLLMCallWithUser;
+  LLM_PROVIDERS = ddObservability.LLM_PROVIDERS;
+  LLM_OPERATION_TYPES = ddObservability.LLM_OPERATION_TYPES;
+} catch (e) {
+  // Datadog not available - tracing will be skipped
+}
+
 function createCloseHandler(abortController) {
   return function (manual) {
     if (!manual) {
@@ -207,7 +218,29 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
       },
     };
 
-    let response = await client.sendMessage(text, messageOptions);
+    // Execute LLM call with optional Datadog tracing
+    let response;
+    if (traceLLMCallWithUser && LLM_PROVIDERS && LLM_OPERATION_TYPES) {
+      response = await traceLLMCallWithUser({
+        user: req.user,
+        provider: LLM_PROVIDERS.BEDROCK,
+        model: endpointOption?.model_parameters?.model || 'unknown',
+        operationType: LLM_OPERATION_TYPES.COMPLETION,
+        conversationId: conversationId,
+        metadata: {
+          user: req.user,
+          endpoint: endpointOption?.endpoint,
+          text_length: text?.length || 0,
+          is_regenerate: isRegenerate,
+          is_continued: isContinued,
+          user_input: text
+        }
+      }, async () => {
+        return await client.sendMessage(text, messageOptions);
+      });
+    } else {
+      response = await client.sendMessage(text, messageOptions);
+    }
 
     // Extract what we need and immediately break reference
     const messageId = response.messageId;

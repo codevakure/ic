@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Initialize Datadog tracer first (before any other modules) for proper instrumentation
+require('./datadog');
 const fs = require('fs');
 const path = require('path');
 require('module-alias')({ base: path.resolve(__dirname, '..') });
@@ -230,3 +232,12 @@ process.on('uncaughtException', (err) => {
 
 /** Export app for easier testing purposes */
 module.exports = app;
+
+// Inject getUserById for Datadog LLM Observability feedback enrichment
+try {
+  const { setGetUserById } = require('@librechat/datadog-llm-observability');
+  const { getUserById } = require('~/models');
+  setGetUserById(getUserById);
+} catch (e) {
+  // Datadog not enabled or package not available
+}

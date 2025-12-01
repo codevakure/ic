@@ -50,6 +50,8 @@
     "@librechat/agents": "^3.0.33",
     "@librechat/api": "*",
     "@librechat/data-schemas": "*",
+    "@librechat/datadog-llm-observability": "*",
+    "@librechat/guardrails": "*",
     "@librechat/intent-analyzer": "*",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.21.0",

@@ -3,6 +3,10 @@ const { sleep } = require('@librechat/agents');
 const { logger } = require('@librechat/data-schemas');
 const { sendEvent, getBalanceConfig, getModelMaxTokens } = require('@librechat/api');
 const {
+  traceConversationWorkflow,
+  extractUserMetadata,
+} = require('@librechat/datadog-llm-observability');
+const {
   Time,
   Constants,
   RunStatus,
@@ -64,6 +68,26 @@ const chatV1 = async (req, res) => {
     parentMessageId: _parentId = Constants.NO_PARENT,
     clientTimestamp,
   } = req.body;
+
+  // Initialize variables for observability
+  const conversationId = convoId || v4();
+  const userId = req.user?.id;
+  const messageId = _messageId || v4();
+
+  // Trace the conversation workflow with Datadog LLM Observability
+  return await traceConversationWorkflow({
+    conversationId,
+    userId,
+    workflowType: 'assistant_chat_v1',
+    metadata: {
+      model,
+      endpoint,
+      assistant_id,
+      has_files: files.length > 0,
+      message_length: text?.length || 0,
+      ...extractUserMetadata(req.user),
+    },
+  }, async () => {
 
   /** @type {OpenAIClient} */
   let openai;
@@ -643,6 +667,7 @@ const chatV1 = async (req, res) => {
   } catch (error) {
     await handleError(error);
   }
+  }); // Close traceConversationWorkflow
 };
 
 module.exports = chatV1;
