@@ -203,17 +203,25 @@ FOLLOW-UP QUERIES:
   1. Use web_search if fresh data is needed (likely YES for stocks, news, prices)
   2. Stay at MODERATE tier - just formatting/explaining data
 
-SELECTION RESPONSES - CRITICAL (MUST SELECT TOOLS):
+SELECTION RESPONSES - CRITICAL (MUST SELECT CORRECT TOOL):
 - If user responds with "1", "2", "3" or "a", "b", "c" - THIS IS A SELECTION
 - YOU MUST look at the PREVIOUS assistant message and SELECT THE CORRESPONDING TOOL
-- If previous message offered: "1. Interactive React component 2. Python chart"
-  → User says "1" → tools: ["artifacts"], tier: "moderate"
-  → User says "2" → tools: ["execute_code"], tier: "moderate"
-- Selection responses REQUIRE you to select tools based on context
-- Example conversation:
-  Assistant: "Which would you prefer? 1. Interactive React component 2. Python chart"
+
+VISUALIZATION SELECTION RULES (MUTUALLY EXCLUSIVE):
+- "Interactive chart" / "side panel" / "clickable" / "zoomable" → tools: ["artifacts"] ONLY (NO execute_code)
+- "Dashboard view" / "multiple charts" / "insights together" → tools: ["artifacts"] ONLY (NO execute_code)  
+- "Image chart" / "inline" / "downloadable" / "save" → tools: ["execute_code"] ONLY (NO artifacts)
+
+These are MUTUALLY EXCLUSIVE - never combine artifacts and execute_code for visualization selection.
+
+Example conversation:
+  Assistant: "How would you like me to visualize this? 1. Interactive chart 2. Dashboard view 3. Image chart"
   User: "1"
-  → YOUR RESPONSE MUST BE: {"tools": ["artifacts"], "modelTier": "moderate", "reasoning": "User selected option 1 (React component)"}`;
+  → {"tools": ["artifacts"], "modelTier": "moderate", "reasoning": "User selected interactive chart - uses artifacts only"}
+  User: "2" 
+  → {"tools": ["artifacts"], "modelTier": "moderate", "reasoning": "User selected dashboard view - uses artifacts only"}
+  User: "3"
+  → {"tools": ["execute_code"], "modelTier": "moderate", "reasoning": "User selected image chart - uses execute_code only"}`;
 }
 
 /**

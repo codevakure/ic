@@ -413,62 +413,78 @@ router.post('/:serverName/reinitialize', requireJwtAuth, async (req, res) => {
 
 /**
  * Get connection status for all MCP servers
- * This endpoint returns all app level and user-scoped connection statuses from MCPManager without disconnecting idle connections
+ * NEW: Token-based status checking - no connection pools, no network calls that can hang
+ * Status is determined by checking OAuth tokens in database
  */
 router.get('/connection/status', requireJwtAuth, async (req, res) => {
-  try {
-    const user = req.user;
+  const startTime = Date.now();
+  const user = req.user;
 
+  logger.debug(`[MCP Status] Request started for user ${user?.id}`);
+
+  try {
     if (!user?.id) {
+      logger.warn('[MCP Status] Request rejected: User not authenticated');
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { mcpConfig, appConnections, userConnections, oauthServers } = await getMCPSetupData(
-      user.id,
-    );
+    const { mcpConfig, oauthServers } = await getMCPSetupData(user.id);
     const connectionStatus = {};
 
+    // Check status for each server (fast DB queries, no network calls)
     for (const [serverName] of Object.entries(mcpConfig)) {
       connectionStatus[serverName] = await getServerConnectionStatus(
         user.id,
         serverName,
-        appConnections,
-        userConnections,
         oauthServers,
+        { findToken },
       );
     }
+
+    const totalTime = Date.now() - startTime;
+    logger.info(`[MCP Status][User: ${user.id}] Completed in ${totalTime}ms`, {
+      serverCount: Object.keys(connectionStatus).length,
+      statuses: Object.fromEntries(
+        Object.entries(connectionStatus).map(([name, status]) => [name, status.connectionState])
+      ),
+    });
 
     res.json({
       success: true,
       connectionStatus,
     });
   } catch (error) {
+    const totalTime = Date.now() - startTime;
     if (error.message === 'MCP config not found') {
+      logger.warn(`[MCP Status] Config not found after ${totalTime}ms`);
       return res.status(404).json({ error: error.message });
     }
-    logger.error('[MCP Connection Status] Failed to get connection status', error);
+    logger.error(`[MCP Status] Failed after ${totalTime}ms:`, error);
     res.status(500).json({ error: 'Failed to get connection status' });
   }
 });
 
 /**
  * Get connection status for a single MCP server
- * This endpoint returns the connection status for a specific server for a given user
+ * NEW: Token-based status checking - fast DB query, no network calls
  */
 router.get('/connection/status/:serverName', requireJwtAuth, async (req, res) => {
-  try {
-    const user = req.user;
-    const { serverName } = req.params;
+  const startTime = Date.now();
+  const user = req.user;
+  const { serverName } = req.params;
 
+  logger.debug(`[MCP Status][${serverName}] Request started for user ${user?.id}`);
+
+  try {
     if (!user?.id) {
+      logger.warn(`[MCP Status][${serverName}] Request rejected: User not authenticated`);
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { mcpConfig, appConnections, userConnections, oauthServers } = await getMCPSetupData(
-      user.id,
-    );
+    const { mcpConfig, oauthServers } = await getMCPSetupData(user.id);
 
     if (!mcpConfig[serverName]) {
+      logger.warn(`[MCP Status][${serverName}] Server not found in config`);
       return res
         .status(404)
         .json({ error: `MCP server '${serverName}' not found in configuration` });
@@ -477,10 +493,15 @@ router.get('/connection/status/:serverName', requireJwtAuth, async (req, res) =>
     const serverStatus = await getServerConnectionStatus(
       user.id,
       serverName,
-      appConnections,
-      userConnections,
       oauthServers,
+      { findToken },
     );
+
+    const totalTime = Date.now() - startTime;
+    logger.info(`[MCP Status][User: ${user.id}][${serverName}] Completed in ${totalTime}ms`, {
+      status: serverStatus.connectionState,
+      requiresOAuth: serverStatus.requiresOAuth,
+    });
 
     res.json({
       success: true,
@@ -489,13 +510,11 @@ router.get('/connection/status/:serverName', requireJwtAuth, async (req, res) =>
       requiresOAuth: serverStatus.requiresOAuth,
     });
   } catch (error) {
+    const totalTime = Date.now() - startTime;
     if (error.message === 'MCP config not found') {
       return res.status(404).json({ error: error.message });
     }
-    logger.error(
-      `[MCP Per-Server Status] Failed to get connection status for ${req.params.serverName}`,
-      error,
-    );
+    logger.error(`[MCP Status][${serverName}] Failed after ${totalTime}ms:`, error);
     res.status(500).json({ error: 'Failed to get connection status' });
   }
 });

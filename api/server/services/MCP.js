@@ -20,7 +20,7 @@ const {
   ContentTypes,
   isAssistantsEndpoint,
 } = require('librechat-data-provider');
-const { getMCPManager, getFlowStateManager, getOAuthReconnectionManager } = require('~/config');
+const { getMCPManager, getFlowStateManager } = require('~/config');
 const { findToken, createToken, updateToken } = require('~/models');
 const { reinitMCPServer } = require('./Tools/mcp');
 const { getAppConfig } = require('./Config');
@@ -430,11 +430,15 @@ function createToolInstance({ res, toolName, serverName, toolDefinition, provide
 }
 
 /**
- * Get MCP setup data including config, connections, and OAuth servers
+ * Get MCP setup data including config and OAuth servers
+ * SIMPLIFIED: No longer fetches connection pools - status is determined from token storage
  * @param {string} userId - The user ID
- * @returns {Object} Object containing mcpConfig, appConnections, userConnections, and oauthServers
+ * @returns {Object} Object containing mcpConfig and oauthServers
  */
 async function getMCPSetupData(userId) {
+  const startTime = Date.now();
+  logger.debug(`[MCP Status][User: ${userId}] Starting getMCPSetupData`);
+
   const config = await getAppConfig();
   const mcpConfig = config?.mcpConfig;
 
@@ -442,22 +446,16 @@ async function getMCPSetupData(userId) {
     throw new Error('MCP config not found');
   }
 
-  const mcpManager = getMCPManager(userId);
-  /** @type {Map<string, import('@librechat/api').MCPConnection>} */
-  let appConnections = new Map();
-  try {
-    appConnections = (await mcpManager.appConnections?.getAll()) || new Map();
-  } catch (error) {
-    logger.error(`[MCP][User: ${userId}] Error getting app connections:`, error);
-  }
-  const userConnections = mcpManager.getUserConnections(userId) || new Map();
   const oauthServers = await mcpServersRegistry.getOAuthServers();
+  
+  logger.debug(`[MCP Status][User: ${userId}] getMCPSetupData completed in ${Date.now() - startTime}ms`, {
+    serverCount: Object.keys(mcpConfig).length,
+    oauthServerCount: oauthServers.size,
+  });
 
   return {
     mcpConfig,
     oauthServers,
-    appConnections,
-    userConnections,
   };
 }
 
@@ -521,50 +519,103 @@ async function checkOAuthFlowStatus(userId, serverName) {
 }
 
 /**
- * Get connection status for a specific MCP server
+ * Get connection status for a specific MCP server based on OAuth token state
+ * NEW APPROACH: Checks token storage instead of live connection state
+ * This is fast (DB query only) and never hangs on network calls
+ * 
  * @param {string} userId - The user ID
  * @param {string} serverName - The server name
- * @param {Map} appConnections - App-level connections
- * @param {Map} userConnections - User-level connections
  * @param {Set} oauthServers - Set of OAuth servers
+ * @param {Object} tokenMethods - Methods for token operations { findToken }
  * @returns {Object} Object containing requiresOAuth and connectionState
+ * 
+ * Connection States:
+ * - 'available': Non-OAuth server, always ready to connect
+ * - 'authenticated': OAuth server with valid tokens, ready to use
+ * - 'token_expired': OAuth server with expired tokens (will auto-refresh on use)
+ * - 'needs_auth': OAuth server with no tokens, user needs to authenticate
+ * - 'authenticating': OAuth flow currently in progress
+ * - 'error': OAuth flow failed
  */
-async function getServerConnectionStatus(
-  userId,
-  serverName,
-  appConnections,
-  userConnections,
-  oauthServers,
-) {
-  const getConnectionState = () =>
-    appConnections.get(serverName)?.connectionState ??
-    userConnections.get(serverName)?.connectionState ??
-    'disconnected';
+async function getServerConnectionStatus(userId, serverName, oauthServers, tokenMethods) {
+  const logPrefix = `[MCP Status][User: ${userId}][${serverName}]`;
+  const startTime = Date.now();
 
-  const baseConnectionState = getConnectionState();
-  let finalConnectionState = baseConnectionState;
-
-  // connection state overrides specific to OAuth servers
-  if (baseConnectionState === 'disconnected' && oauthServers.has(serverName)) {
-    // check if server is actively being reconnected
-    const oauthReconnectionManager = getOAuthReconnectionManager();
-    if (oauthReconnectionManager.isReconnecting(userId, serverName)) {
-      finalConnectionState = 'connecting';
-    } else {
-      const { hasActiveFlow, hasFailedFlow } = await checkOAuthFlowStatus(userId, serverName);
-
-      if (hasFailedFlow) {
-        finalConnectionState = 'error';
-      } else if (hasActiveFlow) {
-        finalConnectionState = 'connecting';
-      }
-    }
+  // Non-OAuth servers are always "available"
+  if (!oauthServers.has(serverName)) {
+    logger.debug(`${logPrefix} Non-OAuth server, status: available (${Date.now() - startTime}ms)`);
+    return {
+      requiresOAuth: false,
+      connectionState: 'available',
+    };
   }
 
-  return {
-    requiresOAuth: oauthServers.has(serverName),
-    connectionState: finalConnectionState,
-  };
+  // OAuth server - check token state from database
+  try {
+    const tokenStart = Date.now();
+    const token = await tokenMethods.findToken({
+      userId,
+      type: 'mcp_oauth',
+      identifier: `mcp:${serverName}`,
+    });
+    logger.debug(`${logPrefix} Token lookup took ${Date.now() - tokenStart}ms, found: ${!!token}`);
+
+    if (!token) {
+      // No token - check if there's an active OAuth flow
+      const flowStart = Date.now();
+      const { hasActiveFlow, hasFailedFlow } = await checkOAuthFlowStatus(userId, serverName);
+      logger.debug(`${logPrefix} Flow check took ${Date.now() - flowStart}ms`, {
+        hasActiveFlow,
+        hasFailedFlow,
+      });
+
+      if (hasFailedFlow) {
+        logger.debug(`${logPrefix} Status: error (failed OAuth flow) (${Date.now() - startTime}ms)`);
+        return { requiresOAuth: true, connectionState: 'error' };
+      }
+      if (hasActiveFlow) {
+        logger.debug(`${logPrefix} Status: connecting (active OAuth flow) (${Date.now() - startTime}ms)`);
+        return { requiresOAuth: true, connectionState: 'connecting' };
+      }
+
+      logger.debug(`${logPrefix} Status: disconnected (no token) (${Date.now() - startTime}ms)`);
+      return { requiresOAuth: true, connectionState: 'disconnected' };
+    }
+
+    // Token exists - check expiration
+    const now = new Date();
+    const expiresAt = token.expiresAt ? new Date(token.expiresAt) : null;
+    const isExpired = expiresAt && expiresAt < now;
+    const hasRefreshToken = !!token.refreshToken;
+
+    logger.debug(`${logPrefix} Token state`, {
+      hasAccessToken: !!token.accessToken,
+      hasRefreshToken,
+      expiresAt: expiresAt?.toISOString(),
+      isExpired,
+    });
+
+    if (isExpired) {
+      if (hasRefreshToken) {
+        // Token expired but can be refreshed - still consider "connected"
+        // Refresh will happen automatically when tool is called
+        logger.debug(`${logPrefix} Status: connected (token expired, has refresh) (${Date.now() - startTime}ms)`);
+        return { requiresOAuth: true, connectionState: 'connected' };
+      }
+      // Token expired with no refresh token - needs re-auth
+      logger.debug(`${logPrefix} Status: disconnected (token expired, no refresh) (${Date.now() - startTime}ms)`);
+      return { requiresOAuth: true, connectionState: 'disconnected' };
+    }
+
+    // Valid token exists
+    logger.debug(`${logPrefix} Status: connected (valid token) (${Date.now() - startTime}ms)`);
+    return { requiresOAuth: true, connectionState: 'connected' };
+
+  } catch (error) {
+    logger.error(`${logPrefix} Error checking token status:`, error);
+    // On error, assume needs auth to be safe
+    return { requiresOAuth: true, connectionState: 'disconnected' };
+  }
 }
 
 module.exports = {

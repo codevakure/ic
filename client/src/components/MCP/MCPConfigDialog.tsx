@@ -6,12 +6,18 @@ import {
   OGDialogTitle,
   OGDialogHeader,
   OGDialogContent,
+  Microsoft365Icon,
 } from '@librechat/client';
 import type { MCPServerStatus } from 'librechat-data-provider';
 import type { ConfigFieldDetail } from '~/common';
 import ServerInitializationSection from './ServerInitializationSection';
 import CustomUserVarsSection from './CustomUserVarsSection';
 import { useLocalize } from '~/hooks';
+
+// Map of available icons
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Microsoft365Icon,
+};
 
 interface MCPConfigDialogProps {
   isOpen: boolean;
@@ -22,6 +28,8 @@ interface MCPConfigDialogProps {
   isSubmitting?: boolean;
   onRevoke?: () => void;
   serverName: string;
+  serverTitle?: string;
+  serverIcon?: string;
   serverStatus?: MCPServerStatus;
   conversationId?: string | null;
 }
@@ -34,15 +42,21 @@ export default function MCPConfigDialog({
   isSubmitting = false,
   onRevoke,
   serverName,
+  serverTitle,
+  serverIcon,
   serverStatus,
   conversationId,
 }: MCPConfigDialogProps) {
   const localize = useLocalize();
 
   const hasFields = Object.keys(fieldsSchema).length > 0;
+  const displayTitle = serverTitle || serverName;
   const dialogTitle = hasFields
-    ? localize('com_ui_configure_mcp_variables_for', { 0: serverName })
-    : `${serverName} MCP Server`;
+    ? localize('com_ui_configure_mcp_variables_for', { 0: displayTitle })
+    : displayTitle;
+
+  // Get the icon component if specified
+  const IconComponent = serverIcon && iconMap[serverIcon] ? iconMap[serverIcon] : null;
 
   // Helper function to render status badge based on connection state
   const renderStatusBadge = () => {
@@ -105,6 +119,7 @@ export default function MCPConfigDialog({
       <OGDialogContent className="flex max-h-screen w-11/12 max-w-lg flex-col space-y-2">
         <OGDialogHeader>
           <div className="flex items-center gap-3">
+            {IconComponent && <IconComponent className="h-6 w-6" />}
             <OGDialogTitle className="text-xl">
               {dialogTitle.charAt(0).toUpperCase() + dialogTitle.slice(1)}
             </OGDialogTitle>

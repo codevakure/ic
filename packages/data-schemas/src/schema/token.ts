@@ -36,5 +36,6 @@ const tokenSchema: Schema<IToken> = new Schema({
 });
 
 tokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+tokenSchema.index({ userId: 1, identifier: 1 }); // Compound index for MCP token lookups
 
 export default tokenSchema;

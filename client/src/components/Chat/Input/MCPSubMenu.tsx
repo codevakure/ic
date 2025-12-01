@@ -1,11 +1,15 @@
 import React from 'react';
 import * as Ariakit from '@ariakit/react';
 import { ChevronRight } from 'lucide-react';
-import { PinIcon, MCPIcon } from '@librechat/client';
+import { PinIcon, MCPIcon, Microsoft365Icon } from '@librechat/client';
 import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
 import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
 import { useBadgeRowContext } from '~/Providers';
 import { cn } from '~/utils';
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Microsoft365Icon,
+};
 
 interface MCPSubMenuProps {
   placeholder?: string;
@@ -21,6 +25,8 @@ const MCPSubMenu = React.forwardRef<HTMLDivElement, MCPSubMenuProps>(
       isInitializing,
       placeholderText,
       configuredServers,
+      serverTitles,
+      serverIcons,
       getConfigDialogProps,
       toggleServerSelection,
       getServerStatusIconProps,
@@ -89,6 +95,10 @@ const MCPSubMenu = React.forwardRef<HTMLDivElement, MCPSubMenuProps>(
               const statusIconProps = getServerStatusIconProps(serverName);
               const isSelected = mcpValues?.includes(serverName) ?? false;
               const isServerInitializing = isInitializing(serverName);
+              const displayTitle = serverTitles[serverName] || serverName;
+              const ServerIcon = serverIcons[serverName] && iconMap[serverIcons[serverName] as string]
+                ? iconMap[serverIcons[serverName] as string]
+                : MCPIcon;
 
               const statusIcon = statusIconProps && <MCPServerStatusIcon {...statusIconProps} />;
 
@@ -112,7 +122,8 @@ const MCPSubMenu = React.forwardRef<HTMLDivElement, MCPSubMenuProps>(
                 >
                   <div className="flex flex-grow items-center gap-2">
                     <Ariakit.MenuItemCheck checked={isSelected} />
-                    <span>{serverName}</span>
+                    <ServerIcon className="icon-sm" />
+                    <span>{displayTitle}</span>
                   </div>
                   {statusIcon && <div className="ml-2 flex items-center">{statusIcon}</div>}
                 </Ariakit.MenuItem>

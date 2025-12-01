@@ -84,6 +84,8 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
   },
   [Tool.CODE_INTERPRETER]: {
     high: [
+      // Image/static chart requests - these go to code executor (Python/matplotlib)
+      /\b(image|static|inline|downloadable|save)\s*(chart|charts|graph|graphs|plot|plots|visualization|visualizations)\b/i,
       // Explicit data analysis with file types
       /\b(analyze|analysis)\b.*\b(data|dataset|spreadsheet|excel|csv|xlsx?|tsv|parquet)\b/i,
       /\b(data|dataset|spreadsheet|excel|csv|xlsx?)\b.*\b(analyze|analysis|process|parse)\b/i,
@@ -155,30 +157,36 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
   },
   [Tool.ARTIFACTS]: {
     high: [
+      // Dashboard requests - dashboards are always React/UI components
+      /\bdashboard\b/i,
+      // Interactive chart/visualization requests - these go to artifacts (React components)
+      /\b(interactive|clickable|zoomable|dynamic)\s*(chart|charts|graph|graphs|visualization|visualizations)\b/i,
       // Explicit framework component creation
       /\b(create|build|make|generate|develop)\b.*\b(react|vue|angular|svelte)\b.*\b(component|app|application|page)\b/i,
-      // Interactive element patterns
-      /\b(interactive|dynamic)\b.*\b(component|widget|dashboard|ui|interface|element|visualization)\b/i,
+      // Interactive element patterns (not charts - those need clarification)
+      /\b(interactive|dynamic)\b.*\b(component|widget|dashboard|ui|interface|element)\b/i,
       // Render/display UI patterns
       /\b(render|display|show|present)\b.*\b(html|component|react|ui|interface|page|widget)\b/i,
-      // Build UI patterns - includes generate for dashboard creation
-      /\b(build|create|design|generate|make)\b.*\b(ui|user\s*interface|dashboard|layout|mockup)\b/i,
+      // Build UI patterns
+      /\b(build|create|design|generate|make)\b.*\b(ui|user\s*interface|layout|mockup)\b/i,
       // Web component patterns
       /\b(web\s*component|custom\s*element|html\s*element)\b/i,
       // SVG/Canvas patterns
       /\b(svg|canvas)\b.*\b(draw|render|create|generate)\b/i,
       // Form/input patterns
       /\b(create|build|make)\b.*\b(form|input|button|modal|dialog|dropdown|menu|nav)\b/i,
-      // Mermaid/diagram patterns - artifacts renders these
+      // Mermaid/diagram patterns - artifacts renders these (NOT charts)
       /\b(mermaid|flowchart|sequence\s*diagram|class\s*diagram|er\s*diagram|gantt)\b/i,
-      // Create diagram/chart patterns
-      /\b(create|build|make|generate|draw)\b.*\b(diagram|flowchart|chart|graph|visualization)\b/i,
+      // Create diagram patterns (flowcharts, architecture diagrams - not data charts)
+      /\b(create|build|make|generate|draw)\b.*\b(diagram|flowchart)\b/i,
       // HTML page creation
       /\b(create|build|make|generate)\b.*\b(html|webpage|web\s*page)\b/i,
+      // Explicit React chart library mentions - user wants React
+      /\b(recharts|chart\.js|d3|nivo)\b.*\b(chart|graph|component)\b/i,
     ],
     medium: [
-      // Generic component/UI creation - includes dashboard
-      /\b(create|build|make|generate)\b.*\b(component|ui|interface|widget|element|view|dashboard)\b/i,
+      // Generic component/UI creation
+      /\b(create|build|make|generate)\b.*\b(component|ui|interface|widget|element|view)\b/i,
       // Framework-specific keywords
       /\b(react|vue|angular|svelte|html|css)\b.*\b(component|element|page|view|template)\b/i,
       // Design patterns
@@ -189,19 +197,16 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(animate|animation|transition|motion|framer)\b/i,
       // Card/list patterns
       /\b(card|cards|list|grid|table)\b.*\b(component|layout|view)\b/i,
-      // Visualize patterns
-      /\b(visualize|visualise)\b.*\b(this|it|data|the)\b/i,
-      /\bhow\b.*\b(look|visuali[zs]e)\b/i,
     ],
     low: [
-      // Generic interactive/dashboard mentions
-      /\b(interactive|dashboard|widget)\b/i,
+      // Generic interactive/widget mentions
+      /\b(interactive|widget)\b/i,
       // Single framework mentions
       /\b(react|vue|angular|html|component)\b/i,
       // Visual/display keywords
       /\b(visual|display|render|show|present)\b/i,
-      // Diagram keywords alone
-      /\b(diagram|flowchart|visualization)\b/i,
+      // Diagram keywords alone (not charts)
+      /\b(diagram|flowchart)\b/i,
     ],
   },
   [Tool.WEB_SEARCH]: {
@@ -502,11 +507,13 @@ const VISUAL_INTENT_PATTERNS = [
 ];
 
 /**
- * Patterns that suggest both artifacts and code_interpreter could work
+ * Patterns that suggest charts/visualization - could use either artifacts OR code_interpreter
  */
-const MULTI_TOOL_AMBIGUOUS_PATTERNS = [
-  /\b(chart|graph|plot|visuali[zs]ation)\b/i, // Could be React chart or matplotlib
-  /\b(data|analyze|analysis)\b.*\b(visual|display|show)\b/i, // Could need code analysis + UI
+const CHART_VISUALIZATION_PATTERNS = [
+  /\b(chart|graph|plot|histogram|heatmap|scatter)\b/i,
+  /\b(bar\s*chart|pie\s*chart|line\s*chart|line\s*graph|area\s*chart)\b/i,
+  /\b(visuali[zs]e|visuali[zs]ation)\b/i,
+  /\b(data|analyze|analysis)\b.*\b(visual|display|show|chart|graph)\b/i,
 ];
 
 /**
@@ -518,31 +525,43 @@ function generateMultiToolClarification(
   query: string,
   selectedTools: Tool[],
   confidence: number,
+  availableTools: Tool[],
 ): { prompt: string; options: string[] } | null {
-  // Only generate clarification if:
-  // 1. Multiple tools selected by regex
-  // 2. Confidence is reasonably high (>= 0.4) - otherwise LLM will handle it
-  if (selectedTools.length < 2 || confidence < 0.4) {
-    return null;
+  const hasCodeInterpreter = selectedTools.some(t => t === Tool.CODE_INTERPRETER);
+  const hasArtifacts = selectedTools.some(t => t === Tool.ARTIFACTS);
+  const artifactsAvailable = availableTools.includes(Tool.ARTIFACTS);
+  
+  // Check if query is about charts/visualization
+  const isChartRelated = CHART_VISUALIZATION_PATTERNS.some(p => p.test(query));
+  
+  // Case 1: execute_code selected + chart/visualization requested + artifacts available
+  // Ask user which approach they prefer for charts
+  if (hasCodeInterpreter && isChartRelated && artifactsAvailable && !hasArtifacts) {
+    return {
+      prompt: "How would you like me to visualize this?",
+      options: [
+        "Interactive chart (clickable, zoomable, opens in side panel)",
+        "Dashboard view (multiple charts and insights together)",
+        "Image chart (appears inline, downloadable)",
+      ],
+    };
+  }
+  
+  // Case 2: Both artifacts and execute_code already selected - ambiguous visualization
+  if (hasArtifacts && hasCodeInterpreter && isChartRelated) {
+    return {
+      prompt: "How would you like me to visualize this?",
+      options: [
+        "Interactive chart (clickable, zoomable, opens in side panel)",
+        "Dashboard view (multiple charts and insights together)",
+        "Image chart (appears inline, downloadable)",
+      ],
+    };
   }
 
-  const lowerQuery = query.toLowerCase();
-  const hasArtifacts = selectedTools.some(t => t === Tool.ARTIFACTS);
-  const hasCodeInterpreter = selectedTools.some(t => t === Tool.CODE_INTERPRETER);
-  
-  // Case: Both artifacts and execute_code selected - ambiguous visualization
-  if (hasArtifacts && hasCodeInterpreter) {
-    const isChartRelated = MULTI_TOOL_AMBIGUOUS_PATTERNS.some(p => p.test(lowerQuery));
-    if (isChartRelated) {
-      return {
-        prompt: "I can create this visualization in different ways. Which would you prefer?",
-        options: [
-          "Interactive React component (web-based, shareable)",
-          "Python chart (matplotlib/seaborn, for data analysis)",
-          "Both: Analyze with Python, then create interactive UI",
-        ],
-      };
-    }
+  // Only generate generic clarification for multiple tools with high confidence
+  if (selectedTools.length < 2 || confidence < 0.4) {
+    return null;
   }
 
   // Generic multi-tool clarification
@@ -658,9 +677,8 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   const bestSelectedScore = selectedToolScores.length > 0 ? Math.max(...selectedToolScores) : 0;
   const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestSelectedScore, 0.3);
 
-  // Step 7: Check if regex selected multiple tools - ask for clarification
-  // This is for HIGH confidence cases. LOW confidence will fall back to LLM.
-  const multiToolClarification = generateMultiToolClarification(query, selectedTools, confidence);
+  // Step 6: Check if clarification is needed (e.g., charts can use either artifacts or execute_code)
+  const multiToolClarification = generateMultiToolClarification(query, selectedTools, confidence, availableTools);
 
   // Return result with optional clarification
   // - If confidence >= 0.4 and multiple tools: regex handles clarification

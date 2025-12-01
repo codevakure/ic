@@ -98,6 +98,11 @@ export class MCPConnection extends EventEmitter {
   timeout?: number;
   url?: string;
 
+  /** Returns whether OAuth is required for this connection */
+  getOAuthRequired(): boolean {
+    return this.oauthRequired;
+  }
+
   setRequestHeaders(headers: Record<string, string> | null): void {
     if (!headers) {
       return;
@@ -588,7 +593,12 @@ export class MCPConnection extends EventEmitter {
         throw new Error('Connection not established');
       }
     } catch (error) {
-      logger.error(`${this.getLogPrefix()} Connection failed:`, error);
+      // Don't log as error if OAuth is required - it's expected
+      if (this.oauthRequired) {
+        logger.info(`${this.getLogPrefix()} Connection requires OAuth authentication`);
+      } else {
+        logger.error(`${this.getLogPrefix()} Connection failed:`, error);
+      }
       throw error;
     }
   }

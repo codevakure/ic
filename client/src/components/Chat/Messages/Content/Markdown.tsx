@@ -30,11 +30,14 @@ type TContentProps = {
 
 const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
   const LaTeXParsing = useRecoilValue<boolean>(store.LaTeXParsing);
-  const { isSubmitting = false } = useMessageContext();
+  const { isSubmitting = false, nextType } = useMessageContext();
   const isInitializing = content === '';
+  
+  // Only show streaming loader if this is the last part (no nextType means no more parts after this)
+  const isLastPart = nextType === undefined;
 
-  // Show loader while streaming (latest message + submitting + has content)
-  const showStreamingLoader = isLatestMessage && isSubmitting && !isInitializing;
+  // Show loader while streaming (latest message + submitting + has content + is last part)
+  const showStreamingLoader = isLatestMessage && isSubmitting && !isInitializing && isLastPart;
 
   const currentContent = useMemo(() => {
     if (isInitializing) {
@@ -69,7 +72,11 @@ const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
   ];
 
   if (isInitializing) {
-    return <StreamingLoader />;
+    // Only show streaming loader for the last part when initializing
+    if (isLastPart && isLatestMessage && isSubmitting) {
+      return <StreamingLoader />;
+    }
+    return null;
   }
 
   return (

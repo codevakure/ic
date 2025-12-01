@@ -52,6 +52,8 @@ const getMCPServers = async (payload, appConfig) => {
       }
       const serverConfig = mcpServers[serverName];
       payload.mcpServers[serverName] = removeNullishValues({
+        title: serverConfig?.title,
+        iconPath: serverConfig?.iconPath,
         startup: serverConfig?.startup,
         chatMenu: serverConfig?.chatMenu,
         isOAuth: serverConfig.requiresOAuth,

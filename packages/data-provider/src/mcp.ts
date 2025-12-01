@@ -10,6 +10,8 @@ const BaseOptionsSchema = z.object({
    *   requiring manual authentication (e.g., GitHub PAT tokens) that need to be configured through the UI after startup
    */
   startup: z.boolean().optional(),
+  /** Display title for the MCP server in the UI (defaults to server name if not specified) */
+  title: z.string().optional(),
   iconPath: z.string().optional(),
   timeout: z.number().optional(),
   initTimeout: z.number().optional(),

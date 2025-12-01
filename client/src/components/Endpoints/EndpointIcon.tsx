@@ -53,7 +53,7 @@ export default function EndpointIcon({
   const iconURL = assistantAvatar || agentAvatar || convoIconURL;
   const displayName = assistantName || agentName;
 
-  if (iconURL && (iconURL.includes('http') || iconURL.startsWith('/images/'))) {
+  if (iconURL && (iconURL.includes('http') || iconURL.startsWith('/images/') || iconURL.startsWith('/assets/'))) {
     return (
       <ConvoIconURL
         iconURL={iconURL}

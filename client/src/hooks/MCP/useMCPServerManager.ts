@@ -44,6 +44,28 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
       .map(([serverName]) => serverName);
   }, [startupConfig?.mcpServers]);
 
+  const serverTitles = useMemo(() => {
+    if (!startupConfig?.mcpServers) return {};
+    return Object.entries(startupConfig.mcpServers).reduce(
+      (acc, [serverName, config]) => {
+        acc[serverName] = (config as { title?: string }).title || serverName;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  }, [startupConfig?.mcpServers]);
+
+  const serverIcons = useMemo(() => {
+    if (!startupConfig?.mcpServers) return {};
+    return Object.entries(startupConfig.mcpServers).reduce(
+      (acc, [serverName, config]) => {
+        acc[serverName] = (config as { iconPath?: string }).iconPath;
+        return acc;
+      },
+      {} as Record<string, string | undefined>,
+    );
+  }, [startupConfig?.mcpServers]);
+
   const reinitializeMutation = useReinitializeMCPServerMutation();
   const cancelOAuthMutation = useCancelMCPOAuthMutation();
 
@@ -580,6 +602,8 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
 
     return {
       serverName: selectedToolForConfig.name,
+      serverTitle: serverTitles[selectedToolForConfig.name],
+      serverIcon: serverIcons[selectedToolForConfig.name],
       serverStatus: connectionStatus?.[selectedToolForConfig.name],
       isOpen: isConfigModalOpen,
       onOpenChange: handleDialogOpenChange,
@@ -591,6 +615,8 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
     };
   }, [
     selectedToolForConfig,
+    serverTitles,
+    serverIcons,
     connectionStatus,
     isConfigModalOpen,
     handleDialogOpenChange,
@@ -601,6 +627,8 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
 
   return {
     configuredServers,
+    serverTitles,
+    serverIcons,
     initializeServer,
     cancelOAuthFlow,
     isInitializing,

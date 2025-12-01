@@ -69,6 +69,11 @@ export class MCPConnectionFactory {
   /** Creates the base MCP connection with OAuth tokens */
   protected async createConnection(): Promise<MCPConnection> {
     const oauthTokens = this.useOAuth ? await this.getOAuthTokens() : null;
+    
+    if (this.useOAuth && !oauthTokens?.access_token) {
+      logger.info(`${this.logPrefix} Access token missing`);
+    }
+    
     const connection = new MCPConnection({
       serverName: this.serverName,
       serverConfig: this.serverConfig,
@@ -97,30 +102,33 @@ export class MCPConnectionFactory {
 
   /** Retrieves existing OAuth tokens from storage or returns null */
   protected async getOAuthTokens(): Promise<MCPOAuthTokens | null> {
-    if (!this.tokenMethods?.findToken) return null;
+    if (!this.tokenMethods?.findToken) {
+      logger.warn(`${this.logPrefix} No findToken method available`);
+      return null;
+    }
 
     try {
-      const flowId = MCPOAuthHandler.generateFlowId(this.userId!, this.serverName);
-      const tokens = await this.flowManager!.createFlowWithHandler(
-        flowId,
-        'mcp_get_tokens',
-        async () => {
-          return await MCPTokenStorage.getTokens({
-            userId: this.userId!,
-            serverName: this.serverName,
-            findToken: this.tokenMethods!.findToken!,
-            createToken: this.tokenMethods!.createToken,
-            updateToken: this.tokenMethods!.updateToken,
-            refreshTokens: this.createRefreshTokensFunction(),
-          });
-        },
-        this.signal,
-      );
+      logger.debug(`${this.logPrefix} Loading OAuth tokens directly from database`);
+      
+      // Always fetch tokens directly from database - no flow caching
+      // This ensures we always have the latest tokens and avoids stale flow state issues
+      const tokens = await MCPTokenStorage.getTokens({
+        userId: this.userId!,
+        serverName: this.serverName,
+        findToken: this.tokenMethods!.findToken!,
+        createToken: this.tokenMethods!.createToken,
+        updateToken: this.tokenMethods!.updateToken,
+        refreshTokens: this.createRefreshTokensFunction(),
+      });
 
-      if (tokens) logger.info(`${this.logPrefix} Loaded OAuth tokens`);
+      if (tokens) {
+        logger.info(`${this.logPrefix} Loaded OAuth tokens from database`);
+      } else {
+        logger.info(`${this.logPrefix} No tokens found in database`);
+      }
       return tokens;
     } catch (error) {
-      logger.debug(`${this.logPrefix} No existing tokens found or error loading tokens`, error);
+      logger.warn(`${this.logPrefix} Error loading tokens from database:`, error);
       return null;
     }
   }
@@ -239,7 +247,10 @@ export class MCPConnectionFactory {
     );
 
     if (await connection.isConnected()) return;
-    logger.error(`${this.logPrefix} Failed to establish connection.`);
+    // Only log as error if not OAuth-related
+    if (!connection.getOAuthRequired()) {
+      logger.error(`${this.logPrefix} Failed to establish connection.`);
+    }
   }
 
   // Handles connection attempts with retry logic and OAuth error handling
@@ -264,12 +275,12 @@ export class MCPConnectionFactory {
             const errorWithFlag = error as (Error & { isOAuthError?: boolean }) | undefined;
             if (errorWithFlag?.isOAuthError) {
               oauthHandled = true;
-              logger.info(`${this.logPrefix} Handling OAuth`);
+              logger.error(`${this.logPrefix} Handling OAuth`);
               await this.handleOAuthRequired();
             }
           }
           // Don't retry on OAuth errors - just throw
-          logger.info(`${this.logPrefix} OAuth required, stopping connection attempts`);
+          logger.error(`${this.logPrefix} OAuth required, stopping connection attempts`);
           throw error;
         }
 
