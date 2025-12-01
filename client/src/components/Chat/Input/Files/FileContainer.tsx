@@ -30,7 +30,7 @@ const FileContainer = ({
         onClick={onClick}
         aria-label={file.filename}
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-border-light bg-surface-hover-alt',
+          'relative overflow-hidden rounded-2xl border border-border-light bg-surface-hover-alt mb-2',
           buttonClassName,
         )}
       >
