@@ -184,21 +184,22 @@ export class GuardrailsService {
           };
         }
 
-        // Fallback: intervened but no clear action - treat as blocked for safety
-        console.warn('[GuardrailsService] 🚫 BLOCKED (unknown action)', {
+        // Fallback: intervened but no clear BLOCKED action - log and let through
+        // This handles cases where guardrails modified content without explicit violation details
+        console.info('[GuardrailsService] ℹ️ INTERVENED (no block action)', {
           source,
           time: `${processingTime}ms`,
-          violations
+          violations,
+          hasOutput: !!response.outputs?.[0]?.text
         });
 
         return {
-          blocked: true,
-          content: this.config.blockMessage!,
+          blocked: false,
+          content: outputContent,
           action: response.action,
           assessments: response.assessments || [],
           usage: response.usage,
-          reason: 'policy_violation',
-          userMessage: this.config.blockMessage,
+          reason: 'intervened_passthrough',
           violations
         };
       } else {

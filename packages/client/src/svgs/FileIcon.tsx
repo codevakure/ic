@@ -12,6 +12,10 @@ export default function FileIcon({
     title: string;
   };
 }) {
+  const isTransparent = fileType.fill === 'transparent';
+  const progress = file?.['progress'] ?? 1;
+  const isLoaded = progress >= 1;
+  
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -21,8 +25,9 @@ export default function FileIcon({
       width="36"
       height="36"
     >
-      <rect width="36" height="36" rx="6" fill={fileType.fill} />
-      {(file?.['progress'] ?? 1) >= 1 && <>{<fileType.paths />}</>}
+      {!isTransparent && <rect width="36" height="36" rx="6" fill={fileType.fill} />}
+      {/* Show icon immediately for transparent backgrounds, wait for loading for colored backgrounds */}
+      {(isTransparent || isLoaded) && <fileType.paths className="w-full h-full" />}
     </svg>
   );
 }
