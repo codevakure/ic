@@ -25,6 +25,10 @@ COPY --chown=node:node client/package.json ./client/package.json
 COPY --chown=node:node packages/data-provider/package.json ./packages/data-provider/package.json
 COPY --chown=node:node packages/data-schemas/package.json ./packages/data-schemas/package.json
 COPY --chown=node:node packages/api/package.json ./packages/api/package.json
+COPY --chown=node:node packages/intent-analyzer/package.json ./packages/intent-analyzer/package.json
+COPY --chown=node:node packages/guardrails/package.json ./packages/guardrails/package.json
+COPY --chown=node:node packages/datadog-llm-observability/package.json ./packages/datadog-llm-observability/package.json
+COPY --chown=node:node packages/client/package.json ./packages/client/package.json
 
 RUN \
     # Allow mounting of these files, which have no default

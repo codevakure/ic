@@ -17,6 +17,9 @@ COPY packages/data-provider/package*.json ./packages/data-provider/
 COPY packages/api/package*.json ./packages/api/
 COPY packages/data-schemas/package*.json ./packages/data-schemas/
 COPY packages/client/package*.json ./packages/client/
+COPY packages/intent-analyzer/package*.json ./packages/intent-analyzer/
+COPY packages/guardrails/package*.json ./packages/guardrails/
+COPY packages/datadog-llm-observability/package*.json ./packages/datadog-llm-observability/
 COPY client/package*.json ./client/
 COPY api/package*.json ./api/
 
@@ -52,6 +55,30 @@ WORKDIR /app/packages/client
 COPY packages/client ./
 RUN npm run build
 
+# Build `intent-analyzer` package
+FROM base AS intent-analyzer-build
+WORKDIR /app/packages/intent-analyzer
+COPY packages/intent-analyzer ./
+COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
+COPY --from=data-schemas-build /app/packages/data-schemas/dist /app/packages/data-schemas/dist
+RUN npm run build
+
+# Build `guardrails` package
+FROM base AS guardrails-build
+WORKDIR /app/packages/guardrails
+COPY packages/guardrails ./
+COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
+COPY --from=data-schemas-build /app/packages/data-schemas/dist /app/packages/data-schemas/dist
+RUN npm run build
+
+# Build `datadog-llm-observability` package
+FROM base AS datadog-build
+WORKDIR /app/packages/datadog-llm-observability
+COPY packages/datadog-llm-observability ./
+COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
+COPY --from=data-schemas-build /app/packages/data-schemas/dist /app/packages/data-schemas/dist
+RUN npm run build
+
 # Client build
 FROM base AS client-build
 WORKDIR /app/client
@@ -75,6 +102,9 @@ COPY config ./config
 COPY --from=data-provider-build /app/packages/data-provider/dist ./packages/data-provider/dist
 COPY --from=data-schemas-build /app/packages/data-schemas/dist ./packages/data-schemas/dist
 COPY --from=api-package-build /app/packages/api/dist ./packages/api/dist
+COPY --from=intent-analyzer-build /app/packages/intent-analyzer/dist ./packages/intent-analyzer/dist
+COPY --from=guardrails-build /app/packages/guardrails/dist ./packages/guardrails/dist
+COPY --from=datadog-build /app/packages/datadog-llm-observability/dist ./packages/datadog-llm-observability/dist
 COPY --from=client-build /app/client/dist ./client/dist
 WORKDIR /app/api
 EXPOSE 3080
