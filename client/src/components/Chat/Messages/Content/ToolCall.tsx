@@ -241,6 +241,7 @@ export default function ToolCall({
           </div>
         </div>
       </div>
+      )}
       {auth != null && auth && progress < 1 && !cancelled && (
         <div className="flex w-full flex-col gap-2.5">
           <div className="mb-1 mt-2">
