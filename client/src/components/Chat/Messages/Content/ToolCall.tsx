@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Button } from '@librechat/client';
 import { TriangleAlert } from 'lucide-react';
+import { useRecoilValue } from 'recoil';
 import { actionDelimiter, actionDomainSeparator, Constants } from 'librechat-data-provider';
 import type { TAttachment } from 'librechat-data-provider';
 import { useLocalize, useProgress } from '~/hooks';
@@ -9,6 +10,7 @@ import ToolCallInfo from './ToolCallInfo';
 import ProgressText from './ProgressText';
 import { toTitleCase } from '~/utils/titleCase';
 import { logger, cn } from '~/utils';
+import store from '~/store';
 
 export default function ToolCall({
   initialProgress = 0.1,
@@ -31,6 +33,7 @@ export default function ToolCall({
   expires_at?: number;
 }) {
   const localize = useLocalize();
+  const showToolCallDetails = useRecoilValue(store.showToolCallDetails);
   const [showInfo, setShowInfo] = useState(false); // Default to collapsed
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(0);
@@ -115,6 +118,17 @@ export default function ToolCall({
     return localize('com_assistants_completed_function', { 0: toTitleCase(function_name) });
   };
 
+  const getSimpleText = () => {
+    const toolName = toTitleCase(function_name || name);
+    if (cancelled) {
+      return `Cancelled ${toolName}`;
+    }
+    if (progress < 1) {
+      return `Running ${toolName}`;
+    }
+    return `Ran ${toolName}`;
+  };
+
   useLayoutEffect(() => {
     if (showInfo !== prevShowInfoRef.current) {
       prevShowInfoRef.current = showInfo;
@@ -167,23 +181,26 @@ export default function ToolCall({
       <div className="relative my-2.5 flex h-5 shrink-0 items-center gap-2.5">
         <ProgressText
           progress={progress}
-          onClick={() => setShowInfo((prev) => !prev)}
+          onClick={showToolCallDetails ? () => setShowInfo((prev) => !prev) : undefined}
           inProgressText={
-            function_name
-              ? localize('com_assistants_running_var', { 0: toTitleCase(function_name) })
-              : localize('com_assistants_running_action')
+            showToolCallDetails
+              ? (function_name
+                  ? localize('com_assistants_running_var', { 0: toTitleCase(function_name) })
+                  : localize('com_assistants_running_action'))
+              : getSimpleText()
           }
           authText={
             !cancelled && authDomain.length > 0 ? localize('com_ui_requires_auth') : undefined
           }
-          finishedText={getFinishedText()}
-          hasInput={hasInfo}
+          finishedText={showToolCallDetails ? getFinishedText() : getSimpleText()}
+          hasInput={showToolCallDetails && hasInfo}
           isExpanded={showInfo}
           error={cancelled}
         />
       </div>
-      <div
-        className="relative"
+      {showToolCallDetails && (
+        <div
+          className="relative"
         style={{
           height: showInfo ? contentHeight : 0,
           overflow: 'hidden',

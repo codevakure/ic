@@ -95,7 +95,7 @@ export default function ProgressText({
         onClick={hasInput ? onClick : undefined}
       >
         {icon}
-        <span className={showShimmer ? 'shimmer' : ''}>{text}</span>
+        <span className={cn('text-xs leading-[18px]', showShimmer && 'shimmer')}>{text}</span>
         {hasInput &&
           (isExpanded ? (
             <ChevronUp className="size-4 shrink-0 translate-y-[1px]" />

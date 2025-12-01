@@ -31,6 +31,7 @@ const localStorageAtoms = {
   maximizeChatSpace: atomWithLocalStorage('maximizeChatSpace', false),
   chatDirection: atomWithLocalStorage('chatDirection', 'LTR'),
   showCode: atomWithLocalStorage(LocalStorageKeys.SHOW_ANALYSIS_CODE, true),
+  showToolCallDetails: atomWithLocalStorage('showToolCallDetails', false),
   saveDrafts: atomWithLocalStorage('saveDrafts', true),
   showScrollButton: atomWithLocalStorage('showScrollButton', true),
   forkSetting: atomWithLocalStorage('forkSetting', ''),

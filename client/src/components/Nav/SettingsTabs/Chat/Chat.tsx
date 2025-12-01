@@ -59,6 +59,13 @@ const toggleSwitchConfigs = [
     key: 'showCodeOutput',
   },
   {
+    stateAtom: store.showToolCallDetails,
+    localizationKey: 'com_nav_show_tool_call_details',
+    switchId: 'showToolCallDetails',
+    hoverCardText: 'com_nav_info_show_tool_call_details',
+    key: 'showToolCallDetails',
+  },
+  {
     stateAtom: store.LaTeXParsing,
     localizationKey: 'com_nav_latex_parsing',
     switchId: 'latexParsing',
