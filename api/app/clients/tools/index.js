@@ -12,6 +12,11 @@ const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const createOpenAIImageTools = require('./structured/OpenAIImageTools');
 const TavilySearchResults = require('./structured/TavilySearchResults');
+const PostgreSQL = require('./structured/PostgreSQL');
+const BedrockKnowledgeBase = require('./structured/BedrockKnowledgeBase');
+const SnowflakeDatabase = require('./structured/SnowflakeDatabase');
+const SnowflakeCreditRiskAnalyst = require('./structured/SnowflakeCreditRiskAnalyst');
+const SnowflakeFinancialAnalyst = require('./structured/SnowflakeFinancialAnalyst');
 
 module.exports = {
   ...manifest,
@@ -27,4 +32,9 @@ module.exports = {
   createYouTubeTools,
   TavilySearchResults,
   createOpenAIImageTools,
+  PostgreSQL,
+  BedrockKnowledgeBase,
+  SnowflakeDatabase,
+  SnowflakeCreditRiskAnalyst,
+  SnowflakeFinancialAnalyst,
 };

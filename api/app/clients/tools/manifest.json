@@ -179,5 +179,128 @@
         "description": "Provide your Flux API key from your user profile."
       }
     ]
+  },
+  {
+    "name": "AWS Bedrock Knowledge Base",
+    "pluginKey": "BedrockKnowledgeBase",
+    "description": "Search and retrieve information from AWS Bedrock Knowledge Base using natural language queries. Uses existing AWS credentials from Bedrock endpoint configuration.",
+    "icon": "https://d2q66yyjeovezo.cloudfront.net/icon/464f53c8ab7b9e8c92c7914b1e3fd7eb-13a30f9b3b0b6dd6b0b3ec6da0.svg",
+    "authConfig": [
+      {
+        "authField": "BEDROCK_KNOWLEDGE_BASE_ID",
+        "label": "Bedrock Knowledge Base ID",
+        "description": "Enter your AWS Bedrock Knowledge Base ID. You can find this in the AWS Bedrock console under 'Knowledge bases'."
+      }
+    ]
+  },
+  {
+    "name": "PostgreSQL",
+    "pluginKey": "PostgreSQL",
+    "description": "Execute SQL queries against PostgreSQL databases. Use this tool to retrieve data, analyze database content, and answer questions about PostgreSQL database information.",
+    "icon": "https://wiki.postgresql.org/images/a/a4/PostgreSQL_logo.3colors.svg",
+    "authConfig": [
+      {
+        "authField": "POSTGRES_CONNECTION_STRING",
+        "label": "PostgreSQL Connection String",
+        "description": "Complete PostgreSQL connection string (postgresql://user:password@host:port/database)"
+      },
+      {
+        "authField": "POSTGRES_HOST",
+        "label": "PostgreSQL Host",
+        "description": "PostgreSQL server hostname or IP address"
+      },
+      {
+        "authField": "POSTGRES_PORT",
+        "label": "PostgreSQL Port",
+        "description": "PostgreSQL server port (default: 5432)",
+        "default": "5432"
+      },
+      {
+        "authField": "POSTGRES_DATABASE",
+        "label": "Database Name",
+        "description": "Name of the PostgreSQL database"
+      },
+      {
+        "authField": "POSTGRES_USERNAME",
+        "label": "Username",
+        "description": "PostgreSQL username"
+      },
+      {
+        "authField": "POSTGRES_PASSWORD",
+        "label": "Password",
+        "description": "PostgreSQL password"
+      }
+    ]
+  },
+  {
+    "name": "Snowflake Database",
+    "pluginKey": "SnowflakeDatabase",
+    "description": "Execute SQL queries against Snowflake data warehouse. Use this tool to retrieve data, analyze warehouse content, and answer questions about Snowflake database information. Only SELECT queries are allowed for security.",
+    "icon": "https://companieslogo.com/img/orig/SNOW-35164165.png",
+    "authConfig": [
+      {
+        "authField": "SNOWFLAKE_ACCOUNT",
+        "label": "Snowflake Account",
+        "description": "Snowflake account identifier (e.g., XTA17782.us-east-1.privatelink)"
+      },
+      {
+        "authField": "SNOWFLAKE_USERNAME", 
+        "label": "Username",
+        "description": "Snowflake username"
+      },
+      {
+        "authField": "SNOWFLAKE_PASSWORD",
+        "label": "Password", 
+        "description": "Snowflake password or JWT token"
+      },
+      {
+        "authField": "SNOWFLAKE_WAREHOUSE",
+        "label": "Warehouse",
+        "description": "Snowflake warehouse name"
+      },
+      {
+        "authField": "SNOWFLAKE_ROLE",
+        "label": "Role",
+        "description": "Snowflake role to use for the connection"
+      },
+      {
+        "authField": "SNOWFLAKE_SCHEMA",
+        "label": "Schema",
+        "description": "Database schema to use (default: PUBLIC)",
+        "default": "PUBLIC"
+      },
+      {
+        "authField": "SNOWFLAKE_DATABASE",
+        "label": "Database (Optional)",
+        "description": "Snowflake database name (optional - will use current database context if not specified)",
+        "default": " "
+      },
+      {
+        "authField": "SNOWFLAKE_MAX_ROWS",
+        "label": "Max Rows",
+        "description": "Maximum rows to return (default: 100)",
+        "default": "100"
+      },
+      {
+        "authField": "SNOWFLAKE_QUERY_TIMEOUT",
+        "label": "Query Timeout (ms)",
+        "description": "Query timeout in milliseconds (default: 30000)",
+        "default": "30000"
+      }
+    ]
+  },
+  {
+    "name": "Snowflake Financial Analyst",
+    "pluginKey": "SnowflakeFinancialAnalyst",
+    "description": "Execute SQL queries against Snowflake data warehouse for financial data analysis. Specialized for financial metrics, reporting, and EDM database queries. Uses pre-configured financial analyst credentials.",
+    "icon": "https://companieslogo.com/img/orig/SNOW-35164165.png",
+    "authConfig": []
+  },
+  {
+    "name": "Snowflake Credit Risk Analyst",
+    "pluginKey": "SnowflakeCreditRiskAnalyst", 
+    "description": "Execute SQL queries against Snowflake data warehouse for credit risk analysis. Specialized for credit metrics, risk assessment, and CRDM database queries. Uses pre-configured credit risk analyst credentials.",
+    "icon": "https://companieslogo.com/img/orig/SNOW-35164165.png",
+    "authConfig": []
   }
 ]

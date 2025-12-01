@@ -35,6 +35,11 @@ const {
   createYouTubeTools,
   TavilySearchResults,
   createOpenAIImageTools,
+  PostgreSQL,
+  BedrockKnowledgeBase,
+  SnowflakeDatabase,
+  SnowflakeCreditRiskAnalyst,
+  SnowflakeFinancialAnalyst,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
 const { createFileSearchTool, primeFiles: primeSearchFiles } = require('./fileSearch');
@@ -96,6 +101,10 @@ const validateTools = async (user, tools = []) => {
       }
 
       for (const auth of tool.authConfig) {
+        // Skip validation for fields with default values (they are optional)
+        if (auth.default !== undefined) {
+          continue;
+        }
         await validateCredentials(auth.authField, tool.pluginKey);
       }
     }
@@ -122,8 +131,10 @@ const validateTools = async (user, tools = []) => {
  */
 const loadToolWithAuth = (userId, authFields, ToolConstructor, options = {}) => {
   return async function () {
-    const authValues = await loadAuthValues({ userId, authFields });
-    return new ToolConstructor({ ...options, ...authValues, userId });
+    const { agentId, toolKey, ...toolOptions } = options;
+    const optional = toolKey ? getOptionalAuthFields(toolKey) : undefined;
+    const authValues = await loadAuthValues({ userId, authFields, agentId, toolKey, optional });
+    return new ToolConstructor({ ...toolOptions, ...authValues, userId });
   };
 };
 
@@ -133,6 +144,25 @@ const loadToolWithAuth = (userId, authFields, ToolConstructor, options = {}) => 
  */
 const getAuthFields = (toolKey) => {
   return manifestToolMap[toolKey]?.authConfig.map((auth) => auth.authField) ?? [];
+};
+
+/**
+ * @param {string} toolKey
+ * @returns {Set<string>} Set of optional field names (those with default values)
+ */
+const getOptionalAuthFields = (toolKey) => {
+  const optionalFields = new Set();
+  const authConfig = manifestToolMap[toolKey]?.authConfig ?? [];
+  
+  for (const auth of authConfig) {
+    if (auth.default !== undefined) {
+      // Handle alternate fields (e.g., "API_KEY||ALTERNATE_KEY")
+      const fields = auth.authField.includes('||') ? auth.authField.split('||').map(f => f.trim()) : [auth.authField];
+      fields.forEach(field => optionalFields.add(field));
+    }
+  }
+  
+  return optionalFields;
 };
 
 /**
@@ -179,6 +209,11 @@ const loadTools = async ({
     'azure-ai-search': StructuredACS,
     traversaal_search: TraversaalSearch,
     tavily_search_results_json: TavilySearchResults,
+    PostgreSQL: PostgreSQL,
+    BedrockKnowledgeBase: BedrockKnowledgeBase,
+    SnowflakeDatabase: SnowflakeDatabase,
+    SnowflakeCreditRiskAnalyst: SnowflakeCreditRiskAnalyst,
+    SnowflakeFinancialAnalyst: SnowflakeFinancialAnalyst,
   };
 
   const customConstructors = {
