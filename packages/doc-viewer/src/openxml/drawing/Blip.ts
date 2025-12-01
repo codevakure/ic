@@ -1,0 +1,20 @@
+﻿import {Relationship} from '../../word/parse/parseRelationship';
+import Word from '../../Word';
+
+export class Blip {
+  embled?: Relationship;
+  src?: string | null;
+
+  static fromXML(word: Word, element: Element): Blip {
+    const blip = new Blip();
+    // [comment removed]
+    const embedId = element.getAttribute('r:embed') || '';
+    const rel = word.getDocumentRels(embedId);
+    if (rel) {
+      blip.embled = rel;
+      blip.src = word.loadImage(blip.embled);
+    }
+
+    return blip;
+  }
+}

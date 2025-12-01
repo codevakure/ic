@@ -12,6 +12,7 @@ const ArtifactButton = ({ artifact }: { artifact: Artifact | null }) => {
   const localize = useLocalize();
   const location = useLocation();
   const setVisible = useSetRecoilState(store.artifactsVisibility);
+  const setSourcesPanelState = useSetRecoilState(store.sourcesPanelState);
   const [artifacts, setArtifacts] = useRecoilState(store.artifactsState);
   const [currentArtifactId, setCurrentArtifactId] = useRecoilState(store.currentArtifactId);
   const resetCurrentArtifactId = useResetRecoilState(store.currentArtifactId);
@@ -63,6 +64,9 @@ const ArtifactButton = ({ artifact }: { artifact: Artifact | null }) => {
             return;
           }
 
+          // Close sources panel when opening artifacts
+          setSourcesPanelState((prev) => ({ ...prev, isOpen: false }));
+          
           resetCurrentArtifactId();
           setVisible(true);
 

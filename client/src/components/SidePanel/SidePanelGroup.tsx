@@ -55,11 +55,11 @@ const SidePanelGroup = memo(
     const sourcesActive = sourcesOpen && sourcesMode === 'push' && !isSmallScreen;
 
     const calculateLayout = useCallback(() => {
-      // When sources panel is active (push mode), calculate layout like artifacts
+      // When sources panel is active (push mode), calculate layout like artifacts (50/50 split)
       if (sourcesActive && artifacts == null) {
         const navSize = 0;
         const remainingSpace = 100 - navSize;
-        const newMainSize = Math.floor(remainingSpace * 0.6);
+        const newMainSize = Math.floor(remainingSpace / 2);
         const sourcesSize = remainingSpace - newMainSize;
         return [newMainSize, sourcesSize, navSize];
       }
@@ -150,9 +150,9 @@ const SidePanelGroup = memo(
           {!isSmallScreen && (
             <SourcesPanel
               currentLayout={currentLayout}
-              defaultSize={40}
-              minSize={25}
-              maxSize={60}
+              defaultSize={currentLayout[1] || 50}
+              minSize={minSizeMain}
+              maxSize={70}
               order={2}
               shouldRender={shouldRenderSources}
               onRenderChange={setShouldRenderSources}

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "dist/types",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "strict": false,
+    "strictNullChecks": false
+  }
+}

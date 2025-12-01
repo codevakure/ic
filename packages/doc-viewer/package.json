@@ -1,0 +1,97 @@
+{
+  "name": "@librechat/doc-viewer",
+  "version": "1.0.1",
+  "description": "Document viewer supporting DOCX, XLSX, PPTX, PDF - client-side rendering with full OOXML support",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.es.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles": "./dist/viewer.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "npm run clean && vite build",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "b:clean": "bun run rimraf dist",
+    "b:build": "bun run b:clean && bun run vite build"
+  },
+  "keywords": [
+    "document-viewer",
+    "docx",
+    "xlsx",
+    "pptx",
+    "pdf",
+    "office",
+    "ooxml",
+    "openxml",
+    "word",
+    "excel",
+    "powerpoint",
+    "react",
+    "typescript",
+    "client-side",
+    "enterprise"
+  ],
+  "author": "LibreChat Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danny-avila/LibreChat.git",
+    "directory": "packages/doc-viewer"
+  },
+  "bugs": {
+    "url": "https://github.com/danny-avila/LibreChat/issues"
+  },
+  "homepage": "https://librechat.ai",
+  "dependencies": {
+    "docx-preview": "^0.3.2",
+    "dompurify": "^3.3.0",
+    "echarts": "^5.6.0",
+    "fflate": "^0.8.2",
+    "numfmt": "^2.5.2",
+    "papaparse": "^5.4.1",
+    "pdfjs-dist": "^4.10.38",
+    "pptx-preview": "^1.0.7",
+    "tslib": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^20.0.1",
+    "@types/node": "^22.5.0",
+    "@types/papaparse": "^5.3.16",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^20.0.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.3",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^4.0.0",
+    "xml-formatter": "^3.6.7"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useRecoilState } from 'recoil';
+import { useRecoilState, useSetRecoilState } from 'recoil';
 import { ArrowLeft, X } from 'lucide-react';
 import { useMediaQuery } from '@librechat/client';
 import store from '~/store';
@@ -253,24 +253,29 @@ import type { SourcesPanelMode } from '~/store/misc';
  * - `title`: string - Current panel title
  * - `content`: ReactNode - Current panel content
  * - `mode`: 'push' | 'overlay' - Current display mode
- * - `openPanel(title, content, mode?)`: Function to open the panel
+ * - `openPanel(title, content, mode?, headerActions?)`: Function to open the panel
  * - `closePanel()`: Function to close the panel
  * 
  * @returns Panel state and control functions
  */
 export function useSourcesPanel() {
   const [panelState, setPanelState] = useRecoilState(store.sourcesPanelState);
+  const setArtifactsVisible = useSetRecoilState(store.artifactsVisibility);
 
   const openPanel = useCallback(
-    (title: string, content: React.ReactNode, mode: SourcesPanelMode = 'overlay') => {
+    (title: string, content: React.ReactNode, mode: SourcesPanelMode = 'overlay', headerActions?: React.ReactNode) => {
+      // Close artifacts panel when opening sources panel
+      setArtifactsVisible(false);
+      
       setPanelState({
         isOpen: true,
         title,
         content,
         mode,
+        headerActions: headerActions ?? null,
       });
     },
-    [setPanelState],
+    [setPanelState, setArtifactsVisible],
   );
 
   const closePanel = useCallback(() => {
@@ -285,6 +290,7 @@ export function useSourcesPanel() {
     title: panelState.title,
     content: panelState.content,
     mode: panelState.mode,
+    headerActions: panelState.headerActions,
     openPanel,
     closePanel,
   };

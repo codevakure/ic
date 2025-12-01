@@ -28,6 +28,7 @@ COPY --chown=node:node packages/api/package.json ./packages/api/package.json
 COPY --chown=node:node packages/intent-analyzer/package.json ./packages/intent-analyzer/package.json
 COPY --chown=node:node packages/guardrails/package.json ./packages/guardrails/package.json
 COPY --chown=node:node packages/datadog-llm-observability/package.json ./packages/datadog-llm-observability/package.json
+COPY --chown=node:node packages/doc-viewer/package.json ./packages/doc-viewer/package.json
 COPY --chown=node:node packages/client/package.json ./packages/client/package.json
 
 RUN \

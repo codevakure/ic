@@ -50,7 +50,7 @@ const SourcesPanel = memo(function SourcesPanel({
   onRenderChange,
 }: SourcesPanelProps) {
   const sourcesPanelRef = useRef<ImperativePanelHandle>(null);
-  const { isOpen, title, content, mode, closePanel } = useSourcesPanel();
+  const { isOpen, title, content, mode, headerActions, closePanel } = useSourcesPanel();
   const [isVisible, setIsVisible] = useState(false);
 
   // Only use this panel for push mode on desktop
@@ -114,15 +114,18 @@ const SourcesPanel = memo(function SourcesPanel({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <h3 className="text-base font-medium text-text-primary">{title}</h3>
+                <h3 className="truncate text-base font-medium text-text-primary">{title}</h3>
               </div>
-              <button
-                className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-                onClick={closePanel}
-                aria-label="Close panel"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {headerActions}
+                <button
+                  className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+                  onClick={closePanel}
+                  aria-label="Close panel"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* Content */}

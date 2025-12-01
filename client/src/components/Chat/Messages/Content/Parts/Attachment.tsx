@@ -1,6 +1,14 @@
-import { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { imageExtRegex, Tools } from 'librechat-data-provider';
 import type { TAttachment, TFile, TAttachmentMetadata } from 'librechat-data-provider';
+import { useCodeOutputDownload } from '~/data-provider';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
+import {
+  DocPreviewPanel,
+  isPreviewableFile,
+  getFileType,
+  createDocPreviewHeaderActions,
+} from '~/components/Chat/Messages/Content/DocPreviewPanel';
 import FileContainer from '~/components/Chat/Input/Files/FileContainer';
 import Image from '~/components/Chat/Messages/Content/Image';
 import { useAttachmentLink } from './LogLink';
@@ -8,16 +16,104 @@ import { cn } from '~/utils';
 
 const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { handleDownload } = useAttachmentLink({
     href: attachment.filepath ?? '',
     filename: attachment.filename ?? '',
   });
-  const extension = attachment.filename?.split('.').pop();
+  const { openPanel, closePanel } = useSourcesPanel();
+  const { refetch: fetchFile } = useCodeOutputDownload(attachment.filepath ?? '');
+
+  const extension = attachment.filename?.split('.').pop()?.toLowerCase();
+  const filename = attachment.filename ?? 'document';
+  const canPreview = isPreviewableFile(filename);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
   }, []);
+
+  const handlePreview = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!attachment.filepath || !canPreview) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const response = await fetchFile();
+        if (!response.data) {
+          throw new Error('No data received');
+        }
+
+        // Convert blob URL to ArrayBuffer
+        const fetchResponse = await fetch(response.data);
+        const blob = await fetchResponse.blob();
+        const buffer = await blob.arrayBuffer();
+
+        if (buffer.byteLength === 0) {
+          throw new Error('Empty file');
+        }
+
+        const fileType = getFileType(filename);
+        if (!fileType) {
+          throw new Error('Unsupported file type');
+        }
+
+        // Create a callback for the panel to set header actions
+        const handleSetHeaderActions = (actions: React.ReactNode) => {
+          // This will be called by DocPreviewPanel on mount
+          // We need to update the panel state with these actions
+          openPanel(
+            filename,
+            <DocPreviewPanel
+              fileType={fileType}
+              buffer={buffer}
+              filename={filename}
+              onClose={closePanel}
+            />,
+            'push',
+            actions,
+          );
+        };
+
+        // Open the preview panel with a callback to set header actions
+        openPanel(
+          filename,
+          <DocPreviewPanel
+            fileType={fileType}
+            buffer={buffer}
+            filename={filename}
+            onClose={closePanel}
+            onSetHeaderActions={handleSetHeaderActions}
+          />,
+          'push',
+        );
+      } catch (error) {
+        console.error('[DocPreview] Failed to load file:', error);
+        // Fall back to download
+        handleDownload(e as any);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [attachment.filepath, canPreview, fetchFile, filename, openPanel, closePanel, handleDownload],
+  );
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (canPreview) {
+        handlePreview(e);
+      } else {
+        handleDownload(e as any);
+      }
+    },
+    [canPreview, handlePreview, handleDownload],
+  );
 
   if (!attachment.filepath) {
     return null;
@@ -28,6 +124,7 @@ const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> 
         'file-attachment-container',
         'transition-all duration-300 ease-out',
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
+        isLoading && 'opacity-70 pointer-events-none',
       )}
       style={{
         transformOrigin: 'center top',
@@ -37,7 +134,7 @@ const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> 
     >
       <FileContainer
         file={attachment}
-        onClick={handleDownload}
+        onClick={handleClick}
         overrideType={extension}
         containerClassName="max-w-fit"
         buttonClassName="bg-surface-secondary hover:cursor-pointer hover:bg-surface-hover active:bg-surface-secondary focus:bg-surface-hover hover:border-border-heavy active:border-border-heavy"

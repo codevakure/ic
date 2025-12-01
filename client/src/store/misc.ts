@@ -74,6 +74,7 @@ export interface SourcesPanelState {
   title: string;
   content: React.ReactNode | null;
   mode: SourcesPanelMode;
+  headerActions?: React.ReactNode | null;
 }
 
 const sourcesPanelState = atom<SourcesPanelState>({
@@ -83,6 +84,7 @@ const sourcesPanelState = atom<SourcesPanelState>({
     title: '',
     content: null,
     mode: 'overlay',
+    headerActions: null,
   },
 });
 
