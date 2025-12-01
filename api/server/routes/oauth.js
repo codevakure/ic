@@ -23,6 +23,8 @@ const domains = {
   server: process.env.DOMAIN_SERVER,
 };
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 router.use(logHeaders);
 router.use(loginLimiter);
 
@@ -44,6 +46,22 @@ const oauthHandler = async (req, res, next) => {
       await syncUserEntraGroupMemberships(req.user, req.user.tokenset.access_token);
       setOpenIDAuthTokens(req.user.tokenset, res, req.user._id.toString());
     } else {
+      // Store the ID token for logout purposes even when OPENID_REUSE_TOKENS is false
+      if (req.user && req.user.provider === 'openid' && req.user.tokenset && req.user.tokenset.id_token) {
+        try {
+          // Store the ID token in a cookie for logout (short-lived, secure)
+          const idTokenExpiry = new Date(Date.now() + (1000 * 60 * 60 * 24)); // 24 hours
+          res.cookie('openid_id_token', req.user.tokenset.id_token, {
+            expires: idTokenExpiry,
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'strict',
+          });
+          logger.info('[oauthHandler] Stored ID token for logout purposes');
+        } catch (error) {
+          logger.warn('[oauthHandler] Failed to store ID token:', error);
+        }
+      }
       await setAuthTokens(req.user._id, res);
     }
     res.redirect(domains.client);

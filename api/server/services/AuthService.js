@@ -457,6 +457,17 @@ const setOpenIDAuthTokens = (tokenset, res, userId, existingRefreshToken) => {
       secure: isProduction,
       sameSite: 'strict',
     });
+    
+    // Set the ID token cookie for logout functionality
+    if (tokenset.id_token) {
+      res.cookie('openid_id_token', tokenset.id_token, {
+        expires: expirationDate,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+      });
+    }
+    
     if (userId && isEnabled(process.env.OPENID_REUSE_TOKENS)) {
       /** JWT-signed user ID cookie for image path validation when OPENID_REUSE_TOKENS is enabled */
       const signedUserId = jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, {
