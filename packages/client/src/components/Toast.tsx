@@ -4,53 +4,75 @@ import { useToast } from '~/hooks';
 
 export function Toast() {
   const { toast, onOpenChange } = useToast();
-  const severityClassName = {
-    [NotificationSeverity.INFO]: 'border-gray-500 bg-gray-500',
-    [NotificationSeverity.SUCCESS]: 'border-green-500 bg-green-500',
-    [NotificationSeverity.WARNING]: 'border-orange-500 bg-orange-500',
-    [NotificationSeverity.ERROR]: 'border-red-500 bg-red-500',
+  
+  // Professional muted colors that work in both light and dark modes
+  const severityConfig = {
+    [NotificationSeverity.INFO]: {
+      container: 'bg-slate-50 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700',
+      icon: 'text-slate-500 dark:text-slate-400',
+      iconPath: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      ),
+    },
+    [NotificationSeverity.SUCCESS]: {
+      container: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/50',
+      icon: 'text-emerald-600 dark:text-emerald-400',
+      iconPath: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      ),
+    },
+    [NotificationSeverity.WARNING]: {
+      container: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800/50',
+      icon: 'text-amber-600 dark:text-amber-400',
+      iconPath: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      ),
+    },
+    [NotificationSeverity.ERROR]: {
+      container: 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800/50',
+      icon: 'text-rose-600 dark:text-rose-400',
+      iconPath: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      ),
+    },
   };
+
+  const config = severityConfig[toast.severity] || severityConfig[NotificationSeverity.INFO];
 
   return (
     <RadixToast.Root
       open={toast.open}
       onOpenChange={onOpenChange}
-      className="toast-root"
-      style={{
-        height: '74px',
-        marginBottom: '0px',
-      }}
+      className="pointer-events-auto animate-in slide-in-from-right-full duration-200"
     >
-      <div className="w-full p-1 text-center md:w-auto md:text-justify">
-        <div
-          className={`alert-root pointer-events-auto inline-flex flex-row gap-2 rounded-md border px-3 py-2 text-white ${
-            severityClassName[toast.severity]
-          }`}
+      <div
+        className={`flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg ${config.container}`}
+      >
+        {toast.showIcon && (
+          <div className={`mt-0.5 flex-shrink-0 ${config.icon}`}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="size-5"
+            >
+              {config.iconPath}
+            </svg>
+          </div>
+        )}
+        <RadixToast.Description className="flex-1 text-sm text-slate-700 dark:text-slate-200">
+          <div className="whitespace-pre-wrap text-left">{toast.message}</div>
+        </RadixToast.Description>
+        <button
+          onClick={() => onOpenChange(false)}
+          className="flex-shrink-0 rounded-md p-1 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
         >
-          {toast.showIcon && (
-            <div className="mt-1 flex-shrink-0 flex-grow-0">
-              <svg
-                stroke="currentColor"
-                fill="none"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="icon-sm"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-          )}
-          <RadixToast.Description className="flex-1 justify-center gap-2">
-            <div className="whitespace-pre-wrap text-left">{toast.message}</div>
-          </RadixToast.Description>
-        </div>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
     </RadixToast.Root>
   );
