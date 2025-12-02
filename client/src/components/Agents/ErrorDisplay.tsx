@@ -205,18 +205,18 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, onRetry, cont
 
         {/* Error content with proper headings and structure */}
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white" id="error-title">
+          <h3 className="text-lg font-semibold text-text-primary" id="error-title">
             {title}
           </h3>
           <p
-            className="text-gray-600 dark:text-gray-400"
+            className="text-text-secondary"
             id="error-message"
             aria-describedby="error-title"
           >
             {message}
           </p>
           <p
-            className="text-sm text-gray-500 dark:text-gray-500"
+            className="text-sm text-text-tertiary"
             id="error-suggestion"
             role="note"
             aria-label={`Suggestion: ${suggestion}`}

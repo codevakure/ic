@@ -47,6 +47,16 @@ module.exports = {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(100%)' },
         },
+        'fade-in-up': {
+          '0%': { 
+            opacity: '0',
+            transform: 'translateY(20px)',
+          },
+          '100%': { 
+            opacity: '1',
+            transform: 'translateY(0)',
+          },
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',
@@ -56,6 +66,7 @@ module.exports = {
         'slide-in-left': 'slide-in-left 300ms cubic-bezier(0.25, 0.1, 0.25, 1)',
         'slide-out-left': 'slide-out-left 300ms cubic-bezier(0.25, 0.1, 0.25, 1)',
         'slide-out-right': 'slide-out-right 300ms cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
       },
       colors: {
         gray: {

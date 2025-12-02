@@ -192,7 +192,7 @@ export default function DataTableFile<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
-                      className="align-start sticky top-0 rounded-t border-b border-black/10 bg-white px-2 py-1 text-left font-medium text-gray-700 dark:border-white/10 dark:bg-gray-700 dark:text-gray-100 sm:px-4 sm:py-2"
+                      className="align-start sticky top-0 rounded-t border-b border-border-medium bg-surface-primary-alt px-2 py-1 text-left font-medium text-text-secondary sm:px-4 sm:py-2"
                       style={style}
                     >
                       {header.isPlaceholder
@@ -210,7 +210,7 @@ export default function DataTableFile<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="border-b border-black/10 text-left text-gray-600 dark:border-white/10 dark:text-gray-300 [tr:last-child_&]:border-b-0"
+                  className="border-b border-border-light text-left text-text-primary [tr:last-child_&]:border-b-0"
                 >
                   {row.getVisibleCells().map((cell, index) => {
                     const maxWidth =
@@ -238,7 +238,7 @@ export default function DataTableFile<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-text-secondary">
                   {localize('com_files_no_results')}
                 </TableCell>
               </TableRow>
@@ -247,14 +247,14 @@ export default function DataTableFile<TData, TValue>({
         </Table>
       </div>
       <div className="ml-4 mr-4 mt-4 flex h-auto items-center justify-end space-x-2 py-4 sm:ml-0 sm:mr-0 sm:h-0">
-        <div className="ml-2 flex-1 text-sm text-muted-foreground">
+        <div className="ml-2 flex-1 text-sm text-text-secondary">
           {localize('com_files_number_selected', {
             0: `${table.getFilteredSelectedRowModel().rows.length}`,
             1: `${table.getFilteredRowModel().rows.length}`,
           })}
         </div>
         <Button
-          className="dark:border-gray-500 dark:hover:bg-gray-600"
+          className="border-border-medium bg-transparent hover:bg-surface-hover"
           variant="outline"
           size="sm"
           onClick={() => table.previousPage()}
@@ -263,7 +263,7 @@ export default function DataTableFile<TData, TValue>({
           {localize('com_ui_prev')}
         </Button>
         <Button
-          className="dark:border-gray-500 dark:hover:bg-gray-600"
+          className="border-border-medium bg-transparent hover:bg-surface-hover"
           variant="outline"
           size="sm"
           onClick={() => table.nextPage()}

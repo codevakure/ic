@@ -1,0 +1,291 @@
+# Ranger Configuration
+# For more information: https://ranger.tcbinternal.net/docs/configuration/ranger_yaml
+
+version: 1.3.1
+
+# Enable caching
+cache: true
+
+# File storage configuration - Use S3 for all file types
+fileStrategy: "s3"
+
+# Custom interface configuration
+interface:
+  #customWelcome: 'Your AI assistant with web search, code execution, and file analysis capabilities.'
+  # Custom branding logo configuration (optional)
+  # If not set, uses default branding-logo-dark.svg and branding-logo-lite.svg
+  # customLogo:
+  #   lightTheme: '/assets/openai.svg'
+  #   darkTheme: '/assets/google.svg'
+  # Custom theme colors configuration (optional)
+  # primary: The main brand color used for buttons, selected states, etc.
+  # primaryHover: The hover state color for primary elements
+  # Examples:
+  #   Purple: primary: 'rgb(147, 51, 234)', primaryHover: 'rgb(126, 34, 206)'
+  #   Green: primary: 'rgb(34, 197, 94)', primaryHover: 'rgb(22, 163, 74)'
+  #   Orange: primary: 'rgb(249, 115, 22)', primaryHover: 'rgb(234, 88, 12)'
+  #   Pink: primary: 'rgb(236, 72, 153)', primaryHover: 'rgb(219, 39, 119)'
+  #   Teal: primary: 'rgb(20, 184, 166)', primaryHover: 'rgb(13, 148, 136)'
+  # themeColors:
+  #   primary: 'rgb(147, 51, 234)'
+  #   primaryHover: 'rgb(126, 34, 206)'
+  fileSearch: true
+  webSearch: true
+  runCode: true
+  artifacts: true
+  # privacyPolicy:
+  #   externalUrl: 'https://ranger.tcbinternal.net/privacy-policy'
+  #   openNewTab: true
+  # termsOfService:
+  #   externalUrl: 'https://ranger.tcbinternal.net/tos'
+  #   openNewTab: true
+  endpointsMenu: true
+  modelSelect: true
+  parameters: true
+  sidePanel: true
+  presets: true
+  prompts: true
+  bookmarks: true
+  multiConvo: true
+  agents: true
+  peoplePicker:
+    users: true
+    groups: true
+    roles: true
+  fileCitations: true
+
+# Registration settings
+registration:
+  socialLogins: ['openid']  # Enable Okta/OpenID login
+
+# Intent Analyzer Configuration - Unified Tool Selection + Model Routing
+# Uses @ranger/intent-analyzer package for both features
+#
+# autoToolSelection:
+#   When true: Tools selected based on query analysis (smart selection)
+#   When false: toolsAutoEnabled tools are always included
+#
+# modelRouting (4-Tier Automatic Model Selection):
+#   SIMPLE   (~1%)   Nova Micro  $0.035/$0.14   Greetings, text-only simple responses
+#   MODERATE (~80%)  Haiku 4.5   $1/$5          Most tasks, tool usage, standard code
+#   COMPLEX  (~15%)  Sonnet 4.5  $3/$15         Debugging, detailed analysis
+#   EXPERT   (~4%)   Opus 4.5    $15/$75        Deep analysis, architecture, research
+#
+# Routing Rules:
+#   - Tool usage → Haiku 4.5 minimum (Claude handles tools better)
+#   - Deep/comprehensive analysis → Opus 4.5
+#   - Text-only simple queries → Nova Micro
+#
+# preset: Controls maximum model tier
+#   'premium'       - Up to Opus 4.5
+#   'costOptimized' - Up to Sonnet 4.5
+#   'ultraCheap'    - Up to Haiku 4.5
+intentAnalyzer:
+  autoToolSelection: true
+  modelRouting: true
+  preset: 'premium'
+  debug: true
+  endpoints:
+    bedrock:
+      enabled: true
+      classifierModel: 'us.amazon.nova-micro-v1:0'
+
+# Actions configuration
+actions:
+  allowedDomains:
+    - 'swapi.dev'
+    - 'ranger.tcbinternal.net'
+    - 'google.com'
+    - 'api.github.com'
+    - 'wikipedia.org'
+
+# Endpoints configuration
+endpoints:
+  # Agents configuration
+  agents:
+    recursionLimit: 50
+    maxRecursionLimit: 100
+    disableBuilder: false
+    maxCitations: 30
+    maxCitationsPerFile: 7
+    minRelevanceScore: 0.45
+    capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain"]
+    # Tools that are auto-enabled (included by default unless intent classification says not needed)
+    toolsAutoEnabled: ["execute_code", "file_search", "artifacts", "web_search"]
+
+  # AWS Bedrock configuration
+  bedrock:
+    titleConvo: true
+    titleModel: "us.amazon.nova-micro-v1:0"  # Use cheap Nova Lite for title generation
+    modelDisplayLabel: "Ranger"
+    endpointCustomLabel: "Ranger"  # Used for both UI display and system prompt identity
+    endpointCustomDescription: "I am Ranger. Your AI assistant with advanced capabilities including web search, code execution, file analysis, and artifact creation."
+    iconURL: "/assets/icon-dark.svg"
+    models:
+      default:
+        # Latest Claude 4.5 and 4 models (inference profiles)
+        - "global.anthropic.claude-opus-4-5-20251101-v1:0"
+        - "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+        - "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        - "us.anthropic.claude-opus-4-1-20250805-v1:0"
+        - "us.anthropic.claude-sonnet-4-20250514-v1:0"
+        - "us.anthropic.claude-opus-4-20250514-v1:0"
+        # Claude 3.7 and 3.5 models (inference profiles)
+        - "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+        - "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        - "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
+        - "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+        # Claude 3 models (inference profiles)
+        - "us.anthropic.claude-3-haiku-20240307-v1:0"
+        - "us.anthropic.claude-3-opus-20240229-v1:0"
+        - "us.anthropic.claude-3-sonnet-20240229-v1:0"
+        # Meta Llama models (inference profiles for cross-region)
+        - "us.meta.llama3-3-70b-instruct-v1:0"
+        # Meta Llama models (direct)
+        - "meta.llama3-1-405b-instruct-v1:0"
+        - "meta.llama3-1-70b-instruct-v1:0"
+        - "meta.llama3-1-8b-instruct-v1:0"
+        - "meta.llama3-70b-instruct-v1:0"
+        - "meta.llama3-8b-instruct-v1:0"
+        # Mistral models
+        - "mistral.mistral-large-2407-v1:0"
+        - "mistral.mistral-large-2402-v1:0"
+        - "mistral.mistral-small-2402-v1:0"
+        # Amazon Nova models (inference profiles)
+        - "us.amazon.nova-premier-v1:0"
+        - "us.amazon.nova-pro-v1:0"
+        - "us.amazon.nova-lite-v1:0"
+        - "us.amazon.nova-micro-v1:0"
+        # Amazon Titan models
+        - "amazon.titan-text-premier-v1:0"
+        - "amazon.titan-text-express-v1"
+        - "amazon.titan-text-lite-v1"
+      fetch: false
+
+# Model specifications with user-friendly categories
+# modelSpecs:
+#   enforce: true
+#   prioritize: true
+#   # Add the agents endpoint to allow selection alongside modelSpecs
+#   addedEndpoints: ["agents"]
+#   list:
+#     # Instant - Fast responses for quick queries
+#     - name: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+#       label: "Instant"
+#       description: "Fast and efficient responses for quick queries and simple tasks"
+#       default: true
+#       endpoint: "bedrock"
+#       preset:
+#         model: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+#         endpoint: "bedrock"
+#         maxContextTokens: 200000
+
+#     # Thinking / Coding - Balanced reasoning and programming
+#     - name: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+#       label: "Thinking / Coding"
+#       description: "Advanced reasoning and programming capabilities with balanced performance"
+#       default: false
+#       endpoint: "bedrock"
+#       preset:
+#         model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+#         endpoint: "bedrock"
+#         maxContextTokens: 200000
+
+#     # Research - Deep analysis and complex reasoning
+#     - name: "global.anthropic.claude-opus-4-5-20251101-v1:0"
+#       label: "Research"
+#       description: "Most capable model for deep analysis, complex reasoning, and research tasks"
+#       default: false
+#       endpoint: "bedrock"
+#       preset:
+#         model: "global.anthropic.claude-opus-4-5-20251101-v1:0"
+#         endpoint: "bedrock"
+#         maxContextTokens: 200000
+
+# File configuration
+fileConfig:
+  endpoints:
+    bedrock:
+      fileLimit: 10
+      fileSizeLimit: 20
+      totalSizeLimit: 100
+      supportedMimeTypes:
+        # Image files
+        - "^image/(png|jpeg|jpg|gif|webp|heic|heif|svg\\+xml)$"
+        # Document files
+        - "^application/pdf$"
+        - "^text/(plain|csv|markdown|html|x-tex)$"
+        # Microsoft Office documents
+        - "^application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document$"  # .docx
+        - "^application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet$"  # .xlsx
+        - "^application/vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation$"  # .pptx
+        # Archive files
+        - "^application/(zip|x-tar)$"
+        # Programming and markup files
+        - "^application/(json|xml|typescript)$"
+        - "^text/(css|javascript|x-python|x-java|x-c|x-c\\+\\+|x-ruby|x-php|x-sql|x-sh)$"
+        # Additional shell and config files  
+        - "^application/(x-sh|x-yaml)$"
+    default:
+      totalSizeLimit: 50
+  serverFileSizeLimit: 100
+  avatarSizeLimit: 2
+  clientImageResize:
+    enabled: true
+    maxWidth: 1900
+    maxHeight: 1900
+    quality: 0.92
+
+# Web Search Configuration
+webSearch:
+  # Search provider (required)
+  searchProvider: serper
+  serperApiKey: '${SERPER_API_KEY}'
+  
+  # Content scraper (required)
+  scraperProvider: firecrawl
+  firecrawlApiKey: '${FIRECRAWL_API_KEY}'
+  firecrawlApiUrl: '${FIRECRAWL_API_URL}'
+  
+  # Scraper timeout (optional, in ms) - increased for financial sites
+  scraperTimeout: 25000
+  
+  # Safe search (optional: 0=OFF, 1=MODERATE, 2=STRICT)
+  safeSearch: 1
+  
+  # Firecrawl options to reduce tokens and improve quality
+  firecrawlOptions:
+    # Output formats - markdown is most efficient for LLM processing
+    formats: ["markdown"]
+    # Performance optimizations
+    onlyMainContent: true
+    removeBase64Images: true
+    blockAds: true
+    skipTlsVerification: true
+    # Caching - optimized for financial/stock data freshness (15 minutes)
+    maxAge: 900000
+    # Timeouts and delays
+    waitFor: 0
+    timeout: 10000
+    # Content filtering for better quality
+    excludeTags: ["nav", "footer", "aside", ".ads", ".sidebar", ".menu", ".header-nav", ".social-share"]
+    includeTags: ["main", "article", ".content", ".post", ".entry"]
+    # Proxy settings for reliability vs speed
+    proxy: "basic"
+    # Data retention and privacy
+    storeInCache: true
+    zeroDataRetention: false
+
+# MCP Servers Configuration
+# mcpServers: {}
+# mcpServers:
+#   ms365-mcp:
+#     title: "Microsoft 365"
+#     iconPath: "Microsoft365Icon"
+#     type: streamable-http
+#     url: "http://localhost:3001/sharepoint-mcp/mcp"
+#     timeout: 30000
+#     initTimeout: 15000
+#     chatMenu: true
+#     startup: false
+#     requiresOAuth: true

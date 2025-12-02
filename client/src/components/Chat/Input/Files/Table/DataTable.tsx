@@ -105,7 +105,10 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
             setRowSelection({});
           }}
           disabled={!table.getFilteredSelectedRowModel().rows.length || isDeleting}
-          className={cn('min-w-[40px] transition-all duration-200', isSmallScreen && 'px-2 py-1')}
+          className={cn(
+            'min-w-[40px] border-border-medium bg-transparent transition-all duration-200 hover:bg-surface-hover',
+            isSmallScreen && 'px-2 py-1',
+          )}
         >
           {isDeleting ? (
             <Spinner className="size-3.5 sm:size-4" />
@@ -118,16 +121,19 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
           placeholder={localize('com_files_filter')}
           value={(table.getColumn('filename')?.getFilterValue() as string | undefined) ?? ''}
           onChange={(event) => table.getColumn('filename')?.setFilterValue(event.target.value)}
-          className="flex-1 text-sm"
+          className="h-9 flex-1 rounded-md border-border-medium bg-transparent text-sm text-text-primary transition-colors placeholder:text-text-secondary focus:border-border-heavy focus:ring-0"
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
               aria-label={localize('com_files_filter_by')}
-              className={cn('min-w-[40px]', isSmallScreen && 'px-2 py-1')}
+              className={cn(
+                'min-w-[40px] border-border-medium bg-transparent hover:bg-surface-hover',
+                isSmallScreen && 'px-2 py-1',
+              )}
             >
-              <ListFilter className="size-3.5 sm:size-4" />
+              <ListFilter className="size-3.5 text-text-secondary sm:size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -215,7 +221,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-text-secondary">
                   {localize('com_files_no_results')}
                 </TableCell>
               </TableRow>
@@ -225,7 +231,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-2">
-        <div className="ml-2 flex-1 truncate text-xs text-muted-foreground sm:ml-4 sm:text-sm">
+        <div className="ml-2 flex-1 truncate text-xs text-text-secondary sm:ml-4 sm:text-sm">
           <span className="hidden sm:inline">
             {localize('com_files_number_selected', {
               0: `${table.getFilteredSelectedRowModel().rows.length}`,
@@ -245,7 +251,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
           <span>{table.getPageCount()}</span>
         </div>
         <Button
-          className="select-none"
+          className="select-none border-border-medium bg-transparent hover:bg-surface-hover"
           variant="outline"
           size="sm"
           onClick={() => table.previousPage()}
@@ -254,7 +260,7 @@ export default function DataTable<TData, TValue>({ columns, data }: DataTablePro
           {localize('com_ui_prev')}
         </Button>
         <Button
-          className="select-none"
+          className="select-none border-border-medium bg-transparent hover:bg-surface-hover"
           variant="outline"
           size="sm"
           onClick={() => table.nextPage()}

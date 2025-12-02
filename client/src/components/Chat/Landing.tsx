@@ -1,15 +1,14 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { easings } from '@react-spring/web';
 import { EModelEndpoint } from 'librechat-data-provider';
-import { BirthdayIcon, TooltipAnchor, SplitText } from '@librechat/client';
+import { SplitText } from '@librechat/client';
 import { useChatContext, useAgentsMapContext, useAssistantsMapContext } from '~/Providers';
-import { useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
-import ConvoIcon from '~/components/Endpoints/ConvoIcon';
+import { useGetStartupConfig } from '~/data-provider';
 import { useLocalize, useAuthContext } from '~/hooks';
-import { getIconEndpoint, getEntity } from '~/utils';
+import { getEntity } from '~/utils';
+import Logo from '~/components/Nav/Logo';
 
-const containerClassName =
-  'shadow-stroke relative flex h-full items-center justify-center rounded-full bg-white dark:bg-presentation dark:text-white text-black dark:after:shadow-none ';
+// simplified landing layout with logo
 
 function getTextSizeClass(text: string | undefined | null) {
   if (!text) {
@@ -32,7 +31,6 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
   const agentsMap = useAgentsMapContext();
   const assistantMap = useAssistantsMapContext();
   const { data: startupConfig } = useGetStartupConfig();
-  const { data: endpointsConfig } = useGetEndpointsQuery();
   const { user } = useAuthContext();
   const localize = useLocalize();
 
@@ -41,23 +39,10 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const endpointType = useMemo(() => {
-    let ep = conversation?.endpoint ?? '';
-    if (
-      [
-        EModelEndpoint.chatGPTBrowser,
-        EModelEndpoint.azureOpenAI,
-        EModelEndpoint.gptPlugins,
-      ].includes(ep as EModelEndpoint)
-    ) {
-      ep = EModelEndpoint.openAI;
-    }
-    return getIconEndpoint({
-      endpointsConfig,
-      iconURL: conversation?.iconURL,
-      endpoint: ep,
-    });
-  }, [conversation?.endpoint, conversation?.iconURL, endpointsConfig]);
+  const endpointType = useMemo(
+    () => conversation?.endpointType ?? conversation?.endpoint,
+    [conversation?.endpointType, conversation?.endpoint],
+  );
 
   const { entity, isAgent, isAssistant } = getEntity({
     endpoint: endpointType,
@@ -144,71 +129,17 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
       : getGreeting() + (user?.name ? ', ' + user.name : '');
 
   return (
-    <div
-      className={`flex h-full transform-gpu flex-col items-center justify-center pb-16 transition-all duration-200 ${centerFormOnLanding ? 'max-h-full sm:max-h-0' : 'max-h-full'} ${getDynamicMargin}`}
-    >
-      <div ref={contentRef} className="flex flex-col items-center gap-0 p-2">
-        <div
-          className={`flex ${textHasMultipleLines ? 'flex-col' : 'flex-col md:flex-row'} items-center justify-center gap-2`}
-        >
-          <div className={`relative size-10 justify-center ${textHasMultipleLines ? 'mb-2' : ''}`}>
-            <ConvoIcon
-              agentsMap={agentsMap}
-              assistantMap={assistantMap}
-              conversation={conversation}
-              endpointsConfig={endpointsConfig}
-              containerClassName={containerClassName}
-              context="landing"
-              className="h-2/3 w-2/3 text-black dark:text-white"
-              size={41}
-            />
-            {startupConfig?.showBirthdayIcon && (
-              <TooltipAnchor
-                className="absolute bottom-[27px] right-2"
-                description={localize('com_ui_happy_birthday')}
-                aria-label={localize('com_ui_happy_birthday')}
-              >
-                <BirthdayIcon />
-              </TooltipAnchor>
-            )}
-          </div>
-          {((isAgent || isAssistant) && name) || name ? (
-            <div className="flex flex-col items-center gap-0 p-2">
-              <SplitText
-                key={`split-text-${name}`}
-                text={name}
-                className={`${getTextSizeClass(name)} font-medium text-text-primary`}
-                delay={50}
-                textAlign="center"
-                animationFrom={{ opacity: 0, transform: 'translate3d(0,50px,0)' }}
-                animationTo={{ opacity: 1, transform: 'translate3d(0,0,0)' }}
-                easing={easings.easeOutCubic}
-                threshold={0}
-                rootMargin="0px"
-                onLineCountChange={handleLineCountChange}
-              />
-            </div>
-          ) : (
-            <SplitText
-              key={`split-text-${greetingText}${user?.name ? '-user' : ''}`}
-              text={greetingText}
-              className={`${getTextSizeClass(greetingText)} font-medium text-text-primary`}
-              delay={50}
-              textAlign="center"
-              animationFrom={{ opacity: 0, transform: 'translate3d(0,50px,0)' }}
-              animationTo={{ opacity: 1, transform: 'translate3d(0,0,0)' }}
-              easing={easings.easeOutCubic}
-              threshold={0}
-              rootMargin="0px"
-              onLineCountChange={handleLineCountChange}
-            />
-          )}
-        </div>
-        {description && (
-          <div className="animate-fadeIn mt-4 max-w-md text-center text-sm font-normal text-text-primary">
-            {description}
-          </div>
-        )}
+    <div className="flex w-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-8 animate-fade-in-up opacity-0" style={{ animationFillMode: 'forwards' }}>
+        <Logo height={120} />
+      </div>
+      <div 
+        className="mb-8 text-text-primary animate-fade-in-up opacity-0" 
+        style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
+      >
+        <h1 className="text-2xl font-semibold sm:text-3xl">
+          {greetingText}
+        </h1>
       </div>
     </div>
   );

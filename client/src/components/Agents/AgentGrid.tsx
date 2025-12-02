@@ -160,16 +160,19 @@ const AgentGrid: React.FC<AgentGridProps> = ({
       {/* Handle empty results with enhanced accessibility */}
       {(!currentAgents || currentAgents.length === 0) && !isLoading && !isFetching ? (
         <div
-          className="py-12 text-center text-text-secondary"
+          className="py-12 text-center"
           role="status"
           aria-live="polite"
-          aria-label={
-            searchQuery
-              ? localize('com_agents_search_empty_heading')
-              : localize('com_agents_empty_state_heading')
-          }
+          aria-label={localize('com_agents_empty_state_heading')}
         >
-          <h3 className="mb-2 text-lg font-medium">{localize('com_agents_empty_state_heading')}</h3>
+          <h3 className="mb-2 text-lg font-medium text-text-primary">
+            {localize('com_agents_empty_state_heading')}
+          </h3>
+          <p className="text-sm text-text-secondary">
+            {searchQuery
+              ? localize('com_agents_search_no_results', { query: searchQuery })
+              : localize('com_agents_error_not_found_suggestion')}
+          </p>
         </div>
       ) : (
         <>

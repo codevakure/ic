@@ -277,7 +277,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
                     onClick={() => handleCategoryChange('all')}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                       selectedCategory === 'all'
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-surface-submit text-white'
                         : 'border border-border-medium bg-surface-secondary text-text-primary hover:bg-surface-hover'
                     }`}
                   >
@@ -293,7 +293,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
                         onClick={() => handleCategoryChange(cat.value)}
                         className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                           selectedCategory === cat.value
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-surface-submit text-white'
                             : 'border border-border-medium bg-surface-secondary text-text-primary hover:bg-surface-hover'
                         }`}
                       >
@@ -308,14 +308,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
-                            className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                              categoriesQuery.data
-                                .filter((cat) => cat.value !== 'promoted')
-                                .slice(5)
-                                .some((cat) => cat.value === selectedCategory)
-                                ? 'bg-blue-600 text-white'
-                                : 'border border-border-medium bg-surface-secondary text-text-primary hover:bg-surface-hover'
-                            }`}
+                            className="flex items-center gap-1 rounded-full border border-border-medium bg-surface-secondary px-4 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
                           >
                             {categoriesQuery.data.filter((cat) => cat.value !== 'promoted').length -
                               5}{' '}
@@ -336,7 +329,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
                                 onClick={() => handleCategoryChange(cat.value)}
                                 className={`cursor-pointer ${
                                   selectedCategory === cat.value
-                                    ? 'bg-blue-600 text-white'
+                                    ? 'bg-surface-submit text-white'
                                     : 'text-text-primary hover:bg-surface-hover'
                                 }`}
                               >

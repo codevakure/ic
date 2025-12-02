@@ -555,8 +555,24 @@ const mcpServersSchema = z.object({
 
 export type TMcpServersConfig = z.infer<typeof mcpServersSchema>;
 
+const customLogoSchema = z.object({
+  lightTheme: z.string().optional(),
+  darkTheme: z.string().optional(),
+});
+
+export type TCustomLogo = z.infer<typeof customLogoSchema>;
+
+const themeColorsSchema = z.object({
+  primary: z.string().optional(),
+  primaryHover: z.string().optional(),
+});
+
+export type TThemeColors = z.infer<typeof themeColorsSchema>;
+
 export const interfaceSchema = z
   .object({
+    customLogo: customLogoSchema.optional(),
+    themeColors: themeColorsSchema.optional(),
     privacyPolicy: z
       .object({
         externalUrl: z.string().optional(),

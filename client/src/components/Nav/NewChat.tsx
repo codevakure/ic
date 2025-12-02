@@ -6,6 +6,7 @@ import { TooltipAnchor, NewChatIcon, MobileSidebar, Sidebar, Button } from '@lib
 import type { TMessage } from 'librechat-data-provider';
 import { useLocalize, useNewConvo } from '~/hooks';
 import { clearMessagesCache } from '~/utils';
+import Logo from './Logo';
 import store from '~/store';
 
 export default function NewChat({
@@ -48,37 +49,44 @@ export default function NewChat({
   return (
     <>
       <div className="flex items-center justify-between py-[2px] md:py-2">
-        <TooltipAnchor
-          description={localize('com_nav_close_sidebar')}
-          render={
-            <Button
-              size="icon"
-              variant="outline"
-              data-testid="close-sidebar-button"
-              aria-label={localize('com_nav_close_sidebar')}
-              className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
-              onClick={toggleNav}
-            >
-              <Sidebar className="h-4 w-4 max-md:hidden" />
-              <MobileSidebar className="m-1 inline-flex h-4 w-4 items-center justify-center md:hidden" />
-            </Button>
-          }
-        />
+        {/* Left side - Logo aligned to left */}
+        <div className="flex items-center">
+          <Logo className="ml-3" height={36} />
+        </div>
+        
+        {/* Right side - New Chat and Close buttons */}
         <div className="flex items-center gap-1">
           {headerButtons}
-
+          {/* New Chat Button */}
           <TooltipAnchor
             description={localize('com_ui_new_chat')}
             render={
               <Button
                 size="icon"
                 variant="ghost"
-                data-testid="nav-new-chat-button"
+                data-testid="sidebar-new-chat-button"
                 aria-label={localize('com_ui_new_chat')}
                 className="border-none bg-transparent p-2 hover:bg-surface-hover"
                 onClick={clickHandler}
               >
-                <NewChatIcon className="h-4 w-4 text-text-primary" />
+                <NewChatIcon className="h-4 w-4" />
+              </Button>
+            }
+          />
+          {/* Close Sidebar Button */}
+          <TooltipAnchor
+            description={localize('com_nav_close_sidebar')}
+            render={
+              <Button
+                size="icon"
+                variant="outline"
+                data-testid="close-sidebar-button"
+                aria-label={localize('com_nav_close_sidebar')}
+                className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
+                onClick={toggleNav}
+              >
+                <Sidebar className="max-md:hidden" />
+                <MobileSidebar className="m-1 inline-flex size-10 items-center justify-center md:hidden" />
               </Button>
             }
           />

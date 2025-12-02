@@ -7,12 +7,18 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toast, ThemeProvider, ToastProvider } from '@librechat/client';
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
-import { ScreenshotProvider, useApiErrorBoundary } from './hooks';
+import { ScreenshotProvider, useApiErrorBoundary, useThemeColors } from './hooks';
 import WakeLockManager from '~/components/System/WakeLockManager';
 import { getThemeFromEnv } from './utils/getThemeFromEnv';
 import { initializeFontSize } from '~/store/fontSize';
 import { LiveAnnouncer } from '~/a11y';
 import { router } from './routes';
+
+// Component to apply theme colors from config
+const ThemeColorsProvider = ({ children }) => {
+  useThemeColors();
+  return children;
+};
 
 const App = () => {
   const { setError } = useApiErrorBoundary();
@@ -43,22 +49,25 @@ const App = () => {
             // This allows localStorage values to persist when no env theme is set
             {...(envTheme && { initialTheme: 'system', themeRGB: envTheme })}
           >
-            {/* The ThemeProvider will automatically:
-                1. Apply dark/light mode classes
-                2. Apply custom theme colors if envTheme is provided
-                3. Otherwise use stored theme preferences from localStorage
-                4. Fall back to default theme colors if nothing is stored */}
-            <RadixToast.Provider>
-              <ToastProvider>
-                <DndProvider backend={HTML5Backend}>
-                  <RouterProvider router={router} />
-                  <WakeLockManager />
-                  {/* <ReactQueryDevtools initialIsOpen={false} position="top-right" /> */}
-                  <Toast />
-                  <RadixToast.Viewport className="pointer-events-none fixed right-0 top-0 z-[1000] m-4 flex w-full max-w-sm flex-col items-end gap-2" />
-                </DndProvider>
-              </ToastProvider>
-            </RadixToast.Provider>
+            <ThemeColorsProvider>
+              {/* The ThemeProvider will automatically:
+                  1. Apply dark/light mode classes
+                  2. Apply custom theme colors if envTheme is provided
+                  3. Otherwise use stored theme preferences from localStorage
+                  4. Fall back to default theme colors if nothing is stored
+                  ThemeColorsProvider applies primary color from ranger.yaml config */}
+              <RadixToast.Provider>
+                <ToastProvider>
+                  <DndProvider backend={HTML5Backend}>
+                    <RouterProvider router={router} />
+                    <WakeLockManager />
+                    {/* <ReactQueryDevtools initialIsOpen={false} position="top-right" /> */}
+                    <Toast />
+                    <RadixToast.Viewport className="pointer-events-none fixed right-0 top-0 z-[1000] m-4 flex w-full max-w-sm flex-col items-end gap-2" />
+                  </DndProvider>
+                </ToastProvider>
+              </RadixToast.Provider>
+            </ThemeColorsProvider>
           </ThemeProvider>
         </LiveAnnouncer>
       </RecoilRoot>
