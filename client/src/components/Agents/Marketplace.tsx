@@ -228,9 +228,9 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
               ref={scrollContainerRef}
               className="scrollbar-gutter-stable relative flex h-full flex-col overflow-y-auto overflow-x-hidden"
             >
-              {/* Sidebar toggle - minimal header */}
+              {/* Sidebar toggle - only show when sidebar is collapsed */}
               {!navVisible && !isSmallScreen && (
-                <div className="flex h-12 items-center px-4">
+                <div className="flex h-12 flex-shrink-0 items-center px-4">
                   <div className="flex items-center gap-2">
                     <OpenSidebar setNavVisible={setNavVisible} />
                     <TooltipAnchor
@@ -253,7 +253,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
               )}
 
               {/* Main content area */}
-              <div className="flex flex-1 flex-col gap-3 px-6 py-5 sm:px-8 lg:px-10">
+              <div className="flex flex-1 flex-col gap-6 px-6 pb-5 pt-6">
                 {/* Header row - Title + Search + Admin */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>

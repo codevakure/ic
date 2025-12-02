@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutGrid, FileText, LogOut } from 'lucide-react';
+import { MessageSquare, LayoutGrid, FileText, LogOut, History } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
 import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator } from '@librechat/client';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
@@ -39,6 +39,12 @@ const LeftPanelNav = memo(() => {
       path: '/c/new',
     },
     {
+      id: 'conversations',
+      title: 'All Conversations',
+      icon: History,
+      path: '/conversations',
+    },
+    {
       id: 'placeholder',
       title: 'Placeholder',
       icon: LayoutGrid,
@@ -48,7 +54,11 @@ const LeftPanelNav = memo(() => {
 
   const isActive = (path: string) => {
     if (path === '/c/new') {
-      return location.pathname.startsWith('/c/') || location.pathname === '/';
+      // Chat is active for /c/* routes but NOT for /conversations
+      return (location.pathname.startsWith('/c/') || location.pathname === '/') && location.pathname !== '/conversations';
+    }
+    if (path === '/conversations') {
+      return location.pathname === '/conversations';
     }
     return location.pathname === path;
   };

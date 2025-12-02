@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, memo, lazy, Suspense, useRef } from 'react';
 import { useRecoilValue } from 'recoil';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMediaQuery } from '@librechat/client';
 import { PermissionTypes, Permissions } from 'librechat-data-provider';
@@ -41,6 +42,26 @@ const NavMask = memo(
     />
   ),
 );
+
+const ViewAllConversationsLink = memo(({ toggleNav }: { toggleNav: () => void }) => {
+  const navigate = useNavigate();
+  
+  const handleClick = () => {
+    navigate('/conversations');
+    toggleNav();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="flex w-full items-center justify-center gap-1 border-t border-border-light py-2.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+    >
+      All conversations
+    </button>
+  );
+});
+
+ViewAllConversationsLink.displayName = 'ViewAllConversationsLink';
 
 const MemoNewChat = memo(NewChat);
 
@@ -219,6 +240,8 @@ const Nav = memo(
                         isSearchLoading={isSearchLoading}
                       />
                     </div>
+                    {/* View All Conversations Link */}
+                    <ViewAllConversationsLink toggleNav={itemToggleNav} />
                   </nav>
                 </div>
               </div>

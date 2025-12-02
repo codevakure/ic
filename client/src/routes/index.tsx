@@ -10,6 +10,7 @@ import {
 } from '~/components/Auth';
 import { MarketplaceProvider } from '~/components/Agents/MarketplaceContext';
 import AgentMarketplace from '~/components/Agents/Marketplace';
+import ConversationHistoryPage from '~/components/Conversations/ConversationHistoryPage';
 import { PlaceholderPage } from '~/components/Placeholder';
 import FilesPage from '~/components/Files/FilesPage';
 import { OAuthSuccess, OAuthError } from '~/components/OAuth';
@@ -127,6 +128,10 @@ export const router = createBrowserRouter(
             {
               path: 'files',
               element: <FilesPage />,
+            },
+            {
+              path: 'conversations',
+              element: <ConversationHistoryPage />,
             },
             {
               path: 'agents',
