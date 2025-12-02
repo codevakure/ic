@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState, useMemo, memo, lazy, Suspense, useRef
 import { useRecoilValue } from 'recoil';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useMediaQuery } from '@librechat/client';
-import { PermissionTypes, Permissions } from 'librechat-data-provider';
-import type { ConversationListResponse } from 'librechat-data-provider';
+import { useMediaQuery } from '@ranger/client';
+import { PermissionTypes, Permissions } from 'ranger-data-provider';
+import type { ConversationListResponse } from 'ranger-data-provider';
 import type { InfiniteQueryObserverResult } from '@tanstack/react-query';
 import {
   useLocalize,

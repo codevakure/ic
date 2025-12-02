@@ -12,8 +12,8 @@
  */
 
 const { v4: uuidv4 } = require('uuid');
-const { logger } = require('@librechat/data-schemas');
-const { FileSources, FileContext, EToolResources } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { FileSources, FileContext, EToolResources } = require('ranger-data-provider');
 const { getStrategyFunctions } = require('./strategies');
 const { createFile, updateFile } = require('~/models/File');
 

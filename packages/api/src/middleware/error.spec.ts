@@ -1,11 +1,11 @@
-import { logger } from '@librechat/data-schemas';
+import { logger } from '@ranger/data-schemas';
 import { ErrorController } from './error';
 import type { Request, Response } from 'express';
 import type { ValidationError, MongoServerError, CustomError } from '~/types';
 
 // Mock the logger
-jest.mock('@librechat/data-schemas', () => ({
-  ...jest.requireActual('@librechat/data-schemas'),
+jest.mock('@ranger/data-schemas', () => ({
+  ...jest.requireActual('@ranger/data-schemas'),
   logger: {
     error: jest.fn(),
     warn: jest.fn(),

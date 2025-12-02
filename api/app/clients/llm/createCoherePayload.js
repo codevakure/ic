@@ -1,4 +1,4 @@
-const { CohereConstants } = require('librechat-data-provider');
+const { CohereConstants } = require('ranger-data-provider');
 const { titleInstruction } = require('../prompts/titlePrompts');
 
 // Mapping OpenAI roles to Cohere roles

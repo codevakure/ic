@@ -1,11 +1,11 @@
-import { logger } from '@librechat/data-schemas';
+import { logger } from '@ranger/data-schemas';
 import {
   EModelEndpoint,
   removeNullishValues,
   normalizeEndpointName,
-} from 'librechat-data-provider';
-import type { TCustomConfig, TEndpoint, TTransactionsConfig } from 'librechat-data-provider';
-import type { AppConfig } from '@librechat/data-schemas';
+} from 'ranger-data-provider';
+import type { TCustomConfig, TEndpoint, TTransactionsConfig } from 'ranger-data-provider';
+import type { AppConfig } from '@ranger/data-schemas';
 import { isEnabled } from '~/utils';
 
 /**

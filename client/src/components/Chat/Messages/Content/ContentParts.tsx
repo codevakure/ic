@@ -1,11 +1,11 @@
 import { memo, useMemo } from 'react';
-import { ContentTypes } from 'librechat-data-provider';
+import { ContentTypes } from 'ranger-data-provider';
 import type {
   TMessageContentParts,
   SearchResultData,
   TAttachment,
   Agents,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import { MessageContext, SearchContext } from '~/Providers';
 import MemoryArtifacts from './MemoryArtifacts';
 import Sources from '~/components/Web/Sources';

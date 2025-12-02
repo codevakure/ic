@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { QueryKeys } from 'librechat-data-provider';
-import type { ConversationListResponse } from 'librechat-data-provider';
+import { QueryKeys } from 'ranger-data-provider';
+import type { ConversationListResponse } from 'ranger-data-provider';
 import type { InfiniteData } from '@tanstack/react-query';
-import type t from 'librechat-data-provider';
+import type t from 'ranger-data-provider';
 
 const useUpdateTagsInConvo = () => {
   const queryClient = useQueryClient();

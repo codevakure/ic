@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { GearIcon, MCPIcon } from '@librechat/client';
-import type { MCP } from 'librechat-data-provider';
+import { GearIcon, MCPIcon } from '@ranger/client';
+import type { MCP } from 'ranger-data-provider';
 import { cn } from '~/utils';
 
 type MCPProps = {

@@ -7,8 +7,8 @@ import {
   OGDialogHeader,
   OGDialogContent,
   Microsoft365Icon,
-} from '@librechat/client';
-import type { MCPServerStatus } from 'librechat-data-provider';
+} from '@ranger/client';
+import type { MCPServerStatus } from 'ranger-data-provider';
 import type { ConfigFieldDetail } from '~/common';
 import ServerInitializationSection from './ServerInitializationSection';
 import CustomUserVarsSection from './CustomUserVarsSection';

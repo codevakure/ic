@@ -1,5 +1,5 @@
 require('events').EventEmitter.defaultMaxListeners = 100;
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const { DynamicStructuredTool } = require('@langchain/core/tools');
 const { getBufferString, HumanMessage } = require('@langchain/core/messages');
 const {
@@ -15,7 +15,7 @@ const {
   getTransactionsConfig,
   createMemoryProcessor,
   filterMalformedContentParts,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   Callback,
   Providers,
@@ -25,7 +25,7 @@ const {
   formatAgentMessages,
   getTokenCountForMessage,
   createMetadataAggregator,
-} = require('@librechat/agents');
+} = require('illuma-agents');
 const {
   Constants,
   Permissions,
@@ -37,7 +37,7 @@ const {
   AgentCapabilities,
   bedrockInputSchema,
   removeNullishValues,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const { initializeAgent } = require('~/server/services/Endpoints/agents/agent');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { getFormattedMemories, deleteMemory, setMemory } = require('~/models');
@@ -309,10 +309,10 @@ class AgentClient extends BaseClient {
       .join('\n')
       .trim();
 
-    // 🛡️ GUARDRAILS: Use high-level handler from @librechat/guardrails package
+    // 🛡️ GUARDRAILS: Use high-level handler from @ranger/guardrails package
     // Extracts guardrail context from message history and provides systemNote for LLM
     // All guardrails logic is centralized in the package for maintainability
-    const { getGuardrailsService } = require('@librechat/guardrails');
+    const { getGuardrailsService } = require('@ranger/guardrails');
     const guardrailsService = getGuardrailsService();
     const guardrailContext = guardrailsService.extractGuardrailContext(orderedMessages);
     
@@ -637,7 +637,7 @@ class AgentClient extends BaseClient {
       agent.model_parameters,
     );
 
-    /** @type {import('@librechat/api').MemoryConfig} */
+    /** @type {import('@ranger/api').MemoryConfig} */
     const config = {
       validKeys: memoryConfig.validKeys,
       instructions: agent.instructions,
@@ -1121,7 +1121,7 @@ class AgentClient extends BaseClient {
       // 🛡️ OUTPUT MODERATION: Check completed response before finalizing
       // NOTE: We only moderate TEXT content, not THINK (thinking/reasoning) content
       try {
-        const { getGuardrailsService } = require('@librechat/guardrails');
+        const { getGuardrailsService } = require('@ranger/guardrails');
         const guardrailsService = getGuardrailsService();
         
         // Extract text content from contentParts for moderation
@@ -1233,7 +1233,7 @@ class AgentClient extends BaseClient {
     const appConfig = req.config;
     let endpoint = agent.endpoint;
 
-    /** @type {import('@librechat/agents').ClientOptions} */
+    /** @type {import('illuma-agents').ClientOptions} */
     let clientOptions = {
       model: agent.model || agent.model_parameters.model,
     };
@@ -1307,7 +1307,7 @@ class AgentClient extends BaseClient {
       provider = Providers.AZURE;
     }
 
-    /** @type {import('@librechat/agents').ClientOptions} */
+    /** @type {import('illuma-agents').ClientOptions} */
     clientOptions = { ...options.llmConfig };
     if (options.configOptions) {
       clientOptions.configuration = options.configOptions;

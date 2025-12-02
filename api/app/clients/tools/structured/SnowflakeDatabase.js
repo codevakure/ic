@@ -1,9 +1,9 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
- * Snowflake Database Query Tool for LibreChat Agents
+ * Snowflake Database Query Tool for Ranger Agents
  * Executes SQL queries against Snowflake data warehouse
  * Provides secure, read-only access to Snowflake databases
  */

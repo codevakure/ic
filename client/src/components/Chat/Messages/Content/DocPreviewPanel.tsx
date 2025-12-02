@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Maximize2, X, Loader2 } from 'lucide-react';
-import { renderDocx, Excel, renderPptx, PDF } from '@librechat/doc-viewer';
-import '@librechat/doc-viewer/styles';
+import { renderDocx, Excel, renderPptx, PDF } from '@ranger/doc-viewer';
+import '@ranger/doc-viewer/styles';
 import { cn } from '~/utils';
 
 export type PreviewableFileType = 'pdf' | 'docx' | 'xlsx' | 'pptx';
@@ -45,7 +45,7 @@ export function getFileType(filename: string): PreviewableFileType | null {
 
 /**
  * Document preview content component
- * Renders documents using @librechat/doc-viewer
+ * Renders documents using @ranger/doc-viewer
  */
 const DocPreviewContent = function DocPreviewContent({
   fileType,

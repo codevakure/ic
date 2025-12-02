@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const { ProxyAgent } = require('undici');
-const { isUserProvided } = require('@librechat/api');
-const { ErrorTypes, EModelEndpoint } = require('librechat-data-provider');
+const { isUserProvided } = require('@ranger/api');
+const { ErrorTypes, EModelEndpoint } = require('ranger-data-provider');
 const {
   getUserKeyValues,
   getUserKeyExpiry,

@@ -13,9 +13,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '@librechat/client';
-import { PermissionTypes, Permissions, QueryKeys } from 'librechat-data-provider';
-import type t from 'librechat-data-provider';
+} from '@ranger/client';
+import { PermissionTypes, Permissions, QueryKeys } from 'ranger-data-provider';
+import type t from 'ranger-data-provider';
 import type { ContextType } from '~/common';
 import { useDocumentTitle, useHasAccess, useLocalize, TranslationKeys } from '~/hooks';
 import { useGetEndpointsQuery, useGetAgentCategoriesQuery } from '~/data-provider';
@@ -67,7 +67,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
   const [selectedAgent, setSelectedAgent] = useState<t.Agent | null>(null);
 
   // Set page title
-  useDocumentTitle(`${localize('com_agents_marketplace')} | LibreChat`);
+  useDocumentTitle(`${localize('com_agents_marketplace')} | Ranger`);
 
   // Ensure right sidebar is always visible in marketplace
   useEffect(() => {

@@ -9,7 +9,7 @@ import type {
   TAgentsEndpoint,
   TCustomEndpoints,
   TAssistantEndpoint,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 
 export type JsonSchemaType = {
   type: 'string' | 'number' | 'integer' | 'float' | 'boolean' | 'array' | 'object';

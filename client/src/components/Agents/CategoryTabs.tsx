@@ -1,6 +1,6 @@
 import React from 'react';
-import { useMediaQuery } from '@librechat/client';
-import type t from 'librechat-data-provider';
+import { useMediaQuery } from '@ranger/client';
+import type t from 'ranger-data-provider';
 import { useLocalize, TranslationKeys } from '~/hooks';
 import { SmartLoader } from './SmartLoader';
 import { cn } from '~/utils';

@@ -1,7 +1,7 @@
 {
-  "name": "@librechat/datadog-llm-observability",
+  "name": "@ranger/datadog-llm-observability",
   "version": "0.0.1",
-  "description": "Datadog LLM Observability integration for LibreChat",
+  "description": "Datadog LLM Observability integration for Ranger",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.es.js",
@@ -28,14 +28,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danny-avila/LibreChat.git"
+    "url": "git+https://github.com/TexasCapitalDevelopment/coretex.ai.technology.enterprise-chat.git"
   },
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/danny-avila/LibreChat/issues"
+    "url": ""
   },
-  "homepage": "https://www.librechat.ai",
+  "homepage": "https://ranger.tcbinternal.net",
   "devDependencies": {
     "@rollup/plugin-alias": "^5.1.0",
     "@rollup/plugin-commonjs": "^25.0.2",
@@ -59,7 +59,7 @@
     "dd-trace": "^5.67.0"
   },
   "peerDependencies": {
-    "@librechat/data-schemas": "*"
+    "@ranger/data-schemas": "*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
@@ -71,6 +71,6 @@
     "observability",
     "tracing",
     "monitoring",
-    "librechat"
+    "ranger"
   ]
 }

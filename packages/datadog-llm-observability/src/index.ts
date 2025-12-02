@@ -1,7 +1,7 @@
 /**
  * Datadog LLM Observability Package
  * 
- * Standalone package for Datadog LLM Observability integration in LibreChat.
+ * Standalone package for Datadog LLM Observability integration in Ranger.
  * 
  * @packageDocumentation
  */

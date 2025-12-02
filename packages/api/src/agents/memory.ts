@@ -1,9 +1,9 @@
 /** Memories */
 import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
-import { Tools } from 'librechat-data-provider';
-import { logger } from '@librechat/data-schemas';
-import { Run, Providers, GraphEvents } from '@librechat/agents';
+import { Tools } from 'ranger-data-provider';
+import { logger } from '@ranger/data-schemas';
+import { Run, Providers, GraphEvents } from 'illuma-agents';
 import type {
   OpenAIClientOptions,
   StreamEventData,
@@ -12,9 +12,9 @@ import type {
   EventHandler,
   ToolEndData,
   LLMConfig,
-} from '@librechat/agents';
-import type { TAttachment, MemoryArtifact } from 'librechat-data-provider';
-import type { ObjectId, MemoryMethods } from '@librechat/data-schemas';
+} from 'illuma-agents';
+import type { TAttachment, MemoryArtifact } from 'ranger-data-provider';
+import type { ObjectId, MemoryMethods } from '@ranger/data-schemas';
 import type { BaseMessage, ToolMessage } from '@langchain/core/messages';
 import type { Response as ServerResponse } from 'express';
 import { Tokenizer } from '~/utils';

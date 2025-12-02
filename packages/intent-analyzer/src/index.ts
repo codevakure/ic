@@ -20,7 +20,7 @@
  * 
  * ## Quick Start
  * ```typescript
- * import { routeQuery, Tool } from '@librechat/intent-analyzer';
+ * import { routeQuery, Tool } from '@ranger/intent-analyzer';
  * 
  * const result = await routeQuery('What are booming stocks today?', {
  *   provider: 'bedrock',

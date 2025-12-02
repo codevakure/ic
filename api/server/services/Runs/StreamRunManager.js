@@ -1,6 +1,6 @@
-const { sleep } = require('@librechat/agents');
-const { sendEvent } = require('@librechat/api');
-const { logger } = require('@librechat/data-schemas');
+const { sleep } = require('illuma-agents');
+const { sendEvent } = require('@ranger/api');
+const { logger } = require('@ranger/data-schemas');
 const {
   Constants,
   StepTypes,
@@ -8,7 +8,7 @@ const {
   ToolCallTypes,
   MessageContentTypes,
   AssistantStreamEvents,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const { retrieveAndProcessFile } = require('~/server/services/Files/process');
 const { processRequiredActions } = require('~/server/services/ToolService');
 const { processMessages } = require('~/server/services/Threads');

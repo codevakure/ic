@@ -20,7 +20,7 @@ export enum UploadIntent {
 
 /**
  * Tool types available for query execution
- * Maps to AgentCapabilities in librechat-data-provider
+ * Maps to AgentCapabilities in ranger-data-provider
  */
 export enum Tool {
   /** Search through documents using RAG */

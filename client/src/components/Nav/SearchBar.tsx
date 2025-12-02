@@ -2,11 +2,11 @@ import React, { forwardRef, useState, useCallback, useMemo, useEffect, useRef } 
 import debounce from 'lodash/debounce';
 import { useRecoilState } from 'recoil';
 import { Search, X } from 'lucide-react';
-import { QueryKeys, PermissionTypes, Permissions } from 'librechat-data-provider';
+import { QueryKeys, PermissionTypes, Permissions } from 'ranger-data-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookmarkFilledIcon, BookmarkIcon } from '@radix-ui/react-icons';
-import { TooltipAnchor } from '@librechat/client';
+import { TooltipAnchor } from '@ranger/client';
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import { useLocalize, useNewConvo, useHasAccess } from '~/hooks';
 import { useGetConversationTags } from '~/data-provider';

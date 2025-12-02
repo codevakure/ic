@@ -1,4 +1,4 @@
-import { EModelEndpoint } from 'librechat-data-provider';
+import { EModelEndpoint } from 'ranger-data-provider';
 import {
   MinimalPlugin,
   GPTIcon,
@@ -10,7 +10,7 @@ import {
   LightningIcon,
   BedrockIcon,
   Sparkles,
-} from '@librechat/client';
+} from '@ranger/client';
 import type { IconMapProps, AgentIconMapProps, IconsRecord } from '~/common';
 import { DefaultAgentIcon } from '~/components/Endpoints/DefaultAgentIcon';
 import UnknownIcon from './UnknownIcon';

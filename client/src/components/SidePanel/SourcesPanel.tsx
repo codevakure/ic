@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, memo } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { ResizableHandleAlt, ResizablePanel } from '@librechat/client';
+import { ResizableHandleAlt, ResizablePanel } from '@ranger/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { cn } from '~/utils';

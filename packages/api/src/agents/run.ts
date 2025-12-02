@@ -1,5 +1,5 @@
-import { Run, Providers } from '@librechat/agents';
-import { providerEndpointMap, KnownEndpoints } from 'librechat-data-provider';
+import { Run, Providers } from 'illuma-agents';
+import { providerEndpointMap, KnownEndpoints } from 'ranger-data-provider';
 import type {
   MultiAgentGraphConfig,
   OpenAIClientOptions,
@@ -8,9 +8,9 @@ import type {
   GenericTool,
   RunConfig,
   IState,
-} from '@librechat/agents';
-import type { IUser } from '@librechat/data-schemas';
-import type { Agent } from 'librechat-data-provider';
+} from 'illuma-agents';
+import type { IUser } from '@ranger/data-schemas';
+import type { Agent } from 'ranger-data-provider';
 import type * as t from '~/types';
 import { resolveHeaders, createSafeUser } from '~/utils/env';
 

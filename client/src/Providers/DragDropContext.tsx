@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from 'react';
-import { getEndpointField } from 'librechat-data-provider';
-import type { EModelEndpoint } from 'librechat-data-provider';
+import { getEndpointField } from 'ranger-data-provider';
+import type { EModelEndpoint } from 'ranger-data-provider';
 import { useGetEndpointsQuery } from '~/data-provider';
 import { useChatContext } from './ChatContext';
 

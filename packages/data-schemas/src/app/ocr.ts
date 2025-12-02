@@ -1,5 +1,5 @@
-import { OCRStrategy } from 'librechat-data-provider';
-import type { TCustomConfig } from 'librechat-data-provider';
+import { OCRStrategy } from 'ranger-data-provider';
+import type { TCustomConfig } from 'ranger-data-provider';
 
 export function loadOCRConfig(config?: TCustomConfig['ocr']): TCustomConfig['ocr'] | undefined {
   if (!config) return;

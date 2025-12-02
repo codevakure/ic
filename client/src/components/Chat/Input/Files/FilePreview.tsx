@@ -1,5 +1,5 @@
-import { FileIcon } from '@librechat/client';
-import type { TFile } from 'librechat-data-provider';
+import { FileIcon } from '@ranger/client';
+import type { TFile } from 'ranger-data-provider';
 import type { ExtendedFile } from '~/common';
 import SourceIcon from './SourceIcon';
 import { cn } from '~/utils';

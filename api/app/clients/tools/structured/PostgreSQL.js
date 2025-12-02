@@ -1,9 +1,9 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
- * PostgreSQL Query Tool for LibreChat Agents
+ * PostgreSQL Query Tool for Ranger Agents
  * Executes SQL queries against PostgreSQL databases
  * Based on Anything LLM's SQL connector implementation
  */

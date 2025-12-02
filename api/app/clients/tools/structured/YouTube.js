@@ -1,7 +1,7 @@
-const { ytToolkit } = require('@librechat/api');
+const { ytToolkit } = require('@ranger/api');
 const { tool } = require('@langchain/core/tools');
 const { youtube } = require('@googleapis/youtube');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const { YoutubeTranscript } = require('youtube-transcript');
 const { getApiKey } = require('./credentials');
 

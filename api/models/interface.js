@@ -1,5 +1,5 @@
-const { logger } = require('@librechat/data-schemas');
-const { updateInterfacePermissions: updateInterfacePerms } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { updateInterfacePermissions: updateInterfacePerms } = require('@ranger/api');
 const { getRoleByName, updateAccessPermissions } = require('./Role');
 
 /**

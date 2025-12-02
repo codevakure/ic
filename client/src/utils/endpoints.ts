@@ -7,8 +7,8 @@ import {
   getEndpointField,
   isAgentsEndpoint,
   isAssistantsEndpoint,
-} from 'librechat-data-provider';
-import type * as t from 'librechat-data-provider';
+} from 'ranger-data-provider';
+import type * as t from 'ranger-data-provider';
 import type { LocalizeFunction, IconsRecord } from '~/common';
 
 export const getEntityName = ({

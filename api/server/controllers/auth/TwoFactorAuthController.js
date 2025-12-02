@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const {
   verifyTOTP,
   getTOTPSecret,

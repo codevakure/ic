@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { OptionTypes } from 'librechat-data-provider';
-import { Label, HoverCard, HoverCardTrigger, SelectDropDown } from '@librechat/client';
-import type { DynamicSettingProps } from 'librechat-data-provider';
+import { OptionTypes } from 'ranger-data-provider';
+import { Label, HoverCard, HoverCardTrigger, SelectDropDown } from '@ranger/client';
+import type { DynamicSettingProps } from 'ranger-data-provider';
 import { TranslationKeys, useLocalize, useParameterEffects } from '~/hooks';
 import { useChatContext } from '~/Providers';
 import OptionHover from './OptionHover';

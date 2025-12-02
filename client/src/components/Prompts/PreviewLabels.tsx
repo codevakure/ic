@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Input } from '@librechat/client';
+import { Input } from '@ranger/client';
 import { Cross1Icon } from '@radix-ui/react-icons';
-import type { TPrompt } from 'librechat-data-provider';
+import type { TPrompt } from 'ranger-data-provider';
 import { useUpdatePromptLabels } from '~/data-provider';
 
 const PromptForm = ({ selectedPrompt }: { selectedPrompt?: TPrompt }) => {

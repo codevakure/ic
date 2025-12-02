@@ -1,5 +1,5 @@
-const { logger } = require('@librechat/data-schemas');
-const { SystemRoles } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { SystemRoles } = require('ranger-data-provider');
 const { checkPermission } = require('~/server/services/PermissionService');
 
 /**

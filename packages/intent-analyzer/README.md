@@ -1,6 +1,6 @@
-# @librechat/intent-analyzer
+# @ranger/intent-analyzer
 
-Unified intent analyzer for LibreChat that handles **both tool selection AND model routing** in a single package.
+Unified intent analyzer for Ranger that handles **both tool selection AND model routing** in a single package.
 
 ## Overview
 
@@ -26,7 +26,7 @@ All in **ONE call** with optional LLM fallback for edge cases.
 ## Installation
 
 ```bash
-npm install @librechat/intent-analyzer
+npm install @ranger/intent-analyzer
 ```
 
 ## Quick Start
@@ -36,7 +36,7 @@ npm install @librechat/intent-analyzer
 Get both tools AND model in one call:
 
 ```typescript
-import { routeQuery, Tool } from '@librechat/intent-analyzer';
+import { routeQuery, Tool } from '@ranger/intent-analyzer';
 
 const result = await routeQuery('What are booming stocks today?', {
   provider: 'bedrock',
@@ -55,7 +55,7 @@ console.log(result.reason); // 'Query needs real-time data'
 For queries that don't match regex patterns, use an LLM to classify:
 
 ```typescript
-import { routeQuery, Tool } from '@librechat/intent-analyzer';
+import { routeQuery, Tool } from '@ranger/intent-analyzer';
 
 const result = await routeQuery('Find me trending tech stocks', {
   provider: 'bedrock',
@@ -144,7 +144,7 @@ const result = await analyzeQuery({
 Get model ID for a specific tier.
 
 ```typescript
-import { getModelForTier } from '@librechat/intent-analyzer';
+import { getModelForTier } from '@ranger/intent-analyzer';
 
 getModelForTier('simple');              // 'us.amazon.nova-pro-v1:0'
 getModelForTier('expert', 'premium');   // 'global.anthropic.claude-opus-4-5-20251101-v1:0'
@@ -156,7 +156,7 @@ getModelForTier('expert', 'costOptimized'); // 'us.anthropic.claude-sonnet-4-5-2
 Analyze files for upload routing:
 
 ```typescript
-import { analyzeUploadIntent, UploadIntent } from '@librechat/intent-analyzer';
+import { analyzeUploadIntent, UploadIntent } from '@ranger/intent-analyzer';
 
 const result = analyzeUploadIntent({
   filename: 'data.xlsx',
@@ -169,7 +169,7 @@ console.log(result.intent); // UploadIntent.CODE_INTERPRETER
 ### Tool Selection Only
 
 ```typescript
-import { analyzeQueryIntent, Tool } from '@librechat/intent-analyzer';
+import { analyzeQueryIntent, Tool } from '@ranger/intent-analyzer';
 
 const result = analyzeQueryIntent({
   query: 'Search the web for latest news',
@@ -183,7 +183,7 @@ console.log(result.confidence); // 0.85
 ### Model Routing Only
 
 ```typescript
-import { scoreQueryComplexity } from '@librechat/intent-analyzer';
+import { scoreQueryComplexity } from '@ranger/intent-analyzer';
 
 const result = scoreQueryComplexity('Design a microservices architecture');
 
@@ -204,7 +204,7 @@ console.log(result.categories); // ['code', 'reasoning']
 
 > **Note**: Nova Micro is NOT in routing presets. It's only used for `classifierModel` (LLM fallback).
 
-### librechat.yaml Configuration
+### ranger.yaml Configuration
 
 ```yaml
 intentAnalyzer:
@@ -230,23 +230,23 @@ intentAnalyzer:
 ## Constants
 
 ```typescript
-import { CLASSIFIER_MODEL } from '@librechat/intent-analyzer';
+import { CLASSIFIER_MODEL } from '@ranger/intent-analyzer';
 
 console.log(CLASSIFIER_MODEL); // 'us.amazon.nova-micro-v1:0'
 ```
 
-## Migration from @librechat/llm-router
+## Migration from @ranger/llm-router
 
-This package replaces `@librechat/llm-router`. Update your imports:
+This package replaces `@ranger/llm-router`. Update your imports:
 
 ```typescript
 // Before
-import { createBedrockRouter } from '@librechat/llm-router';
+import { createBedrockRouter } from '@ranger/llm-router';
 const router = createBedrockRouter('costOptimized');
 const result = await router.route(prompt);
 
 // After
-import { routeQuery, Tool } from '@librechat/intent-analyzer';
+import { routeQuery, Tool } from '@ranger/intent-analyzer';
 const result = await routeQuery(prompt, {
   provider: 'bedrock',
   preset: 'costOptimized',

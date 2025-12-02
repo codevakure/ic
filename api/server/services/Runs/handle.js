@@ -1,6 +1,6 @@
-const { sleep } = require('@librechat/agents');
-const { logger } = require('@librechat/data-schemas');
-const { RunStatus, defaultOrderQuery, CacheKeys } = require('librechat-data-provider');
+const { sleep } = require('illuma-agents');
+const { logger } = require('@ranger/data-schemas');
+const { RunStatus, defaultOrderQuery, CacheKeys } = require('ranger-data-provider');
 const getLogStores = require('~/cache/getLogStores');
 const { retrieveRun } = require('./methods');
 const RunManager = require('./RunManager');

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as Tabs from '@radix-ui/react-tabs';
 import { ArrowLeft, ChevronLeft, ChevronRight, Code, Eye, Maximize, RefreshCw, X } from 'lucide-react';
 import { useSetRecoilState, useResetRecoilState } from 'recoil';
-import { Spinner, useMediaQuery } from '@librechat/client';
+import { Spinner, useMediaQuery } from '@ranger/client';
 import type { SandpackPreviewRef, CodeEditorRef } from '@codesandbox/sandpack-react';
 import { useShareContext, useMutationState } from '~/Providers';
 import useArtifacts from '~/hooks/Artifacts/useArtifacts';

@@ -4,7 +4,7 @@ import type {
   EModelEndpoint,
   TEndpointsConfig,
   TStartupConfig,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import { getLocalStorageItems } from './localStorage';
 import { mapEndpoints } from './endpoints';
 

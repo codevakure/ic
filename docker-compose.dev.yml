@@ -9,11 +9,11 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_DATABASE=LibreChat
+      - MONGO_INITDB_DATABASE=Ranger
     volumes:
       - mongodb_data:/data/db
     networks:
-      - librechat-dev
+      - ranger-dev
 
   # Redis Cache
   redis:
@@ -25,7 +25,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - librechat-dev
+      - ranger-dev
 
   # Meilisearch Search Engine
   meilisearch:
@@ -42,17 +42,17 @@ services:
     volumes:
       - meilisearch_data:/meili_data
     networks:
-      - librechat-dev
+      - ranger-dev
 
 volumes:
   mongodb_data:
-    name: librechat_mongodb_dev
+    name: ranger_mongodb_dev
   redis_data:
-    name: librechat_redis_dev
+    name: ranger_redis_dev
   meilisearch_data:
-    name: librechat_meilisearch_dev
+    name: ranger_meilisearch_dev
 
 networks:
-  librechat-dev:
+  ranger-dev:
     driver: bridge
-    name: librechat-dev-network
+    name: ranger-dev-network

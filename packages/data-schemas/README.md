@@ -1,6 +1,6 @@
-# LibreChat Data Schemas Package
+# Ranger Data Schemas Package
 
-This package provides the database schemas, models, types, and methods for LibreChat using Mongoose ODM.
+This package provides the database schemas, models, types, and methods for Ranger using Mongoose ODM.
 
 ## 📁 Package Structure
 

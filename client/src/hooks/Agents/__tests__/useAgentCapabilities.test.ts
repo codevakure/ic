@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { AgentCapabilities, defaultToolsAutoEnabled } from 'librechat-data-provider';
+import { AgentCapabilities, defaultToolsAutoEnabled } from 'ranger-data-provider';
 import useAgentCapabilities from '../useAgentCapabilities';
 
 describe('useAgentCapabilities', () => {

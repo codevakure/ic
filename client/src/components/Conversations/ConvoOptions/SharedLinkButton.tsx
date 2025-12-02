@@ -8,8 +8,8 @@ import {
   Label,
   OGDialogTemplate,
   useToastContext,
-} from '@librechat/client';
-import type { TSharedLinkGetResponse } from 'librechat-data-provider';
+} from '@ranger/client';
+import type { TSharedLinkGetResponse } from 'ranger-data-provider';
 import {
   useCreateSharedLinkMutation,
   useUpdateSharedLinkMutation,

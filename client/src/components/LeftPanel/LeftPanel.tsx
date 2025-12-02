@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useMediaQuery, TooltipAnchor } from '@librechat/client';
+import { useMediaQuery, TooltipAnchor } from '@ranger/client';
 import { useLocalStorage, useLocalize } from '~/hooks';
 import LeftPanelNav from './LeftPanelNav';
 import { cn } from '~/utils';

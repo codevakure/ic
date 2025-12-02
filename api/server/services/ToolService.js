@@ -1,12 +1,12 @@
-const { sleep } = require('@librechat/agents');
-const { logger } = require('@librechat/data-schemas');
+const { sleep } = require('illuma-agents');
+const { logger } = require('@ranger/data-schemas');
 const { tool: toolFn, DynamicStructuredTool } = require('@langchain/core/tools');
 const {
   getToolkitKey,
   hasCustomUserVars,
   getUserMCPAuthMap,
   isActionDomainAllowed,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   Tools,
   Constants,
@@ -21,7 +21,7 @@ const {
   validateActionDomain,
   defaultAgentCapabilities,
   validateAndParseOpenAPISpec,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const {
   createActionTool,
   decryptMetadata,

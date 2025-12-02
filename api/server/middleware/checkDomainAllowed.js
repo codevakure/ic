@@ -1,5 +1,5 @@
-const { logger } = require('@librechat/data-schemas');
-const { isEmailDomainAllowed } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { isEmailDomainAllowed } = require('@ranger/api');
 const { getAppConfig } = require('~/server/services/Config');
 
 /**

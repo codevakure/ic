@@ -1,5 +1,5 @@
-import { ThemeSelector } from '@librechat/client';
-import { TStartupConfig } from 'librechat-data-provider';
+import { ThemeSelector } from '@ranger/client';
+import { TStartupConfig } from 'ranger-data-provider';
 import { ErrorMessage } from '~/components/Auth/ErrorMessage';
 import { TranslationKeys, useLocalize } from '~/hooks';
 import Logo from '~/components/Nav/Logo';
@@ -62,7 +62,7 @@ function AuthLayout({
       <Banner />
       <BlinkAnimation active={isFetching}>
         <div className="mt-6 flex h-16 w-full items-center justify-center">
-          <Logo height={60} alt={localize('com_ui_logo', { 0: startupConfig?.appTitle ?? 'LibreChat' })} />
+          <Logo height={60} alt={localize('com_ui_logo', { 0: startupConfig?.appTitle ?? 'Ranger' })} />
         </div>
       </BlinkAnimation>
       <DisplayError />

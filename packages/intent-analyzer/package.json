@@ -1,5 +1,5 @@
 {
-  "name": "@librechat/intent-analyzer",
+  "name": "@ranger/intent-analyzer",
   "version": "1.0.0",
   "description": "Intent analyzer for routing attachments, tools, and LLM selection",
   "main": "dist/index.js",
@@ -23,7 +23,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "librechat-data-provider": "*",
+    "ranger-data-provider": "*",
     "mime-types": "^2.1.35"
   },
   "devDependencies": {

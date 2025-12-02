@@ -1,10 +1,10 @@
-import { ErrorTypes } from 'librechat-data-provider';
-import { logger } from '@librechat/data-schemas';
-import type { IUser, UserMethods } from '@librechat/data-schemas';
+import { ErrorTypes } from 'ranger-data-provider';
+import { logger } from '@ranger/data-schemas';
+import type { IUser, UserMethods } from '@ranger/data-schemas';
 import { findOpenIDUser } from './openid';
 
-jest.mock('@librechat/data-schemas', () => ({
-  ...jest.requireActual('@librechat/data-schemas'),
+jest.mock('@ranger/data-schemas', () => ({
+  ...jest.requireActual('@ranger/data-schemas'),
   logger: {
     warn: jest.fn(),
     info: jest.fn(),

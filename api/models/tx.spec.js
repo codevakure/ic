@@ -1,5 +1,5 @@
-const { maxTokensMap } = require('@librechat/api');
-const { EModelEndpoint } = require('librechat-data-provider');
+const { maxTokensMap } = require('@ranger/api');
+const { EModelEndpoint } = require('ranger-data-provider');
 const {
   defaultRate,
   tokenValues,

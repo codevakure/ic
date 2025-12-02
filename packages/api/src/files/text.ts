@@ -1,5 +1,5 @@
-import { logger } from '@librechat/data-schemas';
-import { FileSources } from 'librechat-data-provider';
+import { logger } from '@ranger/data-schemas';
+import { FileSources } from 'ranger-data-provider';
 import { readFileAsString } from '~/utils';
 
 /**

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { dataService } from 'librechat-data-provider';
-import type { TStartupConfig } from 'librechat-data-provider';
+import { dataService } from 'ranger-data-provider';
+import type { TStartupConfig } from 'ranger-data-provider';
 
 /**
  * Hook that applies custom theme colors from the startup config to CSS variables.

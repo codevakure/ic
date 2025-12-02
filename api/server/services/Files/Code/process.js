@@ -1,16 +1,16 @@
 const path = require('path');
 const { v4 } = require('uuid');
 const axios = require('axios');
-const { logger } = require('@librechat/data-schemas');
-const { getCodeBaseURL } = require('@librechat/agents');
-const { logAxiosError, getBasePath } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { getCodeBaseURL } = require('illuma-agents');
+const { logAxiosError, getBasePath } = require('@ranger/api');
 const {
   Tools,
   FileContext,
   FileSources,
   imageExtRegex,
   EToolResources,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const { filterFilesByAgentAccess } = require('~/server/services/Files/permissions');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { convertImage } = require('~/server/services/Files/images/convert');
@@ -62,7 +62,7 @@ const processCodeOutput = async ({
       url: `${baseURL}/download/${session_id}/${id}`,
       responseType: 'arraybuffer',
       headers: {
-        'User-Agent': 'LibreChat/1.0',
+        'User-Agent': 'Ranger/1.0',
         'X-API-Key': apiKey,
       },
       timeout: 15000,
@@ -168,7 +168,7 @@ async function getSessionInfo(fileIdentifier, apiKey) {
       url: `${baseURL}/files/${session_id}`,
       params: queryParams,
       headers: {
-        'User-Agent': 'LibreChat/1.0',
+        'User-Agent': 'Ranger/1.0',
         'X-API-Key': apiKey,
       },
       timeout: 5000,

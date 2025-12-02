@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRecoilState } from 'recoil';
-import { Switch, Label, InfoHoverCard, ESide } from '@librechat/client';
+import { Switch, Label, InfoHoverCard, ESide } from '@ranger/client';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
 

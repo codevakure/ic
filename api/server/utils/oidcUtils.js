@@ -1,4 +1,4 @@
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
  * Extract OIDC groups from user object for category-based filtering
