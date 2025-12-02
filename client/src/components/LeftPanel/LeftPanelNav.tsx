@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, LayoutGrid, FileText, LogOut, History } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
 import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator } from '@librechat/client';
+import { SystemRoles } from 'librechat-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
@@ -156,14 +157,17 @@ const LeftPanelNav = memo(() => {
               {localize('com_nav_help_faq')}
             </Select.SelectItem>
           )}
-          <Select.SelectItem
-            value=""
-            onClick={() => setShowSettings(true)}
-            className="select-item text-sm"
-          >
-            <GearIcon className="icon-md" aria-hidden="true" />
-            {localize('com_nav_settings')}
-          </Select.SelectItem>
+          {/* Show Settings only for SystemRoles.ADMIN role */}
+          {user?.role === SystemRoles.ADMIN && (
+            <Select.SelectItem
+              value=""
+              onClick={() => setShowSettings(true)}
+              className="select-item text-sm"
+            >
+              <GearIcon className="icon-md" aria-hidden="true" />
+              {localize('com_nav_settings')}
+            </Select.SelectItem>
+          )}
           <DropdownMenuSeparator />
           <Select.SelectItem
             aria-selected={true}
