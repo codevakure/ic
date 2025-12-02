@@ -206,7 +206,7 @@ const AdminSettings = () => {
               <button
                 type="submit"
                 disabled={isSubmitting || isLoading}
-                className="btn rounded bg-primary font-bold text-white transition-all hover:bg-primary-hover"
+                className="btn rounded bg-surface-submit font-bold text-white transition-all hover:bg-surface-submit-hover"
               >
                 {localize('com_ui_save')}
               </button>
