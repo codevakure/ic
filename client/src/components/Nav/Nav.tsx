@@ -19,7 +19,6 @@ import NewChat from './NewChat';
 import { cn } from '~/utils';
 import store from '~/store';
 
-const AccountSettings = lazy(() => import('./AccountSettings'));
 const AgentMarketplaceButton = lazy(() => import('./AgentMarketplaceButton'));
 
 const NAV_WIDTH_DESKTOP = '260px';
@@ -220,9 +219,6 @@ const Nav = memo(
                         isSearchLoading={isSearchLoading}
                       />
                     </div>
-                    <Suspense fallback={null}>
-                      <AccountSettings />
-                    </Suspense>
                   </nav>
                 </div>
               </div>

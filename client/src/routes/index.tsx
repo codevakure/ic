@@ -10,9 +10,11 @@ import {
 } from '~/components/Auth';
 import { MarketplaceProvider } from '~/components/Agents/MarketplaceContext';
 import AgentMarketplace from '~/components/Agents/Marketplace';
+import { PlaceholderPage } from '~/components/Placeholder';
 import FilesPage from '~/components/Files/FilesPage';
 import { OAuthSuccess, OAuthError } from '~/components/OAuth';
 import { AuthContextProvider } from '~/hooks/AuthContext';
+import LeftPanelLayout from './Layouts/LeftPanelLayout';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import StartupLayout from './Layouts/Startup';
 import LoginLayout from './Layouts/Login';
@@ -96,6 +98,16 @@ export const router = createBrowserRouter(
           ],
         },
         dashboardRoutes,
+        {
+          path: '/',
+          element: <LeftPanelLayout />,
+          children: [
+            {
+              path: 'placeholder',
+              element: <PlaceholderPage />,
+            },
+          ],
+        },
         {
           path: '/',
           element: <Root />,
