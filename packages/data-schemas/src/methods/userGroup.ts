@@ -79,6 +79,30 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
   }
 
   /**
+   * Find groups by exact name matches (for OIDC group integration)
+   * @param groupNames - Array of group names to find
+   * @param session - Optional MongoDB session for transactions
+   * @returns Array of groups that match the provided names
+   */
+  async function findGroupsByNames(
+    groupNames: string[],
+    session?: ClientSession,
+  ): Promise<IGroup[]> {
+    if (!groupNames || groupNames.length === 0) {
+      return [];
+    }
+
+    const Group = mongoose.models.Group as Model<IGroup>;
+    const query = Group.find({ name: { $in: groupNames } });
+    if (session) {
+      query.session(session);
+    }
+    
+    const results = await query.lean();
+    return results;
+  }
+
+  /**
    * Find all groups a user is a member of by their ID or idOnTheSource
    * @param userId - The user ID
    * @param session - Optional MongoDB session for transactions
@@ -258,16 +282,27 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
       { principalType: PrincipalType.USER, principalId: userObjectId },
     ];
 
-    // If role is not provided, query user to get it
+    // If role is not provided, query user to get it and also get OIDC groups
     let userRole = role;
+    let oidcGroups: string[] = [];
     if (userRole === undefined) {
       const User = mongoose.models.User as Model<IUser>;
-      const query = User.findById(userId).select('role');
+      const query = User.findById(userId).select('role oidcGroups');
       if (session) {
         query.session(session);
       }
       const user = await query.lean();
       userRole = user?.role;
+      oidcGroups = (user as any)?.oidcGroups || [];
+    } else {
+      // If role is provided, we still need to get OIDC groups
+      const User = mongoose.models.User as Model<IUser>;
+      const query = User.findById(userId).select('oidcGroups');
+      if (session) {
+        query.session(session);
+      }
+      const user = await query.lean();
+      oidcGroups = (user as any)?.oidcGroups || [];
     }
 
     // Add role as a principal if user has one
@@ -280,6 +315,23 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
       userGroups.forEach((group) => {
         principals.push({ principalType: PrincipalType.GROUP, principalId: group._id });
       });
+    }
+
+    // Add OIDC groups as principals by finding matching database groups
+    if (oidcGroups && oidcGroups.length > 0) {
+      const oidcMatchingGroups = await findGroupsByNames(oidcGroups, session);
+      
+      if (oidcMatchingGroups && oidcMatchingGroups.length > 0) {
+        oidcMatchingGroups.forEach((group) => {
+          // Avoid duplicates - only add if not already added via direct membership
+          const alreadyAdded = principals.some(
+            (p) => p.principalType === PrincipalType.GROUP && p.principalId?.toString() === group._id.toString()
+          );
+          if (!alreadyAdded) {
+            principals.push({ principalType: PrincipalType.GROUP, principalId: group._id });
+          }
+        });
+      }
     }
 
     principals.push({ principalType: PrincipalType.PUBLIC });
@@ -593,6 +645,7 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
     findGroupById,
     findGroupByExternalId,
     findGroupsByNamePattern,
+    findGroupsByNames,
     findGroupsByMemberId,
     createGroup,
     upsertGroupByExternalId,

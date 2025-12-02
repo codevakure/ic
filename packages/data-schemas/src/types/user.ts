@@ -38,6 +38,8 @@ export interface IUser extends Document {
   updatedAt?: Date;
   /** Field for external source identification (for consistency with TPrincipal schema) */
   idOnTheSource?: string;
+  /** OIDC groups from the identity provider */
+  oidcGroups?: string[];
 }
 
 export interface BalanceConfig {

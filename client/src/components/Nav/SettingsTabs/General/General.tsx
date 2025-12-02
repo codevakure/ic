@@ -1,10 +1,12 @@
-import React, { useContext, useCallback } from 'react';
+import React, { useContext, useCallback, useMemo } from 'react';
 import Cookies from 'js-cookie';
 import { useRecoilState } from 'recoil';
 import { Dropdown, ThemeContext } from '@librechat/client';
+import { SystemRoles } from 'librechat-data-provider';
 import ArchivedChats from './ArchivedChats';
 import ToggleSwitch from '../ToggleSwitch';
 import { useLocalize } from '~/hooks';
+import { useAuthContext } from '~/hooks/AuthContext';
 import store from '~/store';
 
 const toggleSwitchConfigs = [
@@ -145,8 +147,22 @@ export const LangSelector = ({
 
 function General() {
   const { theme, setTheme } = useContext(ThemeContext);
+  const { user } = useAuthContext();
 
   const [langcode, setLangcode] = useRecoilState(store.lang);
+
+  // Filter toggle switches based on user role
+  const availableToggleSwitches = useMemo(() => {
+    const isAdmin = user?.role === SystemRoles.ADMIN;
+    
+    // Hide the "Hide right-most side panel" toggle for non-admin users
+    return toggleSwitchConfigs.filter(config => {
+      if (config.key === 'hideSidePanel' && !isAdmin) {
+        return false;
+      }
+      return true;
+    });
+  }, [user?.role]);
 
   const changeTheme = useCallback(
     (value: string) => {
@@ -179,7 +195,7 @@ function General() {
       <div className="pb-3">
         <LangSelector langcode={langcode} onChange={changeLang} />
       </div>
-      {toggleSwitchConfigs.map((config) => (
+      {availableToggleSwitches.map((config) => (
         <div key={config.key} className="pb-3">
           <ToggleSwitch
             stateAtom={config.stateAtom}

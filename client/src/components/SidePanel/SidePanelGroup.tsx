@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
 import throttle from 'lodash/throttle';
 import { useRecoilValue } from 'recoil';
-import { getConfigDefaults } from 'librechat-data-provider';
+import { getConfigDefaults, SystemRoles } from 'librechat-data-provider';
 import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@librechat/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
+import { useAuthContext } from '~/hooks/AuthContext';
 import { useGetStartupConfig } from '~/data-provider';
 import ArtifactsPanel from './ArtifactsPanel';
 import SourcesPanel from './SourcesPanel';
@@ -34,6 +35,7 @@ const SidePanelGroup = memo(
     children,
   }: SidePanelProps) => {
     const { data: startupConfig } = useGetStartupConfig();
+    const { user } = useAuthContext();
     const interfaceConfig = useMemo(
       () => startupConfig?.interface ?? defaultInterface,
       [startupConfig],
@@ -50,6 +52,12 @@ const SidePanelGroup = memo(
     const isSmallScreen = useMediaQuery('(max-width: 767px)');
     const hideSidePanel = useRecoilValue(store.hideSidePanel);
     
+    // Hide side panel for non-admin users
+    const shouldHideSidePanel = useMemo(() => {
+      const isAdmin = user?.role === SystemRoles.ADMIN;
+      return hideSidePanel || !isAdmin;
+    }, [hideSidePanel, user?.role]);
+
     // Get sources panel state to include in layout calculations
     const { isOpen: sourcesOpen, mode: sourcesMode } = useSourcesPanel();
     const sourcesActive = sourcesOpen && sourcesMode === 'push' && !isSmallScreen;
@@ -159,7 +167,7 @@ const SidePanelGroup = memo(
             />
           )}
 
-          {!hideSidePanel && interfaceConfig.sidePanel === true && (
+          {!shouldHideSidePanel && interfaceConfig.sidePanel === true && (
             <SidePanel
               panelRef={panelRef}
               minSize={minSize}
@@ -179,7 +187,7 @@ const SidePanelGroup = memo(
         {artifacts != null && isSmallScreen && (
           <div className="fixed inset-0 z-[100]">{artifacts}</div>
         )}
-        {!hideSidePanel && interfaceConfig.sidePanel === true && (
+        {!shouldHideSidePanel && interfaceConfig.sidePanel === true && (
           <button
             aria-label="Close right side panel"
             className={`nav-mask ${!isCollapsed ? 'active' : ''}`}
