@@ -1,12 +1,17 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import * as Ariakit from '@ariakit/react';
 import { VisuallyHidden } from '@ariakit/react';
 import { Tools } from 'librechat-data-provider';
-import { ChevronDown, File, Download } from 'lucide-react';
+import { ChevronDown, File, Download, Eye } from 'lucide-react';
 import { useToastContext } from '@librechat/client';
 import type { ValidSource, ImageResult } from 'librechat-data-provider';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
+import {
+  DocPreviewPanel,
+  isPreviewableFile,
+  getFileType,
+} from '~/components/Chat/Messages/Content/DocPreviewPanel';
 import { FaviconImage, getCleanDomain } from '~/components/Web/SourceHovercard';
 import SourcesErrorBoundary from './SourcesErrorBoundary';
 import { useFileDownload } from '~/data-provider';
@@ -161,6 +166,8 @@ type AgentFileSource = {
   pages?: number[];
   relevance?: number;
   pageRelevance?: Record<number, number>;
+  /** The text content of the most relevant chunk for highlighting */
+  content?: string;
   messageId: string;
   toolCallId: string;
   metadata?: any;
@@ -188,6 +195,19 @@ function sortPagesByRelevance(pages: number[], pageRelevance?: Record<number, nu
   });
 }
 
+/**
+ * Sorts page numbers by their relevance scores in descending order (highest first)
+ * and formats them for display (already 1-indexed from RAG API)
+ */
+function formatPagesForDisplay(
+  pages: number[],
+  pageRelevance?: Record<number, number>,
+): string {
+  const sortedPages = sortPagesByRelevance(pages, pageRelevance);
+  // Pages are already 1-indexed from the RAG API
+  return sortedPages.join(', ');
+}
+
 const FileItem = React.memo(function FileItem({
   file,
   messageId: _messageId,
@@ -197,8 +217,20 @@ const FileItem = React.memo(function FileItem({
   const localize = useLocalize();
   const user = useRecoilValue(store.user);
   const { showToast } = useToastContext();
+  const { openPanel, closePanel } = useSourcesPanel();
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const { refetch: downloadFile } = useFileDownload(user?.id ?? '', file.file_id);
+
+  // Check if file can be previewed
+  const canPreview = isPreviewableFile(file.filename);
+
+  // Get the first (most relevant) page number for initial navigation
+  const initialPage = useMemo(() => {
+    if (!file.pages || file.pages.length === 0) return undefined;
+    const sortedPages = sortPagesByRelevance(file.pages, file.pageRelevance);
+    return sortedPages[0];
+  }, [file.pages, file.pageRelevance]);
 
   // Extract error message logic to avoid duplication
   const getErrorMessage = useCallback(
@@ -221,6 +253,93 @@ const FileItem = React.memo(function FileItem({
 
   // Check if file is from local storage
   const isLocalFile = file.metadata?.storageType === 'local';
+
+  // Handle preview - opens DocPreviewPanel with initial page
+  const handlePreview = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (isLocalFile || !canPreview) {
+        return;
+      }
+
+      setIsLoadingPreview(true);
+
+      try {
+        const stream = await downloadFile();
+        if (stream.data == null || stream.data === '') {
+          console.error('Error loading file for preview: No data found');
+          showToast({
+            status: 'error',
+            message: localize('com_ui_download_error'),
+          });
+          return;
+        }
+
+        // Convert blob URL to ArrayBuffer
+        const fetchResponse = await fetch(stream.data);
+        const blob = await fetchResponse.blob();
+        const buffer = await blob.arrayBuffer();
+
+        if (buffer.byteLength === 0) {
+          throw new Error('Empty file');
+        }
+
+        const fileType = getFileType(file.filename);
+        if (!fileType) {
+          throw new Error('Unsupported file type');
+        }
+
+        // Get the chunk content for highlighting (only for PDFs)
+        const highlightText = fileType === 'pdf' ? file.content : undefined;
+
+        // Create a callback for the panel to set header actions
+        const handleSetHeaderActions = (actions: React.ReactNode) => {
+          openPanel(
+            file.filename,
+            <DocPreviewPanel
+              fileType={fileType}
+              buffer={buffer}
+              filename={file.filename}
+              onClose={closePanel}
+              initialPage={initialPage}
+              highlightText={highlightText}
+            />,
+            'push',
+            actions,
+          );
+        };
+
+        // Open the preview panel with initial page and highlight text
+        openPanel(
+          file.filename,
+          <DocPreviewPanel
+            fileType={fileType}
+            buffer={buffer}
+            filename={file.filename}
+            onClose={closePanel}
+            onSetHeaderActions={handleSetHeaderActions}
+            initialPage={initialPage}
+            highlightText={highlightText}
+          />,
+          'push',
+        );
+
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(stream.data);
+      } catch (error) {
+        console.error('Error loading file for preview:', error);
+        showToast({
+          status: 'error',
+          message: localize('com_sources_download_failed'),
+        });
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    },
+    [isLocalFile, canPreview, downloadFile, showToast, localize, file.filename, openPanel, closePanel, initialPage],
+  );
 
   const handleDownload = useCallback(
     async (e: React.MouseEvent) => {
@@ -254,7 +373,20 @@ const FileItem = React.memo(function FileItem({
     },
     [downloadFile, file.filename, isLocalFile, localize, showToast],
   );
-  const isLoading = false;
+
+  // Click handler - preview if possible, otherwise download
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (canPreview) {
+        handlePreview(e);
+      } else {
+        handleDownload(e);
+      }
+    },
+    [canPreview, handlePreview, handleDownload],
+  );
+
+  const isLoading = isLoadingPreview;
 
   // Memoize file icon computation for performance
   const fileIcon = useMemo(() => {
@@ -276,47 +408,69 @@ const FileItem = React.memo(function FileItem({
   const error = null;
   if (expanded) {
     return (
-      <button
-        onClick={isLocalFile ? undefined : handleDownload}
-        disabled={isLoading}
-        className={`flex w-full flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 disabled:opacity-50 ${
-          isLocalFile ? 'cursor-default' : 'hover:bg-surface-tertiary'
-        }`}
-        aria-label={
-          isLocalFile ? localize('com_sources_download_local_unavailable') : downloadAriaLabel
-        }
+      <div
+        className={`flex w-full flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 ${
+          isLoading ? 'opacity-50' : ''
+        } ${isLocalFile ? 'cursor-default' : ''}`}
       >
         <div className="flex items-center gap-2">
           <span className="text-base">{fileIcon}</span>
           <span className="truncate text-xs font-medium text-text-secondary">
             {localize('com_sources_agent_file')}
           </span>
-          {!isLocalFile && <Download className="ml-auto h-3 w-3" />}
+          <div className="ml-auto flex items-center gap-1">
+            {canPreview && !isLocalFile && (
+              <button
+                onClick={handlePreview}
+                disabled={isLoading}
+                className="rounded p-1 hover:bg-surface-tertiary"
+                aria-label="Preview file"
+                title="Preview"
+              >
+                <Eye className="h-3 w-3" />
+              </button>
+            )}
+            {!isLocalFile && (
+              <button
+                onClick={handleDownload}
+                disabled={isLoading}
+                className="rounded p-1 hover:bg-surface-tertiary"
+                aria-label={downloadAriaLabel}
+                title="Download"
+              >
+                <Download className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
-        <div className="mt-1 min-w-0">
-          <span className="line-clamp-2 break-all text-left text-sm font-medium text-text-primary md:line-clamp-3">
+        <button
+          onClick={isLocalFile ? undefined : handleClick}
+          disabled={isLoading}
+          className="mt-1 min-w-0 text-left"
+        >
+          <span className="line-clamp-2 break-all text-sm font-medium text-text-primary hover:underline md:line-clamp-3">
             {file.filename}
           </span>
           {file.pages && file.pages.length > 0 && (
-            <span className="mt-1 line-clamp-1 text-left text-xs text-text-secondary">
+            <span className="mt-1 line-clamp-1 block text-xs text-text-secondary">
               {localize('com_sources_pages')}:{' '}
-              {sortPagesByRelevance(file.pages, file.pageRelevance).join(', ')}
+              {formatPagesForDisplay(file.pages, file.pageRelevance)}
             </span>
           )}
           {file.bytes && (
-            <span className="mt-1 line-clamp-1 text-xs text-text-secondary">
+            <span className="mt-1 line-clamp-1 block text-xs text-text-secondary">
               {(file.bytes / 1024).toFixed(1)} KB
             </span>
           )}
-        </div>
+        </button>
         {error && <div className="mt-1 text-xs text-red-500">{getErrorMessage(error)}</div>}
-      </button>
+      </div>
     );
   }
 
   return (
     <button
-      onClick={isLocalFile ? undefined : handleDownload}
+      onClick={isLocalFile ? undefined : handleClick}
       disabled={isLoading}
       className={`flex h-full w-full flex-col rounded-lg bg-surface-primary-contrast px-3 py-2 text-sm transition-all duration-300 disabled:opacity-50 ${
         isLocalFile ? 'cursor-default' : 'hover:bg-surface-tertiary'
@@ -330,7 +484,7 @@ const FileItem = React.memo(function FileItem({
         <span className="truncate text-xs font-medium text-text-secondary">
           {localize('com_sources_agent_file')}
         </span>
-        {!isLocalFile && <Download className="ml-auto h-3 w-3" />}
+        {!isLocalFile && (canPreview ? <Eye className="ml-auto h-3 w-3" /> : <Download className="ml-auto h-3 w-3" />)}
       </div>
       <div className="mt-1 min-w-0">
         <span className="line-clamp-2 break-all text-left text-sm font-medium text-text-primary md:line-clamp-3">
@@ -339,7 +493,7 @@ const FileItem = React.memo(function FileItem({
         {file.pages && file.pages.length > 0 && (
           <span className="mt-1 line-clamp-1 text-left text-xs text-text-secondary">
             {localize('com_sources_pages')}:{' '}
-            {sortPagesByRelevance(file.pages, file.pageRelevance).join(', ')}
+            {formatPagesForDisplay(file.pages, file.pageRelevance)}
           </span>
         )}
       </div>
@@ -598,6 +752,7 @@ function SourcesComponent({ messageId, conversationId }: SourcesProps = {}) {
               pages: (source as any).pages,
               relevance: (source as any).relevance,
               pageRelevance: (source as any).pageRelevance,
+              content: (source as any).content, // Include chunk content for highlighting
               messageId: messageId || '',
               toolCallId: 'file_search_results',
             };

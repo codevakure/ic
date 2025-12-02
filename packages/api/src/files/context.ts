@@ -53,6 +53,15 @@ export async function extractFileContext({
       );
       continue;
     }
+
+    // Skip embedded files - they should use file_search tool for RAG-based retrieval
+    // This allows proper citation tracking with page numbers
+    if (file.embedded === true) {
+      logger.debug(
+        `[extractFileContext] Skipping embedded file ${file.filename} - should use file_search tool for citations`,
+      );
+      continue;
+    }
     
     // Process files with text content - either from FileSources.text OR from file_search extraction
     // This allows file_search files to provide immediate context while embedding happens in background

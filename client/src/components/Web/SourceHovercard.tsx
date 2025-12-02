@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import * as Ariakit from '@ariakit/react';
-import { ChevronDown, Paperclip } from 'lucide-react';
+import { ChevronDown, Paperclip, Loader2 } from 'lucide-react';
 import { VisuallyHidden } from '@ariakit/react';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
@@ -20,6 +20,7 @@ interface SourceHovercardProps {
   onClick?: (e: React.MouseEvent) => void;
   isFile?: boolean;
   isLocalFile?: boolean;
+  isLoading?: boolean;
   children?: ReactNode;
 }
 
@@ -52,6 +53,7 @@ export function SourceHovercard({
   onClick,
   isFile = false,
   isLocalFile = false,
+  isLoading = false,
   children,
 }: SourceHovercardProps) {
   const localize = useLocalize();
@@ -66,13 +68,18 @@ export function SourceHovercard({
               isFile ? (
                 <button
                   onClick={onClick}
-                  className="ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                  disabled={isLoading}
+                  className={cn(
+                    "ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300",
+                    isLoading && "opacity-70 cursor-wait"
+                  )}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                   title={
                     isLocalFile ? localize('com_sources_download_local_unavailable') : undefined
                   }
                 >
+                  {isLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                   {label}
                 </button>
               ) : (

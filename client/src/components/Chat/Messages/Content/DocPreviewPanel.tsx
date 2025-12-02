@@ -18,6 +18,10 @@ interface DocPreviewPanelProps {
   onClose?: () => void;
   /** Callback to set header actions (called on mount) */
   onSetHeaderActions?: (actions: React.ReactNode) => void;
+  /** Initial page to scroll to (1-indexed) */
+  initialPage?: number;
+  /** Text content to highlight on the initial page (for PDF only) */
+  highlightText?: string;
 }
 
 /**
@@ -46,11 +50,16 @@ export function getFileType(filename: string): PreviewableFileType | null {
 const DocPreviewContent = function DocPreviewContent({
   fileType,
   buffer,
+  initialPage,
+  highlightText,
 }: {
   fileType: PreviewableFileType;
   buffer: ArrayBuffer;
+  initialPage?: number;
+  highlightText?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,7 +190,33 @@ const DocPreviewContent = function DocPreviewContent({
           const pdfBuffer = buffer.slice(0);
 
           viewer = new PDF(container, {});
+          viewerRef.current = viewer;
           await viewer.renderFile(pdfBuffer);
+
+          // Navigate to initial page and highlight text after rendering
+          if (!cancelled && initialPage && initialPage > 0 && viewer.goToPage) {
+            console.log(`[DocPreviewPanel] Navigating to page ${initialPage}, highlightText length: ${highlightText?.length || 0}`);
+            if (highlightText) {
+              console.log(`[DocPreviewPanel] Highlight text preview: "${highlightText.substring(0, 150)}..."`);
+            }
+            // Small delay to ensure DOM is ready
+            setTimeout(async () => {
+              if (!cancelled && viewerRef.current?.goToPage) {
+                viewerRef.current.goToPage(initialPage);
+                
+                // Highlight the chunk text if provided
+                if (highlightText && viewerRef.current?.highlightText) {
+                  // Give a bit more time for the page to render before highlighting
+                  setTimeout(async () => {
+                    if (!cancelled && viewerRef.current?.highlightText) {
+                      console.log(`[DocPreviewPanel] Calling highlightText(${initialPage}, "${highlightText.substring(0, 50)}...")`);
+                      await viewerRef.current.highlightText(initialPage, highlightText);
+                    }
+                  }, 300);
+                }
+              }
+            }, 100);
+          }
         }
 
         if (!cancelled) {
@@ -211,8 +246,9 @@ const DocPreviewContent = function DocPreviewContent({
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
+      viewerRef.current = null;
     };
-  }, [fileType, buffer]);
+  }, [fileType, buffer, initialPage, highlightText]);
 
   return (
     <div className="relative h-full w-full">
@@ -252,6 +288,8 @@ const FullscreenModal = memo(function FullscreenModal({
   buffer,
   filename,
   onDownload,
+  initialPage,
+  highlightText,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -259,6 +297,8 @@ const FullscreenModal = memo(function FullscreenModal({
   buffer: ArrayBuffer;
   filename: string;
   onDownload: () => void;
+  initialPage?: number;
+  highlightText?: string;
 }) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -299,7 +339,7 @@ const FullscreenModal = memo(function FullscreenModal({
         aria-modal="true"
         aria-label={`Full screen preview of ${filename}`}
       >
-        <DocPreviewContent fileType={fileType} buffer={buffer} />
+        <DocPreviewContent fileType={fileType} buffer={buffer} initialPage={initialPage} highlightText={highlightText} />
       </div>
 
       {/* Overlay Close button - top right */}
@@ -398,6 +438,8 @@ export const DocPreviewPanel = memo(function DocPreviewPanel({
   filename,
   onClose,
   onSetHeaderActions,
+  initialPage,
+  highlightText,
 }: DocPreviewPanelProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -435,7 +477,7 @@ export const DocPreviewPanel = memo(function DocPreviewPanel({
     <div className="flex h-full flex-col">
       {/* Preview Content */}
       <div className="flex-1 overflow-hidden">
-        <DocPreviewContent key={`${fileType}-${buffer.byteLength}`} fileType={fileType} buffer={buffer} />
+        <DocPreviewContent key={`${fileType}-${buffer.byteLength}`} fileType={fileType} buffer={buffer} initialPage={initialPage} highlightText={highlightText} />
       </div>
 
       {/* Fullscreen Modal */}
@@ -446,6 +488,8 @@ export const DocPreviewPanel = memo(function DocPreviewPanel({
         buffer={buffer}
         filename={filename}
         onDownload={handleDownload}
+        initialPage={initialPage}
+        highlightText={highlightText}
       />
     </div>
   );

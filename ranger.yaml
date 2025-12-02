@@ -111,7 +111,8 @@ endpoints:
     disableBuilder: false
     maxCitations: 30
     maxCitationsPerFile: 7
-    minRelevanceScore: 0.45
+    # Lower threshold for RAG - cosine distances result in relevance scores around 0.05-0.45
+    minRelevanceScore: 0.05
     capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain"]
     # Tools that are auto-enabled (included by default unless intent classification says not needed)
     toolsAutoEnabled: ["execute_code", "file_search", "artifacts", "web_search"]

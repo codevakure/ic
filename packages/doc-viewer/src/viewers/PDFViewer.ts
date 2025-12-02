@@ -245,6 +245,218 @@ export class PDFViewer extends DocumentViewer {
   }
 
   /**
+   * Highlight text on a specific page
+   * @param pageNumber - Page number to highlight on (1-indexed)
+   * @param textToHighlight - Text string to highlight
+   * @returns boolean - Whether highlighting was successful
+   */
+  async highlightText(pageNumber: number, textToHighlight: string): Promise<boolean> {
+    if (!this.pdfDocument || !textToHighlight) return false;
+
+    console.log(`[PDFViewer] highlightText called: page=${pageNumber}, textLength=${textToHighlight.length}`);
+
+    try {
+      // First, go to the page
+      this.goToPage(pageNumber);
+
+      const page = await this.pdfDocument.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const viewport = page.getViewport({ scale: this.scale });
+      
+      const pageElement = this.container.querySelector(
+        `[data-page-number="${pageNumber}"]`
+      );
+      if (!pageElement) {
+        console.log(`[PDFViewer] Page element not found for page ${pageNumber}`);
+        return false;
+      }
+
+      // Remove any existing highlights on this page
+      const existingHighlights = pageElement.querySelectorAll(`.${this.options.classPrefix}pdf-highlight`);
+      existingHighlights.forEach(el => el.remove());
+
+      // Get actual canvas element and its displayed size
+      const canvas = pageElement.querySelector('canvas');
+      const canvasRect = canvas?.getBoundingClientRect();
+      const displayedWidth = canvasRect?.width || viewport.width;
+      const displayedHeight = canvasRect?.height || viewport.height;
+      
+      // Calculate scale factor between viewport and displayed size
+      const scaleX = displayedWidth / viewport.width;
+      const scaleY = displayedHeight / viewport.height;
+      
+      console.log(`[PDFViewer] Viewport: ${viewport.width}x${viewport.height}, Displayed: ${displayedWidth}x${displayedHeight}, Scale: ${scaleX.toFixed(2)}x${scaleY.toFixed(2)}`);
+
+      // Create highlight overlay container that matches the displayed canvas size
+      let highlightContainer = pageElement.querySelector(`.${this.options.classPrefix}pdf-highlight-layer`) as HTMLElement;
+      if (!highlightContainer) {
+        highlightContainer = document.createElement('div');
+        highlightContainer.className = `${this.options.classPrefix}pdf-highlight-layer`;
+        highlightContainer.style.cssText = `
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 10;
+        `;
+        // Ensure page element is positioned
+        const pageStyle = window.getComputedStyle(pageElement);
+        if (pageStyle.position === 'static') {
+          (pageElement as HTMLElement).style.position = 'relative';
+        }
+        pageElement.appendChild(highlightContainer);
+      } else {
+        // Update existing container size
+        highlightContainer.style.width = '100%';
+        highlightContainer.style.height = '100%';
+      }
+
+      // Normalize search text - extract key phrases for matching
+      const normalizedSearchText = textToHighlight.toLowerCase().replace(/\s+/g, ' ').trim();
+      // Get first 100 chars for matching (RAG chunks can be long)
+      const searchPrefix = normalizedSearchText.substring(0, 100);
+      
+      console.log(`[PDFViewer] Search prefix: "${searchPrefix.substring(0, 50)}..."`);
+
+      // Build page text with position info
+      const textItems = textContent.items as Array<{
+        str: string;
+        transform: number[];
+        width: number;
+        height: number;
+      }>;
+      
+      console.log(`[PDFViewer] Page has ${textItems.length} text items`);
+
+      // Helper to create highlight element with percentage-based positioning
+      const createHighlight = (item: typeof textItems[0]) => {
+        if (!item.str || !item.transform) return;
+        
+        const [x1, y1] = viewport.convertToViewportPoint(
+          item.transform[4],
+          item.transform[5]
+        );
+        
+        const itemWidth = (item.width || 50) * this.scale;
+        const itemHeight = Math.abs(item.transform[3]) * this.scale || 14;
+        
+        // Convert to percentages for responsive scaling
+        const leftPercent = (x1 / viewport.width) * 100;
+        const topPercent = ((y1 - itemHeight) / viewport.height) * 100;
+        const widthPercent = (itemWidth / viewport.width) * 100;
+        const heightPercent = (itemHeight / viewport.height) * 100;
+        
+        const highlight = document.createElement('div');
+        highlight.className = `${this.options.classPrefix}pdf-highlight`;
+        highlight.style.cssText = `
+          position: absolute;
+          left: ${leftPercent}%;
+          top: ${topPercent}%;
+          width: ${widthPercent}%;
+          height: ${heightPercent}%;
+          background-color: rgba(255, 235, 59, 0.5);
+          mix-blend-mode: multiply;
+          border-radius: 2px;
+          pointer-events: none;
+        `;
+        
+        highlightContainer.appendChild(highlight);
+      };
+
+      // Build a map of character positions to text item indices
+      // This allows us to find exactly which text items correspond to the matched text
+      const charToItemMap: Array<{ itemIndex: number; charInItem: number }> = [];
+      let fullText = '';
+      
+      for (let i = 0; i < textItems.length; i++) {
+        const item = textItems[i];
+        if (!item.str) continue;
+        
+        // Add space between items
+        if (fullText.length > 0) {
+          charToItemMap.push({ itemIndex: -1, charInItem: 0 }); // space
+          fullText += ' ';
+        }
+        
+        // Map each character to its source item
+        for (let c = 0; c < item.str.length; c++) {
+          charToItemMap.push({ itemIndex: i, charInItem: c });
+        }
+        fullText += item.str;
+      }
+      
+      const normalizedFullText = fullText.toLowerCase().replace(/\s+/g, ' ');
+      console.log(`[PDFViewer] Full page text length: ${normalizedFullText.length}`);
+      console.log(`[PDFViewer] First 200 chars of page: "${normalizedFullText.substring(0, 200)}"`);
+
+      // Find where the search text starts in the page
+      const matchPosition = normalizedFullText.indexOf(searchPrefix.substring(0, 50).toLowerCase().replace(/\s+/g, ' '));
+      console.log(`[PDFViewer] Match position in page text: ${matchPosition}`);
+      
+      let foundMatch = false;
+      
+      if (matchPosition !== -1) {
+        // Find which text items correspond to the matched region
+        // We need to map from normalized position back to original position
+        let normalizedPos = 0;
+        let originalPos = 0;
+        
+        // Find original position corresponding to normalized match position
+        while (normalizedPos < matchPosition && originalPos < fullText.length) {
+          if (fullText[originalPos] === ' ' && (originalPos === 0 || fullText[originalPos - 1] === ' ')) {
+            // Skip extra spaces in original that were collapsed
+            originalPos++;
+          } else {
+            normalizedPos++;
+            originalPos++;
+          }
+        }
+        
+        console.log(`[PDFViewer] Original position: ${originalPos}, charToItemMap length: ${charToItemMap.length}`);
+        
+        // Get the text items that should be highlighted (covering ~chunk size)
+        const highlightedItemIndices = new Set<number>();
+        const charsToHighlight = Math.min(searchPrefix.length * 2, 300); // Highlight more than just the prefix
+        
+        for (let i = originalPos; i < Math.min(originalPos + charsToHighlight, charToItemMap.length); i++) {
+          const mapping = charToItemMap[i];
+          if (mapping && mapping.itemIndex >= 0) {
+            highlightedItemIndices.add(mapping.itemIndex);
+          }
+        }
+        
+        console.log(`[PDFViewer] Highlighting ${highlightedItemIndices.size} text items`);
+        
+        // Highlight those items
+        for (const itemIndex of highlightedItemIndices) {
+          createHighlight(textItems[itemIndex]);
+        }
+        
+        foundMatch = highlightedItemIndices.size > 0;
+      }
+
+      if (!foundMatch) {
+        console.log(`[PDFViewer] No match found - text may not be on this page`);
+      }
+
+      return foundMatch;
+    } catch (error) {
+      console.error('[PDFViewer] Error highlighting text:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Clear all highlights
+   */
+  clearHighlights(): void {
+    const highlights = this.container.querySelectorAll(`.${this.options.classPrefix}pdf-highlight`);
+    highlights.forEach(el => el.remove());
+  }
+
+  /**
    * Get current page number (based on scroll position)
    */
   getCurrentPage(): number {

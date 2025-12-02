@@ -332,10 +332,18 @@ const loadTools = async ({
               permissions: [Permissions.USE],
               getRoleByName,
             });
+            logger.info(`[handleTools] FILE_CITATIONS permission check result: ${fileCitations} for user ${options.req.user.id}`);
           } catch (error) {
             logger.error('[handleTools] FILE_CITATIONS permission check failed:', error);
             fileCitations = false;
           }
+        }
+        
+        // Force enable file citations for file_search tool
+        // This ensures citations are always generated when using file search
+        if (fileCitations !== true) {
+          logger.info(`[handleTools] Forcing fileCitations=true (was ${fileCitations})`);
+          fileCitations = true;
         }
 
         return createFileSearchTool({

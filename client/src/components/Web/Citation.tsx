@@ -4,6 +4,12 @@ import { useToastContext } from '@librechat/client';
 import type { CitationProps } from './types';
 import { SourceHovercard, FaviconImage, getCleanDomain } from '~/components/Web/SourceHovercard';
 import { CitationContext, useCitation, useCompositeCitations } from './Context';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
+import {
+  DocPreviewPanel,
+  isPreviewableFile,
+  getFileType,
+} from '~/components/Chat/Messages/Content/DocPreviewPanel';
 import { useFileDownload } from '~/data-provider';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
@@ -120,8 +126,10 @@ export function Citation(props: CitationComponentProps) {
   const localize = useLocalize();
   const user = useRecoilValue(store.user);
   const { showToast } = useToastContext();
+  const { openPanel, closePanel } = useSourcesPanel();
   const { citation, citationId } = props.node?.properties ?? {};
   const { setHoveredCitationId } = useContext(CitationContext);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const refData = useCitation({
     turn: citation?.turn || 0,
     refType: citation?.refType,
@@ -131,11 +139,112 @@ export function Citation(props: CitationComponentProps) {
   // Setup file download hook
   const isFileType = refData?.refType === 'file' && (refData as any)?.fileId;
   const isLocalFile = isFileType && (refData as any)?.metadata?.storageType === 'local';
+  const fileName = isFileType ? (refData as any)?.fileName : '';
+  const canPreview = isFileType && isPreviewableFile(fileName);
+  
+  // Get page number and content for highlighting
+  const pageNumber = isFileType ? (refData as any)?.pages?.[0] : undefined;
+  const chunkContent = isFileType ? (refData as any)?.content : undefined;
+  
   const { refetch: downloadFile } = useFileDownload(
     user?.id ?? '',
     isFileType && !isLocalFile ? (refData as any).fileId : '',
   );
 
+  // Handle file preview - opens DocPreviewPanel with page navigation and highlighting
+  const handleFilePreview = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!isFileType || !(refData as any)?.fileId || !canPreview) return;
+
+      if (isLocalFile) {
+        showToast({
+          status: 'error',
+          message: localize('com_sources_download_local_unavailable'),
+        });
+        return;
+      }
+
+      setIsLoadingPreview(true);
+
+      try {
+        const stream = await downloadFile();
+        if (stream.data == null || stream.data === '') {
+          console.error('Error loading file for preview: No data found');
+          showToast({
+            status: 'error',
+            message: localize('com_ui_download_error'),
+          });
+          return;
+        }
+
+        // Convert blob URL to ArrayBuffer
+        const fetchResponse = await fetch(stream.data);
+        const blob = await fetchResponse.blob();
+        const buffer = await blob.arrayBuffer();
+
+        if (buffer.byteLength === 0) {
+          throw new Error('Empty file');
+        }
+
+        const fileType = getFileType(fileName);
+        if (!fileType) {
+          throw new Error('Unsupported file type');
+        }
+
+        // Get highlight text only for PDFs
+        const highlightText = fileType === 'pdf' ? chunkContent : undefined;
+
+        // Create a callback for the panel to set header actions
+        const handleSetHeaderActions = (actions: React.ReactNode) => {
+          openPanel(
+            fileName,
+            <DocPreviewPanel
+              fileType={fileType}
+              buffer={buffer}
+              filename={fileName}
+              onClose={closePanel}
+              initialPage={pageNumber}
+              highlightText={highlightText}
+            />,
+            'push',
+            actions,
+          );
+        };
+
+        // Open the preview panel with initial page and highlight
+        openPanel(
+          fileName,
+          <DocPreviewPanel
+            fileType={fileType}
+            buffer={buffer}
+            filename={fileName}
+            onClose={closePanel}
+            onSetHeaderActions={handleSetHeaderActions}
+            initialPage={pageNumber}
+            highlightText={highlightText}
+          />,
+          'push',
+        );
+
+        // Clean up blob URL
+        window.URL.revokeObjectURL(stream.data);
+      } catch (error) {
+        console.error('Error loading file for preview:', error);
+        showToast({
+          status: 'error',
+          message: localize('com_sources_download_failed'),
+        });
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    },
+    [downloadFile, isFileType, isLocalFile, canPreview, fileName, pageNumber, chunkContent, openPanel, closePanel, localize, showToast],
+  );
+
+  // Handle file download (fallback for non-previewable files)
   const handleFileDownload = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
@@ -143,7 +252,6 @@ export function Citation(props: CitationComponentProps) {
 
       if (!isFileType || !(refData as any)?.fileId) return;
 
-      // Don't allow download for local files
       if (isLocalFile) {
         showToast({
           status: 'error',
@@ -164,7 +272,7 @@ export function Citation(props: CitationComponentProps) {
         }
         const link = document.createElement('a');
         link.href = stream.data;
-        link.setAttribute('download', (refData as any).fileName || 'file');
+        link.setAttribute('download', fileName || 'file');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -177,7 +285,19 @@ export function Citation(props: CitationComponentProps) {
         });
       }
     },
-    [downloadFile, isFileType, isLocalFile, refData, localize, showToast],
+    [downloadFile, isFileType, isLocalFile, fileName, localize, showToast],
+  );
+
+  // Choose handler based on whether file can be previewed
+  const handleFileClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (canPreview) {
+        handleFilePreview(e);
+      } else {
+        handleFileDownload(e);
+      }
+    },
+    [canPreview, handleFilePreview, handleFileDownload],
   );
 
   if (!refData) return null;
@@ -197,9 +317,10 @@ export function Citation(props: CitationComponentProps) {
       label={getCitationLabel()}
       onMouseEnter={() => setHoveredCitationId(citationId || null)}
       onMouseLeave={() => setHoveredCitationId(null)}
-      onClick={isFileType && !isLocalFile ? handleFileDownload : undefined}
+      onClick={isFileType && !isLocalFile ? handleFileClick : undefined}
       isFile={isFileType}
       isLocalFile={isLocalFile}
+      isLoading={isLoadingPreview}
     />
   );
 }
