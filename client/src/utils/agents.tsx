@@ -1,6 +1,6 @@
 import React from 'react';
-import { Bot } from 'lucide-react';
 import type t from 'librechat-data-provider';
+import { FALLBACK_AGENT_ICON_URL } from '~/components/Endpoints/DefaultAgentIcon';
 
 /**
  * Extracts the avatar URL from an agent's avatar property
@@ -75,7 +75,7 @@ export const renderAgentAvatar = (
     );
   }
 
-  // Fallback placeholder with Bot icon
+  // Fallback placeholder with default agent icon
   return (
     <div className={`relative flex items-center justify-center ${sizeClasses[size]} ${className}`}>
       {/* Subtle minimalistic placeholder */}
@@ -83,7 +83,11 @@ export const renderAgentAvatar = (
       <div
         className={`relative flex items-center justify-center rounded-full ${placeholderSizeClasses[size]}`}
       >
-        <Bot className={`text-text-primary ${iconSizeClasses[size]}`} strokeWidth={1.5} />
+        <img 
+          src={FALLBACK_AGENT_ICON_URL} 
+          alt="Agent" 
+          className={`${iconSizeClasses[size]}`}
+        />
       </div>
     </div>
   );

@@ -562,6 +562,12 @@ const customLogoSchema = z.object({
 
 export type TCustomLogo = z.infer<typeof customLogoSchema>;
 
+const defaultAgentIconSchema = z.object({
+  iconUrl: z.string().optional(),
+});
+
+export type TDefaultAgentIcon = z.infer<typeof defaultAgentIconSchema>;
+
 const themeColorsSchema = z.object({
   primary: z.string().optional(),
   primaryHover: z.string().optional(),
@@ -572,6 +578,7 @@ export type TThemeColors = z.infer<typeof themeColorsSchema>;
 export const interfaceSchema = z
   .object({
     customLogo: customLogoSchema.optional(),
+    defaultAgentIcon: defaultAgentIconSchema.optional(),
     themeColors: themeColorsSchema.optional(),
     privacyPolicy: z
       .object({

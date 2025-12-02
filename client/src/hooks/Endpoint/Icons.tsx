@@ -1,4 +1,3 @@
-import { Feather } from 'lucide-react';
 import { EModelEndpoint } from 'librechat-data-provider';
 import {
   MinimalPlugin,
@@ -13,6 +12,7 @@ import {
   Sparkles,
 } from '@librechat/client';
 import type { IconMapProps, AgentIconMapProps, IconsRecord } from '~/common';
+import { DefaultAgentIcon } from '~/components/Endpoints/DefaultAgentIcon';
 import UnknownIcon from './UnknownIcon';
 import { cn } from '~/utils';
 
@@ -40,7 +40,7 @@ const AssistantAvatar = ({
   return <Sparkles className={cn(context === 'landing' ? 'icon-2xl' : '', className)} />;
 };
 
-const AgentAvatar = ({ className = '', avatar = '', agentName, size }: AgentIconMapProps) => {
+const AgentAvatar = ({ className = '', avatar = '', agentName, size, iconURL }: AgentIconMapProps) => {
   if (agentName != null && agentName && avatar) {
     return (
       <img
@@ -53,10 +53,21 @@ const AgentAvatar = ({ className = '', avatar = '', agentName, size }: AgentIcon
     );
   }
 
-  return <Feather className={cn(agentName === '' ? 'icon-2xl' : '', className)} size={size} />;
+  // Use default agent icon - iconURL from endpoint config or fallback
+  return <DefaultAgentIcon iconURL={iconURL} />;
 };
 
-const Bedrock = ({ className = '' }: IconMapProps) => {
+const Bedrock = ({ className = '', iconURL }: IconMapProps) => {
+  // Use custom icon from endpoint config if provided
+  if (iconURL && iconURL.startsWith('/')) {
+    return (
+      <img
+        src={iconURL}
+        alt="Bedrock"
+        className={cn('h-full w-full object-contain', className)}
+      />
+    );
+  }
   return <BedrockIcon className={cn(className, 'h-full w-full')} />;
 };
 

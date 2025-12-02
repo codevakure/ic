@@ -1,0 +1,12 @@
+<svg width="500" height="506" viewBox="0 0 500 506" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Subtle red gradient for the star -->
+  <radialGradient id="starGradient" cx="50%" cy="40%" r="60%">
+    <stop offset="0%" style="stop-color:#E85A4F;stop-opacity:1" />
+    <stop offset="70%" style="stop-color:#CC0000;stop-opacity:1" />
+    <stop offset="100%" style="stop-color:#B30000;stop-opacity:1" />
+  </radialGradient>
+</defs>
+<path d="M368.13 234.68H283.63L250.93 147.36L218.23 234.68H133.73L202.68 286.69L169.98 373.94L250.93 321.59L331.88 373.94L299.18 286.69L368.13 234.68Z" fill="url(#starGradient)"/>
+<path d="M249.536 20.6453C311.224 20.6453 369.202 44.5751 412.801 88.681C456.401 132.318 480.056 190.969 480.056 253.374C480.056 315.78 456.401 373.962 412.801 417.599C369.666 461.235 311.688 485.165 250 485.165C188.312 485.165 130.334 460.766 87.1985 417.129C44.0631 373.493 20.4082 314.841 20.4082 251.967C20.4082 124.341 122.913 20.6453 249.536 20.6453ZM249.072 0C112.245 0 0 113.549 0 251.967C0 393.2 110.853 505.341 250 505.81C388.219 505.81 499.536 393.199 500 253.374C500 113.08 388.219 0 249.072 0Z" fill="#9CA3AF" stroke="#9CA3AF" stroke-width="12"/>
+</svg>

@@ -107,6 +107,7 @@ endpoints:
   agents:
     recursionLimit: 50
     maxRecursionLimit: 100
+    iconURL: "/assets/default-agent-icon.svg"
     disableBuilder: false
     maxCitations: 30
     maxCitationsPerFile: 7

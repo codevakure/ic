@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { UserIcon } from '@librechat/client';
+import { getEndpointField, EModelEndpoint } from 'librechat-data-provider';
 import type { TMessage, Assistant, Agent } from 'librechat-data-provider';
 import type { TMessageProps } from '~/common';
 import MessageEndpointIcon from '../Endpoints/MessageEndpointIcon';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';
+import { useGetEndpointsQuery } from '~/data-provider';
 import { getIconEndpoint, logger } from '~/utils';
 
 export default function MessageIcon(
@@ -13,6 +15,7 @@ export default function MessageIcon(
   },
 ) {
   const { message, conversation, assistant, agent } = props;
+  const { data: endpointsConfig } = useGetEndpointsQuery();
 
   const messageSettings = useMemo(
     () => ({
@@ -27,7 +30,14 @@ export default function MessageIcon(
 
   const iconURL = messageSettings.iconURL ?? '';
   let endpoint = messageSettings.endpoint;
-  endpoint = getIconEndpoint({ endpointsConfig: undefined, iconURL, endpoint });
+  endpoint = getIconEndpoint({ endpointsConfig, iconURL, endpoint });
+  
+  // Get the endpoint config iconURL (e.g., from ranger.yaml endpoints.agents.iconURL)
+  const endpointIconURL = useMemo(
+    () => getEndpointField(endpointsConfig, endpoint, 'iconURL') ?? '',
+    [endpointsConfig, endpoint],
+  );
+  
   const assistantName = (assistant ? assistant.name : '') ?? '';
   const assistantAvatar = (assistant ? assistant.metadata?.avatar : '') ?? '';
   const agentName = (agent ? agent.name : '') ?? '';
@@ -44,6 +54,7 @@ export default function MessageIcon(
   logger.log('MessageIcon', {
     endpoint,
     iconURL,
+    endpointIconURL,
     assistantName,
     assistantAvatar,
     agentName,
@@ -59,6 +70,7 @@ export default function MessageIcon(
         assistantName={assistantName}
         agentAvatar={agentAvatar}
         agentName={agentName}
+        endpointIconURL={endpointIconURL}
       />
     );
   }
@@ -83,7 +95,7 @@ export default function MessageIcon(
     <MessageEndpointIcon
       {...messageSettings}
       endpoint={endpoint}
-      iconURL={avatarURL}
+      iconURL={avatarURL || endpointIconURL}
       model={message?.model ?? conversation?.model}
       assistantName={assistantName}
       agentName={agentName}

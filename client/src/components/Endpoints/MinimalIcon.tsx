@@ -1,4 +1,3 @@
-import { Feather } from 'lucide-react';
 import { EModelEndpoint, alternateName } from 'librechat-data-provider';
 import {
   AzureMinimalIcon,
@@ -11,6 +10,7 @@ import {
   BedrockIcon,
   Sparkles,
 } from '@librechat/client';
+import { FALLBACK_AGENT_ICON_URL } from '~/components/Endpoints/DefaultAgentIcon';
 import UnknownIcon from '~/hooks/Endpoint/UnknownIcon';
 import { IconProps } from '~/common';
 import { cn } from '~/utils';
@@ -75,11 +75,13 @@ const MinimalIcon: React.FC<IconProps> = (props) => {
       name: getDisplayName('Assistant'),
     },
     [EModelEndpoint.agents]: {
-      icon: <Feather className="icon-sm" />,
+      icon: <img src={iconURL || FALLBACK_AGENT_ICON_URL} alt="" className="icon-sm object-contain" />,
       name: getDisplayName(alternateName[EModelEndpoint.agents] as string),
     },
     [EModelEndpoint.bedrock]: {
-      icon: <BedrockIcon className="icon-xl text-text-primary" />,
+      icon: iconURL && iconURL.startsWith('/') 
+        ? <CustomIconFromURL iconURL={iconURL} alt="Bedrock" />
+        : <BedrockIcon className="icon-xl text-text-primary" />,
       name: getDisplayName(alternateName[EModelEndpoint.bedrock] as string),
     },
     default: {
