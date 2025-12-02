@@ -123,7 +123,7 @@ async function validateOpenAIPdf(
   fileSize: number,
   configuredFileSizeLimit?: number,
 ): Promise<PDFValidationResult> {
-  const providerLimit = mbToBytes(10);
+  const providerLimit = mbToBytes(20);
   const effectiveLimit = configuredFileSizeLimit ?? providerLimit;
 
   if (fileSize > effectiveLimit) {

@@ -730,12 +730,46 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
   let extractedText = null;
   let embedded = false;
 
+  // File types routed to execute_code that don't need RAG text extraction
+  // These are better analyzed programmatically than with semantic search
+  const skipEmbeddingExtensions = [
+    // Spreadsheets - pandas/openpyxl handles these better
+    '.xlsx', '.xls', '.csv', '.tsv',
+    // Structured data - code parsing is more accurate
+    '.json', '.xml', '.yaml', '.yml',
+    // Archives - need code to extract
+    '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar',
+    // Code files - code execution/analysis is better than semantic search
+    '.py', '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+    '.java', '.c', '.cpp', '.h', '.hpp', '.cs',
+    '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala',
+    '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd',
+    '.sql', '.r', '.m', '.jl',
+    '.html', '.css', '.scss', '.sass', '.less',
+    '.vue', '.svelte', '.astro',
+    // Config files
+    '.toml', '.ini', '.cfg', '.conf', '.env',
+    // Notebooks
+    '.ipynb',
+  ];
+  const isCodeOrDataFile = skipEmbeddingExtensions.some(ext => 
+    file.originalname.toLowerCase().endsWith(ext)
+  );
+  const isExecuteCodeFile = tool_resource === EToolResources.execute_code && isCodeOrDataFile;
+
   // Extract text for:
   // 1. file_search tool resources (explicit file search uploads)
   // 2. message attachments that are documents (not images) - so LLM can read them
+  // SKIP: Code/data files routed to execute_code (code executor reads them directly)
   const shouldExtractText = 
-    tool_resource === EToolResources.file_search || 
-    (messageAttachment && !isImageFile);
+    !isExecuteCodeFile && (
+      tool_resource === EToolResources.file_search || 
+      (messageAttachment && !isImageFile)
+    );
+
+  if (isExecuteCodeFile) {
+    logger.info(`[processAgentFileUpload] Skipping text extraction for ${file.originalname} - code/data file routed to execute_code`);
+  }
 
   if (shouldExtractText) {
     // Check if RAG API is available

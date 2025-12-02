@@ -520,13 +520,24 @@ const CHART_VISUALIZATION_PATTERNS = [
  * Generate clarification prompt when REGEX selects multiple tools
  * This is for HIGH confidence cases where regex is certain but tools conflict
  * LOW confidence cases fall back to LLM which handles its own clarification
+ * 
+ * NOTE: We do NOT generate clarifications when tools are selected based on attached files.
+ * File-based tool selection should be automatic - the system knows SQL/Excel needs code executor
+ * and Word docs need file search, so it should just use all appropriate tools.
  */
 function generateMultiToolClarification(
   query: string,
   selectedTools: Tool[],
   confidence: number,
   availableTools: Tool[],
+  attachmentToolsCount: number = 0,
 ): { prompt: string; options: string[] } | null {
+  // IMPORTANT: Never ask for clarification when tools were selected based on file attachments
+  // The system should automatically use the right tools for the file types
+  if (attachmentToolsCount > 0) {
+    return null;
+  }
+  
   const hasCodeInterpreter = selectedTools.some(t => t === Tool.CODE_INTERPRETER);
   const hasArtifacts = selectedTools.some(t => t === Tool.ARTIFACTS);
   const artifactsAvailable = availableTools.includes(Tool.ARTIFACTS);
@@ -678,7 +689,14 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestSelectedScore, 0.3);
 
   // Step 6: Check if clarification is needed (e.g., charts can use either artifacts or execute_code)
-  const multiToolClarification = generateMultiToolClarification(query, selectedTools, confidence, availableTools);
+  // Pass attachmentTools.length so we skip clarification when tools were selected based on file types
+  const multiToolClarification = generateMultiToolClarification(
+    query, 
+    selectedTools, 
+    confidence, 
+    availableTools,
+    attachmentTools.length
+  );
 
   // Return result with optional clarification
   // - If confidence >= 0.4 and multiple tools: regex handles clarification

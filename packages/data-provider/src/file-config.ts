@@ -137,10 +137,10 @@ export const excelMimeTypes =
   /^application\/(vnd\.ms-excel|msexcel|x-msexcel|x-ms-excel|x-excel|x-dos_ms_excel|xls|x-xls|vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/;
 
 export const textMimeTypes =
-  /^(text\/(x-c|x-csharp|tab-separated-values|x-c\+\+|x-h|x-java|html|markdown|x-php|x-python|x-script\.python|x-ruby|x-tex|plain|css|vtt|javascript|csv|xml))$/;
+  /^(text\/(x-c|x-csharp|tab-separated-values|x-c\+\+|x-h|x-java|html|markdown|x-php|x-python|x-script\.python|x-ruby|x-tex|plain|css|vtt|javascript|csv|xml|x-go|x-rust|x-swift|x-kotlin|x-scala|x-groovy|x-r|x-matlab|x-julia|x-ini|x-scss|x-sass|x-less|x-vue|x-svelte|x-sql|x-sh))$/;
 
 export const applicationMimeTypes =
-  /^(application\/(epub\+zip|csv|json|pdf|x-tar|typescript|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|presentationml\.presentation|spreadsheetml\.sheet)|xml|zip))$/;
+  /^(application\/(epub\+zip|csv|json|pdf|x-tar|typescript|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|presentationml\.presentation|spreadsheetml\.sheet)|xml|zip|graphql|toml|x-yaml|x-sh|x-bat|x-powershell|gzip|x-7z-compressed|x-rar-compressed|x-ipynb\+json))$/;
 
 export const imageMimeTypes = /^image\/(jpeg|gif|png|webp|heic|heif)$/;
 
@@ -180,24 +180,86 @@ export const codeInterpreterMimeTypes = [
 ];
 
 export const codeTypeMapping: { [key: string]: string } = {
+  // C/C++ family
   c: 'text/x-c',
   cs: 'text/x-csharp',
   cpp: 'text/x-c++',
   h: 'text/x-h',
-  md: 'text/markdown',
-  php: 'text/x-php',
+  hpp: 'text/x-c++',
+  
+  // Web languages
+  js: 'text/javascript',
+  jsx: 'text/javascript',
+  ts: 'application/typescript',
+  tsx: 'application/typescript',
+  mjs: 'text/javascript',
+  cjs: 'text/javascript',
+  css: 'text/css',
+  scss: 'text/x-scss',
+  sass: 'text/x-sass',
+  less: 'text/x-less',
+  html: 'text/html',
+  htm: 'text/html',
+  vue: 'text/x-vue',
+  svelte: 'text/x-svelte',
+  
+  // Scripting languages
   py: 'text/x-python',
   rb: 'text/x-ruby',
-  tex: 'text/x-tex',
-  js: 'text/javascript',
+  php: 'text/x-php',
   sh: 'application/x-sh',
-  ts: 'application/typescript',
-  tar: 'application/x-tar',
-  zip: 'application/zip',
+  bash: 'application/x-sh',
+  zsh: 'application/x-sh',
+  bat: 'application/x-bat',
+  cmd: 'application/x-bat',
+  ps1: 'application/x-powershell',
+  
+  // JVM languages
+  java: 'text/x-java',
+  kt: 'text/x-kotlin',
+  scala: 'text/x-scala',
+  groovy: 'text/x-groovy',
+  
+  // Systems languages
+  go: 'text/x-go',
+  rs: 'text/x-rust',
+  swift: 'text/x-swift',
+  
+  // Data/Query languages
+  sql: 'text/x-sql',
+  graphql: 'application/graphql',
+  gql: 'application/graphql',
+  r: 'text/x-r',
+  m: 'text/x-matlab',
+  jl: 'text/x-julia',
+  
+  // Markup/Config
+  md: 'text/markdown',
+  tex: 'text/x-tex',
+  xml: 'application/xml',
+  json: 'application/json',
+  jsonc: 'application/json',
   yml: 'application/x-yaml',
   yaml: 'application/x-yaml',
+  toml: 'application/toml',
+  ini: 'text/x-ini',
+  cfg: 'text/x-ini',
+  conf: 'text/x-ini',
+  env: 'text/plain',
+  
+  // Archives
+  tar: 'application/x-tar',
+  zip: 'application/zip',
+  gz: 'application/gzip',
+  tgz: 'application/gzip',
+  '7z': 'application/x-7z-compressed',
+  rar: 'application/x-rar-compressed',
+  
+  // Other
   log: 'text/plain',
   tsv: 'text/tab-separated-values',
+  csv: 'text/csv',
+  ipynb: 'application/x-ipynb+json',
 };
 
 export const retrievalMimeTypes = [

@@ -7,6 +7,11 @@ import { processTextWithTokenLimit } from '~/utils/text';
 /**
  * Extracts text context from attachments and returns formatted text.
  * This handles text that was already extracted from files (OCR, transcriptions, document text, etc.)
+ * 
+ * IMPORTANT: Files routed to execute_code are NOT included in text context.
+ * The code executor will read these files directly, so adding them to context
+ * would be redundant and waste tokens.
+ * 
  * @param params - The parameters object
  * @param params.attachments - Array of file attachments
  * @param params.req - Express request object for config access
@@ -38,6 +43,17 @@ export async function extractFileContext({
 
   for (const file of attachments) {
     const source = file.source ?? FileSources.local;
+    
+    // Skip files routed to execute_code - the code executor will read them directly
+    // Adding them to context would be redundant and waste tokens
+    const toolResource = file.metadata?.tool_resource;
+    if (toolResource === 'execute_code') {
+      logger.debug(
+        `[extractFileContext] Skipping file ${file.filename} - routed to execute_code tool`,
+      );
+      continue;
+    }
+    
     // Process files with text content - either from FileSources.text OR from file_search extraction
     // This allows file_search files to provide immediate context while embedding happens in background
     if (file.text && file.text.length > 0) {

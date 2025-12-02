@@ -24,6 +24,8 @@ export interface IMongoFile extends Omit<Document, 'model'> {
     strategies?: string[];
     /** RAG embedding status: pending, processing, completed, failed */
     ragStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+    /** Tool resource assignment: execute_code, file_search */
+    tool_resource?: 'execute_code' | 'file_search';
   };
   expiresAt?: Date;
   createdAt?: Date;

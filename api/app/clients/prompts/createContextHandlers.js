@@ -46,7 +46,53 @@ function createContextHandlers(req, userMessageContent) {
     );
   };
 
+  // File types that should skip RAG queries (better handled by code execution)
+  // These file types are better analyzed programmatically than with semantic search
+  const skipRagExtensions = [
+    // Spreadsheets - pandas/openpyxl handles these better
+    '.xlsx', '.xls', '.csv', '.tsv',
+    // Structured data - code parsing is more accurate
+    '.json', '.xml', '.yaml', '.yml',
+    // Archives - need code to extract
+    '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar',
+    // Code files - code execution/analysis is better than semantic search
+    '.py', '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+    '.java', '.c', '.cpp', '.h', '.hpp', '.cs',
+    '.go', '.rs', '.rb', '.php', '.swift', '.kt', '.scala',
+    '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd',
+    '.sql', '.r', '.m', '.jl',
+    '.html', '.css', '.scss', '.sass', '.less',
+    '.vue', '.svelte', '.astro',
+    // Config files
+    '.toml', '.ini', '.cfg', '.conf', '.env',
+    // Notebooks
+    '.ipynb',
+  ];
+  
+  const shouldSkipRag = (file) => {
+    const filename = file.filename?.toLowerCase() || '';
+    const toolResource = file.metadata?.tool_resource;
+    
+    // Skip RAG for code/data files routed to execute_code
+    // These are better analyzed programmatically than with semantic search
+    if (toolResource === 'execute_code') {
+      const shouldSkip = skipRagExtensions.some(ext => filename.endsWith(ext));
+      if (shouldSkip) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const processFile = async (file) => {
+    // Skip RAG for code/data files routed to code execution
+    if (shouldSkipRag(file)) {
+      logger.debug(
+        `[createContextHandlers] Skipping RAG for ${file.filename} - code/data file routed to execute_code`
+      );
+      return;
+    }
+    
     // Log file status for debugging context source
     logger.debug(
       `[createContextHandlers] Processing file: ${file.filename} | ` +

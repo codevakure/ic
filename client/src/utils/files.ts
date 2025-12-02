@@ -12,6 +12,16 @@ import {
   PPTPaths,
   ZipPaths,
   HTMLPaths,
+  PythonPaths,
+  JavaScriptPaths,
+  TypeScriptPaths,
+  SQLPaths,
+  JSONPaths,
+  CSSPaths,
+  MarkdownPaths,
+  YAMLPaths,
+  ShellPaths,
+  XMLPaths,
 } from '@librechat/client';
 import {
   megabyte,
@@ -76,9 +86,69 @@ const zipFile = {
 };
 
 const codeFile = {
-  paths: HTMLPaths,
-  fill: 'transparent',
+  paths: CodePaths,
+  fill: '#2D305C',
   title: 'Code',
+};
+
+const pythonFile = {
+  paths: PythonPaths,
+  fill: 'transparent',
+  title: 'Python',
+};
+
+const javascriptFile = {
+  paths: JavaScriptPaths,
+  fill: 'transparent',
+  title: 'JavaScript',
+};
+
+const typescriptFile = {
+  paths: TypeScriptPaths,
+  fill: 'transparent',
+  title: 'TypeScript',
+};
+
+const sqlFile = {
+  paths: SQLPaths,
+  fill: 'transparent',
+  title: 'SQL',
+};
+
+const jsonFile = {
+  paths: JSONPaths,
+  fill: 'transparent',
+  title: 'JSON',
+};
+
+const cssFile = {
+  paths: CSSPaths,
+  fill: 'transparent',
+  title: 'CSS',
+};
+
+const markdownFile = {
+  paths: MarkdownPaths,
+  fill: 'transparent',
+  title: 'Markdown',
+};
+
+const yamlFile = {
+  paths: YAMLPaths,
+  fill: 'transparent',
+  title: 'YAML',
+};
+
+const shellFile = {
+  paths: ShellPaths,
+  fill: 'transparent',
+  title: 'Shell Script',
+};
+
+const xmlFile = {
+  paths: XMLPaths,
+  fill: 'transparent',
+  title: 'XML',
 };
 
 const audioFile = {
@@ -145,46 +215,87 @@ export const fileTypes: Record<string, { paths: React.FC; fill: string; title: s
   xls: spreadsheet,
   ods: spreadsheet,
 
-  /* Code Files */
-  'text/javascript': codeFile,
-  'application/javascript': codeFile,
-  'text/typescript': codeFile,
-  'application/typescript': codeFile,
-  'text/x-': codeFile,
-  'application/json': codeFile,
-  'text/css': codeFile,
-  'text/xml': codeFile,
-  'application/xml': codeFile,
-  'application/sql': codeFile,
-  'text/sql': codeFile,
-  js: codeFile,
-  ts: codeFile,
-  jsx: codeFile,
-  tsx: codeFile,
-  json: codeFile,
-  css: codeFile,
-  xml: codeFile,
-  py: codeFile,
+  /* Code Files - Language-specific icons */
+  'text/javascript': javascriptFile,
+  'application/javascript': javascriptFile,
+  'text/typescript': typescriptFile,
+  'application/typescript': typescriptFile,
+  'text/x-python': pythonFile,
+  'application/x-python': pythonFile,
+  'application/json': jsonFile,
+  'text/css': cssFile,
+  'text/xml': xmlFile,
+  'application/xml': xmlFile,
+  'application/sql': sqlFile,
+  'text/sql': sqlFile,
+  'text/x-sql': sqlFile,
+  'text/markdown': markdownFile,
+  'text/x-markdown': markdownFile,
+  'text/yaml': yamlFile,
+  'application/x-yaml': yamlFile,
+  'text/x-sh': shellFile,
+  'application/x-sh': shellFile,
+  
+  /* Extension-based mappings - Language-specific */
+  js: javascriptFile,
+  mjs: javascriptFile,
+  cjs: javascriptFile,
+  jsx: javascriptFile,
+  ts: typescriptFile,
+  tsx: typescriptFile,
+  mts: typescriptFile,
+  cts: typescriptFile,
+  py: pythonFile,
+  pyw: pythonFile,
+  pyi: pythonFile,
+  json: jsonFile,
+  jsonc: jsonFile,
+  json5: jsonFile,
+  css: cssFile,
+  scss: cssFile,
+  sass: cssFile,
+  less: cssFile,
+  xml: xmlFile,
+  xsl: xmlFile,
+  xslt: xmlFile,
+  sql: sqlFile,
+  md: markdownFile,
+  mdx: markdownFile,
+  markdown: markdownFile,
+  yaml: yamlFile,
+  yml: yamlFile,
+  sh: shellFile,
+  bash: shellFile,
+  zsh: shellFile,
+  fish: shellFile,
+  
+  /* Other code files - Generic code icon */
+  'text/x-': codeFile, // Fallback for text/x-* MIME types
   java: codeFile,
   c: codeFile,
   cpp: codeFile,
   h: codeFile,
+  hpp: codeFile,
   php: codeFile,
   rb: codeFile,
   go: codeFile,
   rs: codeFile,
   swift: codeFile,
   kt: codeFile,
-  sql: codeFile,
-  sh: codeFile,
   bat: codeFile,
   ps1: codeFile,
-  md: codeFile,
-  yaml: codeFile,
-  yml: codeFile,
   toml: codeFile,
   ini: codeFile,
   conf: codeFile,
+  r: codeFile,
+  R: codeFile,
+  lua: codeFile,
+  perl: codeFile,
+  pl: codeFile,
+  scala: codeFile,
+  dart: codeFile,
+  vue: codeFile,
+  svelte: codeFile,
   
   /* Special files */
   artifact: artifact,

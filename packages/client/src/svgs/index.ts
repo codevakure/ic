@@ -67,11 +67,11 @@ export { default as VectorIcon } from './VectorIcon';
 export { default as SquirclePlusIcon } from './SquirclePlusIcon';
 
 // File type icons - use these for specific file types
-export { default as CodePaths } from './CodePaths';           // .js, .ts, .py, .java, .cpp, etc.
+export { default as CodePaths } from './CodePaths';           // Generic code files
 export { default as FileIcon } from './FileIcon';             // Generic file icon
 export { default as FilePaths } from './FilePaths';           // Generic file paths
 export { default as SheetPaths } from './SheetPaths';         // Generic spreadsheet
-export { default as TextPaths } from './TextPaths';           // .txt, .md, .log files
+export { default as TextPaths } from './TextPaths';           // .txt, .log files
 export { default as DocumentPaths } from './DocumentPaths';   // .doc, .docx, Word documents
 export { default as PDFPaths } from './PDFPaths';             // .pdf files
 export { default as CSVPaths } from './CSVPaths';             // .csv files
@@ -81,6 +81,18 @@ export { default as ZipPaths } from './ZipPaths';             // .zip, .rar, .7z
 export { default as HTMLPaths } from './HTMLPaths';           // .html, .htm files
 export { default as AudioPaths } from './AudioPaths';         // .mp3, .wav, .ogg, audio files
 export { default as VideoPaths } from './VideoPaths';         // .mp4, .avi, .mov, video files
+
+// Programming language-specific icons
+export { default as PythonPaths } from './PythonPaths';       // .py files
+export { default as JavaScriptPaths } from './JavaScriptPaths'; // .js, .jsx, .mjs files
+export { default as TypeScriptPaths } from './TypeScriptPaths'; // .ts, .tsx files
+export { default as SQLPaths } from './SQLPaths';             // .sql files
+export { default as JSONPaths } from './JSONPaths';           // .json files
+export { default as CSSPaths } from './CSSPaths';             // .css, .scss, .sass, .less files
+export { default as MarkdownPaths } from './MarkdownPaths';   // .md, .mdx files
+export { default as YAMLPaths } from './YAMLPaths';           // .yml, .yaml files
+export { default as ShellPaths } from './ShellPaths';         // .sh, .bash, .zsh files
+export { default as XMLPaths } from './XMLPaths';             // .xml files
 
 // Integration icons
 export { default as SharePointIcon } from './SharePointIcon';

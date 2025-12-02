@@ -54,7 +54,7 @@ const ViewAllConversationsLink = memo(({ toggleNav }: { toggleNav: () => void })
   return (
     <button
       onClick={handleClick}
-      className="flex w-full items-center justify-center gap-1 border-t border-border-light py-2.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+      className="flex w-full items-center justify-center gap-1 border-t border-border-light pt-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
     >
       All conversations
     </button>

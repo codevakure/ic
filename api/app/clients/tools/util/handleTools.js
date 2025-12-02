@@ -508,6 +508,24 @@ Current Date & Time: ${replaceSpecialVars({ text: '{{iso_datetime}}' })}
     }
   }
   loadedTools.push(...(await Promise.all(mcpToolPromises)).flatMap((plugin) => plugin || []));
+
+  // Add instruction when both execute_code and file_search have context (multiple file types uploaded)
+  const hasCodeContext = !!toolContextMap[Tools.execute_code];
+  const hasSearchContext = !!toolContextMap[Tools.file_search];
+  if (hasCodeContext && hasSearchContext) {
+    // Prepend a combined instruction to guide the LLM
+    const combinedInstruction = `## Multiple File Types Detected
+The user has uploaded different types of files that require different tools:
+- **Data/Code files** (Excel, CSV, SQL, JSON, Python, etc.) → Use the "${Tools.execute_code}" tool to read and analyze
+- **Documents** (Word, PDF, text files) → Use the "${Tools.file_search}" tool to search content
+
+When the user asks to summarize, analyze, or work with "all files" or "these files", you MUST use BOTH tools to cover all uploaded files. Do not skip any files.
+
+`;
+    // Add to the beginning of execute_code context since it comes first
+    toolContextMap[Tools.execute_code] = combinedInstruction + toolContextMap[Tools.execute_code];
+  }
+
   return { loadedTools, toolContextMap };
 };
 

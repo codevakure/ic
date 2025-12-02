@@ -421,6 +421,11 @@ const primeFiles = async (options, apiKey) => {
     }
   }
 
+  // Add instruction to USE the code executor for these files
+  if (toolContext && files.length > 0) {
+    toolContext += `\n\n**IMPORTANT**: To read, analyze, or process these files (SQL, Excel, CSV, JSON, Python, etc.), you MUST use the "${Tools.execute_code}" tool. These files are NOT available through file_search - they can only be accessed by executing code. Write Python code to load and analyze them.`;
+  }
+
   logger.info(`[primeFiles] Completed. Files ready: ${files.length}, toolContext: ${toolContext ? 'yes' : 'no'}`);
   return { files, toolContext };
 };
