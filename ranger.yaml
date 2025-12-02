@@ -52,6 +52,8 @@ interface:
     users: true
     groups: true
     roles: true
+  marketplace:
+    use: true
   fileCitations: true
 
 # Registration settings

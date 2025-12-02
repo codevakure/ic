@@ -253,7 +253,7 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
               )}
 
               {/* Main content area */}
-              <div className="flex flex-1 flex-col gap-6 px-6 pb-5 pt-6">
+              <div className="flex flex-1 flex-col gap-2 px-6 pb-5 pt-6">
                 {/* Header row - Title + Search + Admin */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
