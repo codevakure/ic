@@ -4,6 +4,7 @@
 data-node
 meili_data*
 data/
+!packages/doc-viewer/src/excel/data/
 logs
 *.log
 

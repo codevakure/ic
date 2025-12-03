@@ -87,6 +87,7 @@ export async function analyzeQuery(options: UnifiedAnalysisOptions): Promise<Uni
   // 3. Query isn't a simple greeting/acknowledgment (don't waste LLM on these trivial responses)
   // 4. Special case: Short queries (<=5 chars) with conversation history need LLM for context
   // 5. Selection responses (1, 2, A, B, etc.) need LLM to understand context
+  // 6. Queries with pronouns referring to previous context ("it", "this", "that", "them", etc.)
   //
   // NOTE: We do NOT trigger LLM fallback just because model category is 'general'.
   // The model routing score-based tier selection is already reliable enough.
@@ -99,8 +100,13 @@ export async function analyzeQuery(options: UnifiedAnalysisOptions): Promise<Uni
   // Short queries with conversation history likely need context understanding
   const needsContextFromHistory = query.length <= 5 && conversationHistory && conversationHistory.length > 0;
   
+  // Detect queries that reference previous context using pronouns or demonstratives
+  // These need LLM to understand what "it", "this", "that", etc. refer to
+  const hasContextualReference = conversationHistory && conversationHistory.length > 0 && 
+    /\b(it|this|that|these|those|them|the page|the article|the url|the link|the site|from it|about it|more info|more details|more information|tell me more|expand on|elaborate|continue|go on)\b/i.test(query);
+  
   const shouldUseLlm =
-    (toolsLowConfidence || isSelectionResponse || needsContextFromHistory) &&
+    (toolsLowConfidence || isSelectionResponse || needsContextFromHistory || hasContextualReference) &&
     llmFallback &&
     !isSimpleGreeting;
 
