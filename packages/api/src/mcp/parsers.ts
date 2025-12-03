@@ -61,17 +61,19 @@ function parseAsString(result: t.MCPToolCallResponse): string {
       }
       if (item.type === 'resource') {
         const resourceText = [];
-        if (item.resource.text != null && item.resource.text) {
-          resourceText.push(item.resource.text);
+        // Cast to extended type to access all possible properties
+        const resource = item.resource as t.ExtendedResourceContents;
+        if (resource.text != null && resource.text) {
+          resourceText.push(resource.text);
         }
-        if (item.resource.uri) {
-          resourceText.push(`Resource URI: ${item.resource.uri}`);
+        if (resource.uri) {
+          resourceText.push(`Resource URI: ${resource.uri}`);
         }
-        if (item.resource.name) {
-          resourceText.push(`Resource: ${item.resource.name}`);
+        if (resource.name) {
+          resourceText.push(`Resource: ${resource.name}`);
         }
-        if (item.resource.description) {
-          resourceText.push(`Description: ${item.resource.description}`);
+        if (resource.description) {
+          resourceText.push(`Description: ${resource.description}`);
         }
         if (item.resource.mimeType != null && item.resource.mimeType) {
           resourceText.push(`Type: ${item.resource.mimeType}`);
@@ -143,36 +145,40 @@ export function formatToolContent(
     },
 
     resource: (item) => {
-      const isUiResource = item.resource.uri.startsWith('ui://');
+      // Cast to extended type to access all possible properties
+      const resource = item.resource as t.ExtendedResourceContents;
+      const isUiResource = resource.uri.startsWith('ui://');
       const resourceText: string[] = [];
 
       if (isUiResource) {
         // Ensure we have a string for hashing - text could be object or string
-        const textContent = typeof item.resource.text === 'string' 
-          ? item.resource.text 
-          : JSON.stringify(item.resource.text || '');
-        const contentToHash = textContent || item.resource.uri || '';
+        const textContent = typeof resource.text === 'string' 
+          ? resource.text 
+          : JSON.stringify(resource.text || '');
+        const contentToHash = textContent || resource.uri || '';
         const resourceId = generateResourceId(contentToHash);
         const uiResource: UIResource = {
-          ...item.resource,
+          uri: resource.uri,
+          text: resource.text,
+          mimeType: resource.mimeType,
           resourceId,
         };
 
         uiResources.push(uiResource);
         resourceText.push(`UI Resource ID: ${resourceId}`);
         resourceText.push(`UI Resource Marker: \\ui{${resourceId}}`);
-      } else if (item.resource.text != null && item.resource.text) {
-        resourceText.push(`Resource Text: ${item.resource.text}`);
+      } else if (resource.text != null && resource.text) {
+        resourceText.push(`Resource Text: ${resource.text}`);
       }
 
-      if (item.resource.uri.length) {
-        resourceText.push(`Resource URI: ${item.resource.uri}`);
+      if (resource.uri.length) {
+        resourceText.push(`Resource URI: ${resource.uri}`);
       }
-      if (item.resource.name) {
-        resourceText.push(`Resource: ${item.resource.name}`);
+      if (resource.name) {
+        resourceText.push(`Resource: ${resource.name}`);
       }
-      if (item.resource.description) {
-        resourceText.push(`Resource Description: ${item.resource.description}`);
+      if (resource.description) {
+        resourceText.push(`Resource Description: ${resource.description}`);
       }
       if (item.resource.mimeType != null && item.resource.mimeType) {
         resourceText.push(`Resource MIME Type: ${item.resource.mimeType}`);

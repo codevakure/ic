@@ -57,10 +57,24 @@ export interface MCPPrompt {
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-export type MCPTool = z.infer<typeof t.ToolSchema>;
-export type MCPToolListResponse = z.infer<typeof t.ListToolsResultSchema>;
+export type MCPTool = t.Tool;
+export type MCPToolListResponse = t.ListToolsResult;
 export type ToolContentPart = t.TextContent | t.ImageContent | t.EmbeddedResource | t.AudioContent;
 export type ImageContent = Extract<ToolContentPart, { type: 'image' }>;
+
+// Extended resource type that includes all possible properties
+// The MCP SDK resource is a union of TextResourceContents | BlobResourceContents
+// but runtime data may include additional properties like name, description
+export interface ExtendedResourceContents {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+  name?: string;
+  description?: string;
+  _meta?: Record<string, unknown>;
+}
+
 export type MCPToolCallResponse =
   | undefined
   | {
