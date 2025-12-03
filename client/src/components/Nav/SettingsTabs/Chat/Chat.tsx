@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { showReasoningAtom } from '~/store/showReasoning';
 import { showThinkingAtom } from '~/store/showThinking';
 import { showCodeOutputAtom } from '~/store/showCodeOutput';
+import { hideCompletedToolCallsAtom } from '~/store/hideCompletedToolCalls';
 import FontSizeSelector from './FontSizeSelector';
 import { ForkSettings } from './ForkSettings';
 import ChatDirection from './ChatDirection';
@@ -64,6 +65,13 @@ const toggleSwitchConfigs = [
     switchId: 'showToolCallDetails',
     hoverCardText: 'com_nav_info_show_tool_call_details',
     key: 'showToolCallDetails',
+  },
+  {
+    stateAtom: hideCompletedToolCallsAtom,
+    localizationKey: 'com_nav_hide_completed_tool_calls',
+    switchId: 'hideCompletedToolCalls',
+    hoverCardText: 'com_nav_info_hide_completed_tool_calls',
+    key: 'hideCompletedToolCalls',
   },
   {
     stateAtom: store.LaTeXParsing,

@@ -576,6 +576,8 @@
   "com_nav_info_show_code_output": "When enabled, displays the output/results of code execution. When disabled (default), only shows the code without execution results.",
   "com_nav_show_tool_call_details": "Show Tool Output Details",
   "com_nav_info_show_tool_call_details": "When enabled, displays expandable accordion for tool calls with input/output details. When disabled (default), shows simple status text without expandable details.",
+  "com_nav_hide_completed_tool_calls": "Hide Completed Tool Calls",
+  "com_nav_info_hide_completed_tool_calls": "When enabled (default), hides tool calls after they finish processing, similar to how reasoning/thinking is hidden. When disabled, always shows all tool calls including completed ones.",
   "com_nav_show_reasoning": "Show Reasoning",
   "com_nav_info_show_reasoning": "When enabled, displays the AI's reasoning/thoughts after completion. When disabled (default), only shows a 'Thinking' indicator while processing, then hides completely when done.",
   "com_nav_show_thinking": "Open Thinking Dropdowns by Default",

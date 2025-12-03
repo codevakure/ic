@@ -2,8 +2,10 @@ import { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Button } from '@librechat/client';
 import { TriangleAlert } from 'lucide-react';
 import { useRecoilValue } from 'recoil';
+import { useAtomValue } from 'jotai';
 import { actionDelimiter, actionDomainSeparator, Constants } from 'librechat-data-provider';
 import type { TAttachment } from 'librechat-data-provider';
+import { hideCompletedToolCallsAtom } from '~/store/hideCompletedToolCalls';
 import { useLocalize, useProgress } from '~/hooks';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
@@ -34,6 +36,7 @@ export default function ToolCall({
 }) {
   const localize = useLocalize();
   const showToolCallDetails = useRecoilValue(store.showToolCallDetails);
+  const hideCompletedToolCalls = useAtomValue(hideCompletedToolCallsAtom);
   const [showInfo, setShowInfo] = useState(false); // Default to collapsed
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(0);
@@ -171,6 +174,18 @@ export default function ToolCall({
       resizeObserver.disconnect();
     };
   }, [showInfo, isAnimating]);
+
+  // Determine if tool call is still in progress
+  const isInProgress = progress < 1 && !cancelled;
+
+  // Hide completed tool calls when the setting is enabled and tool is finished
+  if (hideCompletedToolCalls && !isInProgress && !error) {
+    // Only show attachments if there are any (they should remain visible)
+    if (attachments && attachments.length > 0) {
+      return <AttachmentGroup attachments={attachments} />;
+    }
+    return null;
+  }
 
   if (!isLast && (!function_name || function_name.length === 0) && !output) {
     return null;
