@@ -122,7 +122,7 @@ export function AvatarMenu({
           accept="image/png,.png,image/jpeg,.jpg,.jpeg,image/gif,.gif,image/webp,.webp"
           multiple={false}
           type="file"
-          style={{ display: 'none' }}
+          className="hidden"
           onChange={handleFileChange}
           ref={fileInputRef}
           tabIndex={-1}

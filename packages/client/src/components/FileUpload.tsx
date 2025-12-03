@@ -16,7 +16,7 @@ const FileUpload = forwardRef<HTMLInputElement, FileUploadProps>(
           ref={ref}
           multiple
           type="file"
-          style={{ display: 'none' }}
+          className="hidden"
           onChange={handleFileChange}
         />
       </>

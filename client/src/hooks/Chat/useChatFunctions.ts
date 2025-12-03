@@ -226,6 +226,8 @@ export default function useChatFunctions({
         height: file.height,
         width: file.width,
       }));
+      // Flag to tell backend to use ONLY these attached files, not conversation history files
+      currentMsg.useOnlyAttachedFiles = true;
       setFiles(new Map());
       setFilesToDelete({});
     }

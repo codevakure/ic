@@ -20,6 +20,7 @@ import {
   useFocusChatEffect,
 } from '~/hooks';
 import { mainTextareaId, BadgeItem } from '~/common';
+import FileExplorerOverlay from './Files/FileExplorerOverlay';
 import AttachFileChat from './Files/AttachFileChat';
 import FileFormChat from './Files/FileFormChat';
 import { cn, removeFocusRings } from '~/utils';
@@ -62,6 +63,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
   const [showMentionPopover, setShowMentionPopover] = useRecoilState(
     store.showMentionPopoverFamily(index),
   );
+  const [showFileExplorer, setShowFileExplorer] = useRecoilState(store.showFileExplorerOverlay);
 
   const { requiresKey } = useRequiresKey();
   const methods = useChatFormContext();
@@ -138,6 +140,7 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
     textAreaRef,
     setShowPlusPopover,
     setShowMentionPopover,
+    setShowFileExplorer,
   });
   const {
     isNotAppendable,
@@ -219,6 +222,11 @@ const ChatForm = memo(({ index = 0 }: { index?: number }) => {
       )}
     >
       <div className="relative flex h-full flex-1 items-stretch md:flex-col">
+        {/* File Explorer Overlay */}
+        <FileExplorerOverlay
+          isOpen={showFileExplorer}
+          onClose={() => setShowFileExplorer(false)}
+        />
         <div className={cn('flex w-full items-center', isRTL && 'flex-row-reverse')}>
           {showPlusPopover && !isAssistantsEndpoint(endpoint) && (
             <Mention

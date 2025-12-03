@@ -111,8 +111,7 @@ export default function MCPTool({ serverInfo }: { serverInfo?: MCPServerInfo }) 
                   </div>
                 )}
                 <div
-                  className="grow px-2 py-1.5"
-                  style={{ textOverflow: 'ellipsis', wordBreak: 'break-all', overflow: 'hidden' }}
+                  className="grow overflow-hidden truncate break-all px-2 py-1.5"
                 >
                   {currentServerName}
                 </div>

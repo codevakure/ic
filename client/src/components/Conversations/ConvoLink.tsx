@@ -21,12 +21,11 @@ const ConvoLink: React.FC<ConvoLinkProps> = ({
   return (
     <div
       className={cn(
-        'flex grow items-center gap-2 overflow-hidden rounded-lg px-2',
+        'flex w-full grow items-center gap-2 overflow-hidden rounded-lg px-2',
         isActiveConvo ? 'bg-surface-active-alt' : '',
       )}
       title={title ?? undefined}
       aria-current={isActiveConvo ? 'page' : undefined}
-      style={{ width: '100%' }}
     >
       {children}
       <div

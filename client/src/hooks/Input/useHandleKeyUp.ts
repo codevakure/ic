@@ -40,11 +40,13 @@ const useHandleKeyUp = ({
   textAreaRef,
   setShowPlusPopover,
   setShowMentionPopover,
+  setShowFileExplorer,
 }: {
   index: number;
   textAreaRef: React.RefObject<HTMLTextAreaElement>;
   setShowPlusPopover: SetterOrUpdater<boolean>;
   setShowMentionPopover: SetterOrUpdater<boolean>;
+  setShowFileExplorer: SetterOrUpdater<boolean>;
 }) => {
   const hasPromptsAccess = useHasAccess({
     permissionType: PermissionTypes.PROMPTS,
@@ -61,6 +63,7 @@ const useHandleKeyUp = ({
   const atCommandEnabled = useRecoilValue(store.atCommand);
   const plusCommandEnabled = useRecoilValue(store.plusCommand);
   const slashCommandEnabled = useRecoilValue(store.slashCommand);
+  const hashCommandEnabled = useRecoilValue(store.hashCommand);
 
   const handleAtCommand = useCallback(() => {
     if (atCommandEnabled && shouldTriggerCommand(textAreaRef, '@')) {
@@ -86,13 +89,27 @@ const useHandleKeyUp = ({
     }
   }, [textAreaRef, hasPromptsAccess, setShowPromptsPopover, slashCommandEnabled]);
 
+  const handleHashCommand = useCallback(() => {
+    if (!hashCommandEnabled) {
+      return;
+    }
+    if (shouldTriggerCommand(textAreaRef, '#')) {
+      // Clear the # character from the textarea
+      if (textAreaRef.current) {
+        textAreaRef.current.value = '';
+      }
+      setShowFileExplorer(true);
+    }
+  }, [textAreaRef, setShowFileExplorer, hashCommandEnabled]);
+
   const commandHandlers = useMemo(
     () => ({
       '@': handleAtCommand,
       '+': handlePlusCommand,
       '/': handlePromptsCommand,
+      '#': handleHashCommand,
     }),
-    [handleAtCommand, handlePlusCommand, handlePromptsCommand],
+    [handleAtCommand, handlePlusCommand, handlePromptsCommand, handleHashCommand],
   );
 
   const handleUpArrow = useCallback(

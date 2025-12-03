@@ -160,12 +160,11 @@ function Speech() {
           <Tabs.Trigger
             onClick={() => setAdvancedMode(false)}
             className={cn(
-              'group m-1 flex items-center justify-center gap-2 bg-transparent px-4 py-2 text-sm text-text-secondary transition-all duration-200 ease-in-out radix-state-active:bg-secondary radix-state-active:text-foreground radix-state-active:shadow-lg',
+              'group m-1 flex select-none items-center justify-center gap-2 bg-transparent px-4 py-2 text-sm text-text-secondary transition-all duration-200 ease-in-out radix-state-active:bg-secondary radix-state-active:text-foreground radix-state-active:shadow-lg',
               isSmallScreen ? 'flex-row rounded-lg' : 'rounded-xl',
               'w-full',
             )}
             value="simple"
-            style={{ userSelect: 'none' }}
           >
             <Lightbulb />
             {localize('com_ui_simple')}
@@ -173,12 +172,11 @@ function Speech() {
           <Tabs.Trigger
             onClick={() => setAdvancedMode(true)}
             className={cn(
-              'group m-1 flex items-center justify-center gap-2 bg-transparent px-4 py-2 text-sm text-text-secondary transition-all duration-200 ease-in-out radix-state-active:bg-secondary radix-state-active:text-foreground radix-state-active:shadow-lg',
+              'group m-1 flex select-none items-center justify-center gap-2 bg-transparent px-4 py-2 text-sm text-text-secondary transition-all duration-200 ease-in-out radix-state-active:bg-secondary radix-state-active:text-foreground radix-state-active:shadow-lg',
               isSmallScreen ? 'flex-row rounded-lg' : 'rounded-xl',
               'w-full',
             )}
             value="advanced"
-            style={{ userSelect: 'none' }}
           >
             <Cog />
             {localize('com_ui_advanced')}

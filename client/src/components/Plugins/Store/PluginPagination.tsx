@@ -34,12 +34,11 @@ const PluginPagination: React.FC<TPluginPaginationProps> = ({
             onChangePage(currentPage - 1);
           }
         }}
-        className={`flex cursor-default items-center text-sm ${
+        className={`flex cursor-default select-none items-center text-sm ${
           currentPage === 1
             ? 'text-black/70 opacity-50 dark:text-white/70'
             : 'text-black/70 hover:text-black/50 dark:text-white/70 dark:hover:text-white/50'
         }`}
-        style={{ userSelect: 'none' }}
       >
         <svg
           stroke="currentColor"
@@ -62,12 +61,11 @@ const PluginPagination: React.FC<TPluginPaginationProps> = ({
           role="button"
           key={page}
           tabIndex={0}
-          className={`flex h-5 w-5 items-center justify-center text-sm ${
+          className={`flex h-5 w-5 select-none items-center justify-center text-sm ${
             currentPage === page
               ? 'text-blue-600 hover:text-blue-600 dark:text-blue-600 dark:hover:text-blue-600'
               : 'text-black/70 hover:text-black/50 dark:text-white/70 dark:hover:text-white/50'
           }`}
-          style={{ userSelect: 'none' }}
           onClick={() => onChangePage(page)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -88,12 +86,11 @@ const PluginPagination: React.FC<TPluginPaginationProps> = ({
             onChangePage(currentPage + 1);
           }
         }}
-        className={`flex cursor-default items-center text-sm ${
+        className={`flex cursor-default select-none items-center text-sm ${
           currentPage === maxPage
             ? 'text-black/70 opacity-50 dark:text-white/70'
             : 'text-black/70 hover:text-black/50 dark:text-white/70 dark:hover:text-white/50'
         }`}
-        style={{ userSelect: 'none' }}
       >
         {localize('com_ui_next')}
         <svg

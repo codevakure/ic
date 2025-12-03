@@ -52,12 +52,17 @@ const ViewAllConversationsLink = memo(({ toggleNav }: { toggleNav: () => void })
   };
 
   return (
-    <button
-      onClick={handleClick}
-      className="flex w-full items-center justify-center gap-1 border-t border-border-light pt-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-    >
-      All conversations
-    </button>
+    <div className="sticky bottom-0">
+      <div className="pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-gradient-to-t from-surface-primary-alt to-transparent" />
+      <div className="bg-surface-primary-alt">
+        <button
+          onClick={handleClick}
+          className="flex w-full items-center justify-center py-1 text-xs font-medium bg-gradient-to-r from-text-secondary via-text-primary to-text-secondary bg-clip-text text-transparent transition-opacity duration-200 hover:opacity-70"
+        >
+          All conversations
+        </button>
+      </div>
+    </div>
   );
 });
 

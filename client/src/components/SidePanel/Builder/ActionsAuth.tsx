@@ -74,8 +74,7 @@ export default function ActionsAuth({ disableOAuth }: { disableOAuth?: boolean }
               role="radiogroup"
               aria-required="false"
               dir="ltr"
-              className="flex gap-4"
-              style={{ outline: 'none' }}
+              className="flex gap-4 outline-none"
             >
               <div className="flex items-center gap-2">
                 <label htmlFor=":rf8:" className="flex cursor-pointer items-center gap-1">
@@ -192,8 +191,7 @@ const ApiKey = () => {
         role="radiogroup"
         aria-required="true"
         dir="ltr"
-        className="mb-2 flex gap-6 overflow-hidden rounded-lg"
-        style={{ outline: 'none' }}
+        className="mb-2 flex gap-6 overflow-hidden rounded-lg outline-none"
       >
         <div className="flex items-center gap-2">
           <label htmlFor=":rfu:" className="flex cursor-pointer items-center gap-1">
@@ -336,7 +334,7 @@ const OAuth = () => {
         role="radiogroup"
         aria-required="true"
         dir="ltr"
-        style={{ outline: 'none' }}
+        className="outline-none"
       >
         <div className="flex items-center gap-2">
           <label htmlFor=":rj1:" className="flex cursor-pointer items-center gap-1">

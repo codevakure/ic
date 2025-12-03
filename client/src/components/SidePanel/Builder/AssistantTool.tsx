@@ -71,8 +71,7 @@ export default function AssistantTool({
             </div>
           )}
           <div
-            className="h-9 grow px-3 py-2"
-            style={{ textOverflow: 'ellipsis', wordBreak: 'break-all', overflow: 'hidden' }}
+            className="h-9 grow overflow-hidden truncate break-all px-3 py-2"
           >
             {currentTool.name}
           </div>

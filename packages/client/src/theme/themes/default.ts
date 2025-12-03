@@ -16,7 +16,7 @@ export const defaultTheme: IThemeRGB = {
   'rgb-ring-primary': '89 89 89', // #595959 (gray-500)
 
   // Header colors
-  'rgb-header-primary': '255 255 255', // #fff (white)
+  'rgb-header-primary': '245 245 245', // #f5f5f5 (gray-95)
   'rgb-header-hover': '247 247 248', // #f7f7f8 (gray-50)
   'rgb-header-button-hover': '247 247 248', // #f7f7f8 (gray-50)
 
@@ -26,7 +26,7 @@ export const defaultTheme: IThemeRGB = {
   'rgb-surface-hover': '227 227 227', // #e3e3e3 (gray-200)
   'rgb-surface-hover-alt': '205 205 205', // #cdcdcd (gray-300)
   'rgb-surface-primary': '255 255 255', // #fff (white)
-  'rgb-surface-primary-alt': '247 247 248', // #f7f7f8 (gray-50)
+  'rgb-surface-primary-alt': '239 239 239', // #efefef (gray-98)
   'rgb-surface-primary-contrast': '236 236 236', // #ececec (gray-100)
   'rgb-surface-secondary': '247 247 248', // #f7f7f8 (gray-50)
   'rgb-surface-secondary-alt': '227 227 227', // #e3e3e3 (gray-200)
@@ -52,7 +52,7 @@ export const defaultTheme: IThemeRGB = {
   'rgb-brand-purple': '171 104 255', // #ab68ff
 
   // Presentation
-  'rgb-presentation': '255 255 255', // #fff (white)
+  'rgb-presentation': '245 245 245', // #f5f5f5 (gray-95)
 
   // Utility colors (mapped to existing colors for backwards compatibility)
   'rgb-background': '255 255 255', // Same as surface-primary

@@ -22,8 +22,7 @@ export default function Action({ action, onClick }: { action: Action; onClick: (
       aria-label={`Action for ${action.metadata.domain}`}
     >
       <div
-        className="h-9 grow overflow-hidden text-ellipsis whitespace-nowrap px-3 py-2"
-        style={{ wordBreak: 'break-all' }}
+        className="h-9 grow overflow-hidden break-all text-ellipsis whitespace-nowrap px-3 py-2"
       >
         {action.metadata.domain}
       </div>

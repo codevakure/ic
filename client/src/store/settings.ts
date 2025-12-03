@@ -9,6 +9,7 @@ const staticAtoms = {
   optionSettings: atom<TOptionSettings>({ key: 'optionSettings', default: {} }),
   showPluginStoreDialog: atom<boolean>({ key: 'showPluginStoreDialog', default: false }),
   showAgentSettings: atom<boolean>({ key: 'showAgentSettings', default: false }),
+  showFileExplorerOverlay: atom<boolean>({ key: 'showFileExplorerOverlay', default: false }),
   currentSettingsView: atom<SettingsViews>({
     key: 'currentSettingsView',
     default: SettingsViews.default,
@@ -50,6 +51,7 @@ const localStorageAtoms = {
   atCommand: atomWithLocalStorage('atCommand', true),
   plusCommand: atomWithLocalStorage('plusCommand', true),
   slashCommand: atomWithLocalStorage('slashCommand', true),
+  hashCommand: atomWithLocalStorage('hashCommand', true),
 
   // Speech settings
   conversationMode: atomWithLocalStorage('conversationMode', false),

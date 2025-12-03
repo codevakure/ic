@@ -36,8 +36,7 @@ export default function UnconfiguredMCPTool({ serverName }: { serverName?: strin
 
         <div className="flex grow cursor-not-allowed items-center gap-1 rounded bg-transparent p-0 text-left transition-colors">
           <div
-            className="grow select-none px-2 py-1.5"
-            style={{ textOverflow: 'ellipsis', wordBreak: 'break-all', overflow: 'hidden' }}
+            className="grow select-none overflow-hidden truncate break-all px-2 py-1.5"
           >
             {serverName}
             <span className="ml-2 text-xs text-text-secondary">

@@ -29,6 +29,7 @@ const { getConvoFiles } = require('~/models/Conversation');
  * @param {Agent} params.agent
  * @param {string | null} [params.conversationId]
  * @param {Array<IMongoFile>} [params.requestFiles]
+ * @param {boolean} [params.useOnlyAttachedFiles] - When true, skip conversation history files
  * @param {typeof import('~/server/services/ToolService').loadAgentTools | undefined} [params.loadTools]
  * @param {TEndpointOption} [params.endpointOption]
  * @param {Set<string>} [params.allowedProviders]
@@ -48,6 +49,7 @@ const initializeAgent = async ({
   loadTools,
   requestFiles,
   conversationId,
+  useOnlyAttachedFiles = false,
   endpointOption,
   allowedProviders,
   isInitialAgent = false,
@@ -77,7 +79,9 @@ const initializeAgent = async ({
   const provider = agent.provider;
   agent.endpoint = provider;
 
-  if (isInitialAgent && conversationId != null && resendFiles) {
+  // When useOnlyAttachedFiles is true, only use the files attached to the current message
+  // Skip loading conversation history files
+  if (isInitialAgent && conversationId != null && resendFiles && !useOnlyAttachedFiles) {
     const fileIds = (await getConvoFiles(conversationId)) ?? [];
     /** @type {Set<EToolResources>} */
     const toolResourceSet = new Set();

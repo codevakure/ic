@@ -111,6 +111,8 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
   const requestFiles = req.body.files ?? [];
   /** @type {string} */
   const conversationId = req.body.conversationId;
+  /** @type {boolean} - When true, only use attached files, skip conversation history files */
+  const useOnlyAttachedFiles = req.body.useOnlyAttachedFiles ?? false;
 
   const primaryConfig = await initializeAgent({
     req,
@@ -118,6 +120,7 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
     loadTools,
     requestFiles,
     conversationId,
+    useOnlyAttachedFiles,
     agent: primaryAgent,
     endpointOption,
     allowedProviders,

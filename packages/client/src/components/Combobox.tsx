@@ -89,8 +89,7 @@ export default function ComboboxComponent({
               {SelectIcon ? SelectIcon : <ChevronDownIcon />}
             </div>
             <span
-              className={cn('ml-2', isCollapsed ? 'hidden' : '')}
-              style={{ userSelect: 'none' }}
+              className={cn('ml-2 select-none', isCollapsed ? 'hidden' : '')}
             >
               {selectedValue
                 ? (displayValue ?? selectedValue)

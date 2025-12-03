@@ -151,104 +151,26 @@ export default function useMentions({
   }, [startupConfig, agentsMap]);
 
   const options: MentionOption[] = useMemo(() => {
-    let validEndpoints = endpoints;
-    if (!includeAssistants) {
-      validEndpoints = endpoints.filter((endpoint) => !isAssistantsEndpoint(endpoint));
-    }
-
-    const modelOptions = validEndpoints.flatMap((endpoint) => {
-      if (isAssistantsEndpoint(endpoint) || isAgentsEndpoint(endpoint)) {
-        return [];
-      }
-
-      if (interfaceConfig.modelSelect !== true) {
-        return [];
-      }
-
-      const models = (modelsConfig?.[endpoint] ?? []).map((model) => ({
-        value: endpoint,
-        label: model,
-        type: 'model' as const,
-        icon: EndpointIcon({
-          conversation: { endpoint, model },
-          endpointsConfig,
-          context: 'menu-item',
-          size: 20,
-        }),
-      }));
-      return models;
-    });
-
+    /**
+     * MODIFIED: @ mention popover now only shows agents
+     * 
+     * Previously, the @ mention popover displayed:
+     * - Model specs
+     * - Endpoints (OpenAI, Azure, etc.)
+     * - Individual models
+     * - Assistants (OpenAI & Azure)
+     * - Presets
+     * 
+     * This was changed to only show agents for a cleaner user experience.
+     * Users can still access other options through the model selector dropdown.
+     */
     const mentions = [
-      ...(modelSpecs.length > 0 ? modelSpecs : []).map((modelSpec) => ({
-        value: modelSpec.name,
-        label: modelSpec.label,
-        description: modelSpec.description,
-        icon: EndpointIcon({
-          conversation: {
-            ...modelSpec.preset,
-            iconURL: modelSpec.iconURL,
-          },
-          endpointsConfig,
-          context: 'menu-item',
-          size: 20,
-        }),
-        type: 'modelSpec' as const,
-      })),
-      ...(interfaceConfig.modelSelect === true ? validEndpoints : []).map((endpoint) => ({
-        value: endpoint,
-        label: getEndpointLabel(endpointsConfig, endpoint),
-        type: 'endpoint' as const,
-        icon: EndpointIcon({
-          conversation: { endpoint },
-          endpointsConfig,
-          context: 'menu-item',
-          size: 20,
-        }),
-      })),
       ...(interfaceConfig.modelSelect === true ? (agentsList ?? []) : []),
-      ...(endpointsConfig?.[EModelEndpoint.assistants] &&
-      includeAssistants &&
-      interfaceConfig.modelSelect === true
-        ? assistantListMap[EModelEndpoint.assistants] || []
-        : []),
-      ...(endpointsConfig?.[EModelEndpoint.azureAssistants] &&
-      includeAssistants &&
-      interfaceConfig.modelSelect === true
-        ? assistantListMap[EModelEndpoint.azureAssistants] || []
-        : []),
-      ...((interfaceConfig.modelSelect === true && interfaceConfig.presets === true
-        ? presets
-        : []
-      )?.map((preset, index) => ({
-        value: preset.presetId ?? `preset-${index}`,
-        label: preset.title ?? preset.modelLabel ?? preset.chatGptLabel ?? '',
-        description: getPresetTitle(preset, true),
-        icon: EndpointIcon({
-          conversation: preset,
-          containerClassName: 'shadow-stroke overflow-hidden rounded-full',
-          endpointsConfig: endpointsConfig,
-          context: 'menu-item',
-          assistantMap,
-          size: 20,
-        }),
-        type: 'preset' as const,
-      })) ?? []),
-      ...modelOptions,
     ];
 
     return mentions;
   }, [
-    presets,
-    endpoints,
-    modelSpecs,
     agentsList,
-    assistantMap,
-    modelsConfig,
-    endpointsConfig,
-    assistantListMap,
-    includeAssistants,
-    interfaceConfig.presets,
     interfaceConfig.modelSelect,
   ]);
 
