@@ -32,6 +32,20 @@ export default function ChatRoute() {
   useIdChangeEffect(conversationId);
   const { hasSetConversation, conversation } = store.useCreateConversationAtom(index);
   const { newConversation } = useNewConvo();
+  const clearAllSubmissions = store.useClearSubmissionState();
+
+  /**
+   * Reset hasSetConversation when ChatRoute unmounts.
+   * This is needed because SetConvoProvider is in AppLayout (doesn't unmount),
+   * so we need to manually reset the flag when leaving chat routes.
+   * Also clears any pending submissions to prevent re-execution on return.
+   */
+  useEffect(() => {
+    return () => {
+      hasSetConversation.current = false;
+      clearAllSubmissions();
+    };
+  }, [hasSetConversation, clearAllSubmissions]);
 
   const modelsQuery = useGetModelsQuery({
     enabled: isAuthenticated,
