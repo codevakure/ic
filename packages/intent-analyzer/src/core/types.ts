@@ -76,6 +76,20 @@ export interface AttachedFileContext {
 }
 
 /**
+ * Previous tool usage context for conversation analysis
+ */
+export interface PreviousToolContext {
+  /** Tools used in the last assistant response */
+  lastUsedTools: Tool[];
+  /** Whether the last tool execution was successful */
+  lastToolSuccess?: boolean;
+  /** Topic/subject of the last exchange (extracted keywords) */
+  lastTopics?: string[];
+  /** Type of output produced (chart, code, document, etc.) */
+  lastOutputType?: 'chart' | 'code' | 'document' | 'ui_component' | 'search_result' | 'other';
+}
+
+/**
  * Context for query intent analysis
  */
 export interface QueryContext {
@@ -91,6 +105,36 @@ export interface QueryContext {
   userSelectedTools?: Tool[];
   /** Previous messages for context (optional) */
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** Previous tool usage context for follow-up detection */
+  previousToolContext?: PreviousToolContext;
+}
+
+/**
+ * Signal source for weighted scoring
+ */
+export type SignalSource = 
+  | 'user_selected'      // User explicitly selected in UI
+  | 'explicit_request'   // User asked for tool in query
+  | 'file_type'          // Attached file type requires tool
+  | 'context_followup'   // Follow-up to previous tool usage
+  | 'context_reference'  // References previous output
+  | 'ngram_match'        // N-gram phrase match
+  | 'regex_high'         // High-confidence regex pattern
+  | 'regex_medium'       // Medium-confidence regex pattern
+  | 'regex_low'          // Low-confidence regex pattern
+
+/**
+ * Individual signal for weighted scoring
+ */
+export interface IntentSignal {
+  /** The tool this signal suggests */
+  tool: Tool;
+  /** Source of the signal */
+  source: SignalSource;
+  /** Raw score from this signal (0-1) */
+  score: number;
+  /** Optional reason for debugging */
+  reason?: string;
 }
 
 /**
@@ -159,13 +203,34 @@ export interface UnifiedQueryResult {
   model: ModelRoutingResult;
   /** Whether LLM fallback was used */
   usedLlmFallback: boolean;
+  /** LLM classifier token usage (only when usedLlmFallback is true) */
+  classifierUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    /** Estimated cost in USD */
+    cost: number;
+  };
+}
+
+/**
+ * LLM fallback response with usage data for cost tracking
+ */
+export interface LlmFallbackResponse {
+  /** The LLM response text */
+  text: string;
+  /** Token usage for cost calculation */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
 }
 
 /**
  * LLM fallback function signature - injectable for flexibility
  * The caller provides the LLM function, keeping this package pure
+ * Returns response text and optional usage data for cost tracking
  */
-export type LlmFallbackFunction = (prompt: string) => Promise<string>;
+export type LlmFallbackFunction = (prompt: string) => Promise<string | LlmFallbackResponse>;
 
 /**
  * Options for unified query analysis

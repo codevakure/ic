@@ -3,10 +3,14 @@
  * 
  * 4-TIER ROUTING SYSTEM (target distribution):
  * =============================================
- * 1. Nova Micro   - $0.035/$0.14 MTok  - SIMPLE   (~1%)  - Greetings, text-only simple responses
- * 2. Haiku 4.5    - $1/$5 MTok         - MODERATE (~80%) - Most tasks, tool usage, standard code
- * 3. Sonnet 4.5   - $3/$15 MTok        - COMPLEX  (~15%) - Debugging, detailed analysis
- * 4. Opus 4.5     - $15/$75 MTok       - EXPERT   (~4%)  - Deep analysis, architecture, research
+ * 1. Nova Micro   - $0.035/$0.14 per 1K tok  - SIMPLE   (~1%)  - Greetings, text-only simple responses
+ * 2. Haiku 4.5    - $1/$5 per 1K tok         - MODERATE (~80%) - Most tasks, tool usage, standard code
+ * 3. Sonnet 4.5   - $3/$15 per 1K tok        - COMPLEX  (~15%) - Debugging, detailed analysis
+ * 4. Opus 4.5     - $5/$25 per 1K tok        - EXPERT   (~4%)  - Deep analysis, architecture, research
+ *
+ * Alternative Models:
+ * - Nova Lite     - $0.06/$0.24 per 1K tok   - Multimodal (image/video) capable
+ * - Nova Pro      - $0.80/$3.20 per 1K tok   - Multimodal with better quality
  *
  * ROUTING RULES:
  * - ANY tool usage (web_search, execute_code, file_search, artifacts) → Haiku 4.5 minimum
@@ -51,6 +55,32 @@ export const BedrockModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
+  // Nova Lite ($0.06/$0.24 per 1K tok) - Alternative cheap model
+  // ============================================================================
+  'us.amazon.nova-lite-v1:0': {
+    id: 'us.amazon.nova-lite-v1:0',
+    name: 'Amazon Nova Lite',
+    tier: 'simple',
+    costPer1kTokens: { input: 0.00006, output: 0.00024 },
+    maxTokens: 300000,
+    capabilities: ['general', 'fast', 'vision', 'video'],
+    provider: 'amazon',
+  },
+
+  // ============================================================================
+  // Nova Pro ($0.80/$3.20 per MTok) - Multimodal capable
+  // ============================================================================
+  'us.amazon.nova-pro-v1:0': {
+    id: 'us.amazon.nova-pro-v1:0',
+    name: 'Amazon Nova Pro',
+    tier: 'moderate',
+    costPer1kTokens: { input: 0.0008, output: 0.0032 },
+    maxTokens: 300000,
+    capabilities: ['general', 'coding', 'tools', 'vision', 'video'],
+    provider: 'amazon',
+  },
+
+  // ============================================================================
   // COMPLEX TIER (~15%) - Sonnet 4.5 ($3/$15 per MTok)
   // Debugging, code review, detailed analysis
   // ============================================================================
@@ -65,14 +95,14 @@ export const BedrockModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
-  // EXPERT TIER (~4%) - Opus 4.5 ($15/$75 per MTok) - MOST CAPABLE
+  // EXPERT TIER (~4%) - Opus 4.5 ($5/$25 per MTok) - MOST CAPABLE
   // Deep analysis, system architecture, research
   // ============================================================================
   'global.anthropic.claude-opus-4-5-20251101-v1:0': {
     id: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
     name: 'Claude Opus 4.5',
     tier: 'expert',
-    costPer1kTokens: { input: 0.015, output: 0.075 },
+    costPer1kTokens: { input: 0.005, output: 0.025 },
     maxTokens: 200000,
     capabilities: ['reasoning', 'coding', 'analysis', 'vision', 'tools', 'extended-thinking'],
     provider: 'anthropic',

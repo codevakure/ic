@@ -54,7 +54,13 @@ const AgentAvatar = ({ className = '', avatar = '', agentName, size, iconURL }: 
   }
 
   // Use default agent icon - iconURL from endpoint config or fallback
-  return <DefaultAgentIcon iconURL={iconURL} />;
+  return (
+    <DefaultAgentIcon 
+      iconURL={iconURL} 
+      className="h-full w-full object-contain"
+      style={{ width: size ?? 41, height: size ?? 41 }}
+    />
+  );
 };
 
 const Bedrock = ({ className = '', iconURL }: IconMapProps) => {

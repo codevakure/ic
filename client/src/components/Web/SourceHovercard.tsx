@@ -70,7 +70,7 @@ export function SourceHovercard({
                   onClick={onClick}
                   disabled={isLoading}
                   className={cn(
-                    "ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300",
+                    "ml-1 inline-flex min-w-0 max-w-40 cursor-pointer items-center gap-1 text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300",
                     isLoading && "opacity-70 cursor-wait"
                   )}
                   onMouseEnter={onMouseEnter}
@@ -79,19 +79,19 @@ export function SourceHovercard({
                     isLocalFile ? localize('com_sources_download_local_unavailable') : undefined
                   }
                 >
-                  {isLoading && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {label}
+                  {isLoading && <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />}
+                  <span className="truncate">{label}</span>
                 </button>
               ) : (
                 <a
                   href={source.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1 inline-flex max-w-40 cursor-pointer items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                  className="ml-1 inline-flex min-w-0 max-w-40 cursor-pointer items-center gap-1 text-[13px] italic text-blue-600 no-underline transition-all hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                 >
-                  {label}
+                  <span className="truncate">{label}</span>
                 </a>
               )
             }

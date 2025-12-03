@@ -86,6 +86,35 @@ async function buildEndpointOption(req, res, next) {
   try {
     const isAgents =
       isAgentsEndpoint(endpoint) || req.baseUrl.startsWith(EndpointURLs[EModelEndpoint.agents]);
+    
+    // IMPORTANT: Fetch conversation history BEFORE calling builder
+    // loadEphemeralAgent (inside builder) needs this for intent analysis
+    let conversationHistory = [];
+    const conversationId = req.body.conversationId;
+    
+    if (conversationId) {
+      try {
+        // Query by conversationId only - user filter not needed for reading
+        const messages = await getMessages(
+          { conversationId },
+          'text isCreatedByUser'
+        );
+        // Convert to simple format and take last 5 messages
+        conversationHistory = messages.slice(-5).map(m => ({
+          role: m.isCreatedByUser ? 'user' : 'assistant',
+          content: m.text?.substring(0, 500) || '', // Limit length
+        }));
+        // Debug: logger.debug(`[buildEndpointOption] ConversationId: ${conversationId?.slice(0, 8)}..., DB messages: ${messages.length}, using: ${conversationHistory.length}`);
+      } catch (err) {
+        logger.warn('[buildEndpointOption] Could not fetch conversation history:', err.message);
+      }
+    }
+    // else: No conversationId means new conversation - no history to fetch
+    
+    // Store conversation history on request BEFORE builder call
+    // This is used by loadEphemeralAgent for intent analysis
+    req.conversationHistory = conversationHistory;
+    
     const builder = isAgents
       ? (...args) => buildFunction[EModelEndpoint.agents](req, ...args)
       : buildFunction[endpointType ?? endpoint];
@@ -105,30 +134,6 @@ async function buildEndpointOption(req, res, next) {
     }
 
     const originalModel = req.body.endpointOption?.model_parameters?.model || req.body.model;
-    
-    // LLM Router: Dynamically select the optimal model based on prompt complexity
-    // For AGENTS endpoint: Skip routing here - loadEphemeralAgent handles it AFTER tool selection
-    // This is critical because artifacts detection requires tool selection first
-    // Fetch recent conversation history for context (if available)
-    let conversationHistory = [];
-    if (req.body.conversationId && req.user?.id) {
-      try {
-        const messages = await getMessages(
-          { conversationId: req.body.conversationId, user: req.user.id },
-          'text sender isCreatedByUser'
-        );
-        // Convert to simple format and take last 5 messages
-        conversationHistory = messages.slice(-5).map(m => ({
-          role: m.isCreatedByUser ? 'user' : 'assistant',
-          content: m.text?.substring(0, 500) || '', // Limit length
-        }));
-      } catch (err) {
-        logger.debug('[buildEndpointOption] Could not fetch conversation history:', err.message);
-      }
-    }
-    
-    // Store conversation history on request for use by loadEphemeralAgent (avoids duplicate fetch)
-    req.conversationHistory = conversationHistory;
     
     // Only route for non-agents endpoints
     // Agents endpoint routes in loadEphemeralAgent AFTER tool selection (so artifacts can elevate tier)

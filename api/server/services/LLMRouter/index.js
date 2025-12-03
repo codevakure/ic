@@ -46,7 +46,7 @@ function getBedrockClient() {
  * This is used when regex patterns don't match confidently
  * 
  * @param {string} prompt - The classification prompt
- * @returns {Promise<string>} The LLM response
+ * @returns {Promise<{text: string, usage?: {inputTokens: number, outputTokens: number}}>} The LLM response with usage data
  */
 async function llmClassifierFallback(prompt) {
   const client = getBedrockClient();
@@ -77,25 +77,35 @@ async function llmClassifierFallback(prompt) {
     // Extract text from Nova response format
     const text = responseBody.output?.message?.content?.[0]?.text || '';
     
-    return text;
+    // Extract usage data for cost tracking
+    const usage = responseBody.usage ? {
+      inputTokens: responseBody.usage.inputTokens || 0,
+      outputTokens: responseBody.usage.outputTokens || 0,
+    } : undefined;
+    
+    return { text, usage };
   } catch (error) {
     logger.error('[IntentAnalyzer] LLM classifier failed:', error.message);
-    return ''; // Return empty string on failure, will fall back to regex result
+    return { text: '' }; // Return empty response on failure, will fall back to regex result
   }
 }
 
-// 4-Tier Model pricing (per 1M tokens) - matches intent-analyzer bedrock.ts
+// 4-Tier Model pricing (per 1K tokens) - matches AWS Bedrock official pricing
 const MODEL_PRICING = {
   // EXPERT tier (~4%) - Deep analysis, architecture, research
-  'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 15.00, output: 75.00, tier: 'expert' },
+  'global.anthropic.claude-opus-4-5-20251101-v1:0': { input: 0.005, output: 0.025, tier: 'expert' },
   // COMPLEX tier (~15%) - Debugging, detailed analysis
-  'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 3.00, output: 15.00, tier: 'complex' },
+  'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { input: 0.003, output: 0.015, tier: 'complex' },
   // MODERATE tier (~80%) - Most tasks, tool usage, standard code
-  'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 1.00, output: 5.00, tier: 'moderate' },
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0': { input: 0.001, output: 0.005, tier: 'moderate' },
+  // Nova Pro - Multimodal capable
+  'us.amazon.nova-pro-v1:0': { input: 0.0008, output: 0.0032, tier: 'moderate' },
+  // Nova Lite - Multimodal capable
+  'us.amazon.nova-lite-v1:0': { input: 0.00006, output: 0.00024, tier: 'simple' },
   // SIMPLE tier (~1%) - Greetings, text-only simple responses
-  'us.amazon.nova-micro-v1:0': { input: 0.035, output: 0.14, tier: 'simple' },
-  // CLASSIFIER - Used for LLM classification fallback only
-  'classifier': { input: 0.035, output: 0.14, tier: 'classifier' },
+  'us.amazon.nova-micro-v1:0': { input: 0.000035, output: 0.00014, tier: 'simple' },
+  // CLASSIFIER - Used for LLM classification fallback only (same as Nova Micro)
+  'classifier': { input: 0.000035, output: 0.00014, tier: 'classifier' },
 };
 
 /**
@@ -240,6 +250,13 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
       return model.split('.').pop()?.replace('-v1:0', '')?.substring(0, 15) || model;
     };
     
+    // Build classifier cost string if LLM was used
+    let classifierCostStr = '';
+    if (result.usedLlmFallback && result.classifierUsage) {
+      const { inputTokens, outputTokens, cost } = result.classifierUsage;
+      classifierCostStr = ` | Classifier: ${inputTokens}in/${outputTokens}out=$${cost.toFixed(6)}`;
+    }
+    
     // Simplified single-line logging
     // Format: [Router] Tools: [...] | Model: X | Method: regex/LLM | In: X | Out: X | Cached: X | Cost: $X
     logger.info(
@@ -247,7 +264,7 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
       `Model: ${getShortName(result.model)} | ` +
       `Method: ${result.usedLlmFallback ? 'LLM' : 'regex'} | ` +
       `Est.In: ${estimatedInputTokens} | Est.Out: ${estimatedOutputTokens} | ` +
-      `Cost: $${routedTotalCost.toFixed(4)}`
+      `Cost: $${routedTotalCost.toFixed(4)}${classifierCostStr}`
     );
     
     return result.model;

@@ -87,6 +87,8 @@ export const renderAgentAvatar = (
           src={FALLBACK_AGENT_ICON_URL} 
           alt="Agent" 
           className={`${iconSizeClasses[size]}`}
+          width="32"
+          height="32"
         />
       </div>
     </div>

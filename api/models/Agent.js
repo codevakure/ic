@@ -200,7 +200,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (autoToolSelectionEnabled) {
     // Use conversation history from request (already fetched by buildEndpointOption) or empty array
     const conversationHistory = req.conversationHistory || [];
-
+    
     // Run unified routing - determines both tools AND model in one call
     // Hierarchy: regex patterns → LLM classifier (if confidence < 0.4) → routing rules
     unifiedResult = await routeQuery(queryText, {
@@ -299,11 +299,13 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
 
   // MODEL ROUTING: Use the model from unified router (already computed with all routing rules)
   // The router handles: regex → LLM classifier → tool elevation → final model selection
+  // Only use routed model if BOTH autoToolSelection AND modelRouting are enabled
   let finalModel = model;
   let actualTier = 'N/A';
+  const modelRoutingEnabled = intentAnalyzerConfig.modelRouting === true;
 
-  // Get routed model from unified result (if autoToolSelection was enabled)
-  if (autoToolSelectionEnabled && unifiedResult?.model) {
+  // Get routed model from unified result (if BOTH autoToolSelection AND modelRouting are enabled)
+  if (autoToolSelectionEnabled && modelRoutingEnabled && unifiedResult?.model) {
     finalModel = unifiedResult.model;
     actualTier = unifiedResult.tier || 'N/A';
 
@@ -337,13 +339,34 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     result.artifacts = artifactsMode || 'default';
   }
 
+  // Build classifier cost string if LLM was used
+  let classifierCostStr = '';
+  if (unifiedResult?.classifierUsage) {
+    const { inputTokens, outputTokens, cost } = unifiedResult.classifierUsage;
+    classifierCostStr = ` | Classifier: ${inputTokens}in/${outputTokens}out=$${cost.toFixed(6)}`;
+  }
+
   // Single consolidated log line with all key info
   const toolsStr = tools.join(', ') || 'none';
   const artifactsStr = result.artifacts ? `, Artifacts: ${result.artifacts}` : '';
   const method = unifiedResult?.usedLlmFallback ? 'LLM' : 'regex';
   logger.info(
-    `[Router] Tools: [${toolsStr}] | Model: ${finalModel.split('.').pop()?.replace('-v1:0', '') || finalModel} | Tier: ${actualTier.toUpperCase()} | Method: ${method}${artifactsStr}`,
+    `[Router] Tools: [${toolsStr}] | Model: ${finalModel.split('.').pop()?.replace('-v1:0', '') || finalModel} | Tier: ${actualTier.toUpperCase()} | Method: ${method}${classifierCostStr}${artifactsStr}`,
   );
+
+  // Debug logging for intent analysis details
+  if (process.env.DEBUG_INTENT_ANALYZER === 'true') {
+    logger.debug(`[Router] Query: "${queryText.slice(0, 100)}${queryText.length > 100 ? '...' : ''}"`);
+    logger.debug(`[Router] Intent Analysis: confidence=${intentResult.confidence?.toFixed(2)}, reasoning="${intentResult.reasoning}"`);
+    if (autoToolSelectionEnabled && unifiedResult) {
+      logger.debug(`[Router] Auto-enabled tools: [${autoEnabledTools.map((t) => toolToCapability(t)).join(', ')}]`);
+      logger.debug(`[Router] User-selected tools: [${userSelectedTools.map((t) => toolToCapability(t)).join(', ')}]`);
+      logger.debug(`[Router] Available tools: [${availableTools.map((t) => toolToCapability(t)).join(', ')}]`);
+      if (unifiedResult.toolsResult?.clarificationPrompt) {
+        logger.debug(`[Router] Clarification needed: "${unifiedResult.toolsResult.clarificationPrompt}"`);
+      }
+    }
+  }
 
   return result;
 };

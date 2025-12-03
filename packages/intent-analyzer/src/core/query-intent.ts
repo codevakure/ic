@@ -4,9 +4,12 @@
  * Determines which tools to use based on:
  * 1. User explicitly selected tools (highest priority)
  * 2. Attached files (file type determines tool)
- * 3. Auto-enabled tools + query intent
- * 4. Query pattern matching (LLM-style with keyword fallback)
+ * 3. Conversation context (follow-ups, references to previous output)
+ * 4. N-gram phrase matching (common multi-word patterns)
+ * 5. Auto-enabled tools + query intent
+ * 6. Query pattern matching (regex with tiered confidence)
  * 
+ * Uses weighted multi-signal scoring to combine all signals
  * Returns tools in priority order with dynamic context prompts
  */
 
@@ -15,8 +18,393 @@ import {
   QueryContext, 
   QueryIntentResult, 
   UploadIntent,
-  AttachedFileContext 
+  AttachedFileContext,
+  PreviousToolContext,
+  IntentSignal,
+  SignalSource,
 } from './types';
+
+// ============================================================================
+// SIGNAL WEIGHTS - Tune these to adjust tool selection sensitivity
+// ============================================================================
+
+/**
+ * Weights for different signal sources
+ * Higher weight = more influence on final tool selection
+ */
+const SIGNAL_WEIGHTS: Record<SignalSource, number> = {
+  user_selected: 1.0,      // User explicitly selected = always use
+  explicit_request: 0.95,  // User asked for tool in query
+  file_type: 0.9,          // File type is very strong signal
+  context_followup: 0.85,  // Follow-up patterns are reliable
+  context_reference: 0.75, // References to previous output
+  ngram_match: 0.6,        // N-gram phrases are good signals
+  regex_high: 0.5,         // High-confidence regex
+  regex_medium: 0.35,      // Medium-confidence regex
+  regex_low: 0.15,         // Low-confidence regex (keywords only)
+};
+
+/**
+ * Confidence thresholds for tool selection
+ */
+const CONFIDENCE_THRESHOLDS = {
+  HIGH: 0.7,      // Very confident - use tool without question
+  MEDIUM: 0.5,    // Reasonably confident - use tool
+  LOW: 0.3,       // Low confidence - may need LLM fallback
+  MINIMUM: 0.2,   // Below this, don't select the tool
+};
+
+// ============================================================================
+// N-GRAM PHRASE PATTERNS - Common multi-word phrases for each tool
+// ============================================================================
+
+/**
+ * N-gram phrases that strongly suggest specific tools
+ * These are 2-4 word phrases that capture natural language patterns
+ * that single-word regex might miss
+ */
+const NGRAM_PHRASES: Record<Tool, string[]> = {
+  [Tool.WEB_SEARCH]: [
+    // Current/real-time information
+    'what is the current',
+    'what is the latest',
+    'who is the current',
+    'latest news on',
+    'latest news about',
+    'current price of',
+    'stock price of',
+    'weather in',
+    'weather for',
+    'search the web',
+    'search online for',
+    'look up online',
+    'find online',
+    'google search for',
+    // Follow-up requests to use web search
+    'check in web',
+    'check the web',
+    'check on web',
+    'check online',
+    'look on web',
+    'look on the web',
+    'look in web',
+    'search on web',
+    'search on internet',
+    'did you check',
+    'did you search',
+    'can you search',
+    'can you check online',
+    'use web search',
+    'use the web',
+    'try the web',
+    'try web search',
+    // Sports/events
+    'who won the',
+    'score of the',
+    'when is the next',
+    'results of the',
+    // Time-sensitive
+    'happening right now',
+    'happening today',
+    'news today',
+    'today\'s news',
+  ],
+  [Tool.CODE_INTERPRETER]: [
+    // Data analysis
+    'analyze this data',
+    'analyze the data',
+    'analyze this csv',
+    'analyze this file',
+    'parse this json',
+    'parse the json',
+    'process this data',
+    'run this code',
+    'execute this code',
+    'run python code',
+    'write python code',
+    // Visualization
+    'create a chart',
+    'create a graph',
+    'make a chart',
+    'plot the data',
+    'visualize this data',
+    'generate a report',
+    // Calculations
+    'calculate the',
+    'compute the',
+    'sum of the',
+    'average of the',
+    // File operations
+    'convert to csv',
+    'convert to json',
+    'export to excel',
+    'create a spreadsheet',
+  ],
+  [Tool.FILE_SEARCH]: [
+    // Document queries
+    'in the document',
+    'in the file',
+    'in the pdf',
+    'from the document',
+    'from the file',
+    'according to the document',
+    'based on the document',
+    'what does the document',
+    'what does the file',
+    'search the document',
+    'search the documents',
+    'find in the document',
+    'look in the document',
+    // Summarization
+    'summarize the document',
+    'summarize this document',
+    'summary of the document',
+    'key points from',
+    'extract from the',
+  ],
+  [Tool.ARTIFACTS]: [
+    // UI/Component creation - all verbs
+    'create a dashboard',
+    'build a dashboard',
+    'generate a dashboard',
+    'make a dashboard',
+    'design a dashboard',
+    'create an interactive',
+    'build an interactive',
+    'generate an interactive',
+    'make an interactive',
+    'create a component',
+    'build a component',
+    'generate a component',
+    'make a component',
+    'react component for',
+    'create a form',
+    'build a form',
+    'generate a form',
+    'create a ui',
+    'build a ui',
+    'generate a ui',
+    'make a ui',
+    // Diagrams
+    'create a diagram',
+    'draw a diagram',
+    'generate a diagram',
+    'create a flowchart',
+    'draw a flowchart',
+    'generate a flowchart',
+    'mermaid diagram',
+    // Charts (interactive/React)
+    'generate a chart',
+    'build a chart',
+    'make a chart',
+    'generate a graph',
+  ],
+};
+
+// ============================================================================
+// CONVERSATION CONTEXT PATTERNS - Detect follow-ups and references
+// ============================================================================
+
+/**
+ * Patterns that indicate the query is a follow-up to previous output
+ * When matched, we should likely use the same tool as before
+ */
+const FOLLOWUP_PATTERNS: RegExp[] = [
+  // Direct continuation
+  /^(now|next|then|also|and)\b/i,
+  /\b(now|also|too)\s+(do|make|create|run|show|add)\b/i,
+  
+  // Same/similar/again patterns
+  /\b(do\s+)?(the\s+)?same\s+(thing|for|with|but|again)\b/i,
+  /\b(same\s+)?(thing\s+)?(again|one\s+more\s+time)\b/i,
+  /\b(another|one\s+more)\b/i,
+  /\bsimilar(ly)?\s+(to|for|but)\b/i,
+  /\blike\s+(before|that|the\s+last)\b/i,
+  
+  // Continuation/modification
+  /\bcontinue\s+(with|from|the)\b/i,
+  /\bkeep\s+(going|the|it)\b/i,
+  /\bgo\s+(on|ahead|further)\b/i,
+];
+
+/**
+ * Patterns that indicate modification of previous output
+ * Strong signal to use the same tool that created the output
+ */
+const MODIFICATION_PATTERNS: RegExp[] = [
+  // Change/modify patterns
+  /\b(change|modify|update|edit|fix|correct|adjust|tweak)\s+(it|this|that|the)\b/i,
+  /\b(make|can\s+you\s+make)\s+(it|this|that|the)\s+(more|less|bigger|smaller|different|better)\b/i,
+  /\b(change|modify|update)\s+(the|this|that)\s+(color|size|style|format|layout|text|title|label)\b/i,
+  
+  // Add/remove patterns
+  /\b(add|include|insert|put)\s+(a|an|the|some|more)\b.*\b(to|into|in)\s+(it|this|that|the)\b/i,
+  /\b(remove|delete|take\s+out|get\s+rid\s+of)\b.*\b(from|in)\s+(it|this|that|the)\b/i,
+  
+  // Improve/enhance patterns
+  /\b(improve|enhance|polish|refine|clean\s+up)\s+(it|this|that|the)\b/i,
+  /\b(make\s+it|can\s+you\s+make\s+it)\s+(look|work|perform)\s+(better|nicer|faster|prettier)\b/i,
+];
+
+/**
+ * Patterns that reference previous output without being a direct follow-up
+ */
+const REFERENCE_PATTERNS: Record<string, RegExp[]> = {
+  chart: [
+    /\b(the|that|this)\s+(chart|graph|plot|visualization|figure)\b/i,
+    /\b(in|on|from)\s+(the|that|this)\s+(chart|graph|plot)\b/i,
+  ],
+  code: [
+    /\b(the|that|this)\s+(code|script|function|program)\b/i,
+    /\b(in|from)\s+(the|that|this)\s+(code|output|result)\b/i,
+  ],
+  document: [
+    /\b(the|that|this)\s+(document|file|pdf|report)\b/i,
+    /\b(in|from)\s+(the|that|this)\s+(document|file|pdf)\b/i,
+  ],
+  ui_component: [
+    /\b(the|that|this)\s+(component|dashboard|ui|interface|form)\b/i,
+    /\b(in|on)\s+(the|that|this)\s+(dashboard|component|form)\b/i,
+  ],
+  search_result: [
+    /\b(the|that|those)\s+(search\s+)?results?\b/i,
+    /\b(from|in)\s+(the|that)\s+(search|web)\b/i,
+  ],
+};
+
+/**
+ * Map output types to likely tools
+ */
+const OUTPUT_TYPE_TO_TOOL: Record<string, Tool> = {
+  chart: Tool.CODE_INTERPRETER,
+  code: Tool.CODE_INTERPRETER,
+  document: Tool.FILE_SEARCH,
+  ui_component: Tool.ARTIFACTS,
+  search_result: Tool.WEB_SEARCH,
+};
+
+// ============================================================================
+// CONTEXT ANALYSIS FUNCTIONS
+// ============================================================================
+
+/**
+ * Detect if query is a follow-up that should use the same tool
+ */
+function detectFollowupIntent(
+  query: string,
+  previousContext?: PreviousToolContext
+): IntentSignal[] {
+  const signals: IntentSignal[] = [];
+  
+  if (!previousContext?.lastUsedTools?.length) {
+    return signals;
+  }
+  
+  // Check for direct follow-up patterns
+  for (const pattern of FOLLOWUP_PATTERNS) {
+    if (pattern.test(query)) {
+      for (const tool of previousContext.lastUsedTools) {
+        signals.push({
+          tool,
+          source: 'context_followup',
+          score: 0.8,
+          reason: `Follow-up pattern detected: "${query.slice(0, 30)}..."`,
+        });
+      }
+      break; // Only need one match
+    }
+  }
+  
+  // Check for modification patterns (even stronger signal)
+  for (const pattern of MODIFICATION_PATTERNS) {
+    if (pattern.test(query)) {
+      for (const tool of previousContext.lastUsedTools) {
+        signals.push({
+          tool,
+          source: 'context_followup',
+          score: 0.9,
+          reason: `Modification pattern detected: "${query.slice(0, 30)}..."`,
+        });
+      }
+      break;
+    }
+  }
+  
+  return signals;
+}
+
+/**
+ * Detect references to previous output
+ */
+function detectReferenceIntent(
+  query: string,
+  previousContext?: PreviousToolContext
+): IntentSignal[] {
+  const signals: IntentSignal[] = [];
+  
+  // Check for output type references
+  for (const [outputType, patterns] of Object.entries(REFERENCE_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(query)) {
+        const tool = OUTPUT_TYPE_TO_TOOL[outputType];
+        if (tool) {
+          // If previous context matches this output type, boost confidence
+          const isFromPreviousContext = previousContext?.lastOutputType === outputType;
+          signals.push({
+            tool,
+            source: 'context_reference',
+            score: isFromPreviousContext ? 0.8 : 0.5,
+            reason: `References ${outputType}: "${query.slice(0, 30)}..."`,
+          });
+        }
+        break;
+      }
+    }
+  }
+  
+  return signals;
+}
+
+// ============================================================================
+// N-GRAM MATCHING FUNCTIONS
+// ============================================================================
+
+/**
+ * Normalize text for n-gram matching
+ */
+function normalizeForNgram(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s']/g, ' ')  // Keep apostrophes for contractions
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Match query against n-gram phrases for each tool
+ */
+function matchNgramPhrases(query: string): IntentSignal[] {
+  const signals: IntentSignal[] = [];
+  const normalizedQuery = normalizeForNgram(query);
+  
+  for (const [tool, phrases] of Object.entries(NGRAM_PHRASES) as [Tool, string[]][]) {
+    for (const phrase of phrases) {
+      const normalizedPhrase = normalizeForNgram(phrase);
+      if (normalizedQuery.includes(normalizedPhrase)) {
+        signals.push({
+          tool,
+          source: 'ngram_match',
+          score: 0.7, // N-gram matches are reliable
+          reason: `Matched phrase: "${phrase}"`,
+        });
+        // Only count one match per tool to avoid over-weighting
+        break;
+      }
+    }
+  }
+  
+  return signals;
+}
 
 /**
  * Query patterns that suggest specific tools
@@ -442,6 +830,183 @@ function scoreQueryIntent(query: string, tool: Tool, hasAttachments: boolean = f
 }
 
 /**
+ * Convert regex scores to IntentSignals
+ */
+function getRegexSignals(query: string, tool: Tool, hasAttachments: boolean, referencesDocuments: boolean): IntentSignal[] {
+  const patterns = QUERY_PATTERNS[tool];
+  if (!patterns) return [];
+  
+  const signals: IntentSignal[] = [];
+  
+  // If user has attachments AND references documents in query,
+  // suppress web search scoring (they're likely asking about their files)
+  if (tool === Tool.WEB_SEARCH && hasAttachments && referencesDocuments) {
+    return signals;
+  }
+  
+  // High confidence patterns
+  for (const pattern of patterns.high) {
+    if (pattern.test(query)) {
+      signals.push({
+        tool,
+        source: 'regex_high',
+        score: 0.7,
+        reason: `High-confidence pattern match`,
+      });
+      break; // One high match is enough
+    }
+  }
+  
+  // Medium confidence patterns
+  for (const pattern of patterns.medium) {
+    if (pattern.test(query)) {
+      signals.push({
+        tool,
+        source: 'regex_medium',
+        score: 0.5,
+        reason: `Medium-confidence pattern match`,
+      });
+      break;
+    }
+  }
+  
+  // Low confidence patterns (fallback keywords)
+  for (const pattern of patterns.low) {
+    if (pattern.test(query)) {
+      signals.push({
+        tool,
+        source: 'regex_low',
+        score: 0.3,
+        reason: `Low-confidence pattern match`,
+      });
+      break;
+    }
+  }
+  
+  return signals;
+}
+
+// ============================================================================
+// WEIGHTED MULTI-SIGNAL SCORING
+// ============================================================================
+
+/**
+ * Collect all signals from different sources
+ */
+function collectAllSignals(
+  query: string,
+  context: QueryContext,
+  hasAttachments: boolean,
+  referencesDocuments: boolean,
+  attachmentTools: Tool[],
+): IntentSignal[] {
+  const signals: IntentSignal[] = [];
+  const { 
+    availableTools, 
+    userSelectedTools = [],
+    previousToolContext,
+  } = context;
+  
+  // 1. User selected tools (highest priority)
+  for (const tool of userSelectedTools) {
+    if (availableTools.includes(tool)) {
+      signals.push({
+        tool,
+        source: 'user_selected',
+        score: 1.0,
+        reason: 'Explicitly selected by user',
+      });
+    }
+  }
+  
+  // 2. Explicit tool requests in query
+  const explicitTools = detectExplicitToolRequests(query);
+  for (const tool of explicitTools) {
+    if (availableTools.includes(tool)) {
+      signals.push({
+        tool,
+        source: 'explicit_request',
+        score: 0.95,
+        reason: 'Explicitly requested in query',
+      });
+    }
+  }
+  
+  // 3. File type signals
+  for (const tool of attachmentTools) {
+    signals.push({
+      tool,
+      source: 'file_type',
+      score: 0.9,
+      reason: 'Required for attached file type',
+    });
+  }
+  
+  // 4. Conversation context - follow-ups
+  const followupSignals = detectFollowupIntent(query, previousToolContext);
+  for (const signal of followupSignals) {
+    if (availableTools.includes(signal.tool)) {
+      signals.push(signal);
+    }
+  }
+  
+  // 5. Conversation context - references
+  const referenceSignals = detectReferenceIntent(query, previousToolContext);
+  for (const signal of referenceSignals) {
+    if (availableTools.includes(signal.tool)) {
+      signals.push(signal);
+    }
+  }
+  
+  // 6. N-gram phrase matching
+  const ngramSignals = matchNgramPhrases(query);
+  for (const signal of ngramSignals) {
+    if (availableTools.includes(signal.tool)) {
+      signals.push(signal);
+    }
+  }
+  
+  // 7. Regex patterns for each available tool
+  for (const tool of availableTools) {
+    const regexSignals = getRegexSignals(query, tool, hasAttachments, referencesDocuments);
+    signals.push(...regexSignals);
+  }
+  
+  return signals;
+}
+
+/**
+ * Calculate weighted score for each tool from all signals
+ */
+function calculateWeightedScores(signals: IntentSignal[]): Map<Tool, { score: number; reasons: string[] }> {
+  const toolScores = new Map<Tool, { score: number; reasons: string[] }>();
+  
+  for (const signal of signals) {
+    const current = toolScores.get(signal.tool) || { score: 0, reasons: [] };
+    const weight = SIGNAL_WEIGHTS[signal.source];
+    const weightedScore = signal.score * weight;
+    
+    // Add weighted score (with diminishing returns for multiple signals)
+    // First signal of each type gets full weight, subsequent ones get reduced
+    const existingCount = current.reasons.filter(r => r.startsWith(signal.source)).length;
+    const diminishingFactor = 1 / (existingCount + 1);
+    
+    current.score += weightedScore * diminishingFactor;
+    current.reasons.push(`${signal.source}: ${signal.reason || 'matched'} (+${(weightedScore * diminishingFactor).toFixed(2)})`);
+    
+    toolScores.set(signal.tool, current);
+  }
+  
+  // Normalize scores to 0-1 range
+  for (const [tool, data] of toolScores) {
+    data.score = Math.min(data.score, 1);
+    toolScores.set(tool, data);
+  }
+  
+  return toolScores;
+}
+
+/**
  * Determine tools from attached files
  */
 function getToolsFromAttachments(attachedFiles?: AttachedFileContext): Tool[] {
@@ -595,11 +1160,16 @@ function generateMultiToolClarification(
 /**
  * Analyze query to determine which tools to use
  * 
- * Priority order:
- * 1. User explicitly selected tools (always included)
- * 2. Tools needed for attached files (always included if files present)
- * 3. Auto-enabled tools that match query intent (lower threshold)
- * 4. Non-auto-enabled tools with high query match (higher threshold)
+ * Uses weighted multi-signal scoring combining:
+ * 1. User explicitly selected tools (weight: 1.0)
+ * 2. Explicit tool requests in query (weight: 0.95)
+ * 3. File type requirements (weight: 0.9)
+ * 4. Conversation context - follow-ups (weight: 0.85)
+ * 5. Conversation context - references (weight: 0.75)
+ * 6. N-gram phrase matching (weight: 0.6)
+ * 7. Regex patterns - high/medium/low confidence
+ * 
+ * Tools are selected if their weighted score exceeds the threshold
  */
 export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   const { 
@@ -612,8 +1182,43 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
   
   const selectedTools: Tool[] = [];
   const reasoning: string[] = [];
+  const debugMode = typeof process !== 'undefined' && process.env?.DEBUG_INTENT_ANALYZER === 'true';
 
-  // Step 1: Add user explicitly selected tools (highest priority)
+  // Get attachment tools first (needed for signal collection)
+  const attachmentTools = getToolsFromAttachments(attachedFiles);
+  const hasAttachments = attachmentTools.length > 0;
+  const referencesDocuments = queryReferencesDocuments(query);
+
+  // Collect all signals from different sources
+  const allSignals = collectAllSignals(
+    query,
+    context,
+    hasAttachments,
+    referencesDocuments,
+    attachmentTools,
+  );
+
+  // Debug: Log all collected signals
+  if (debugMode) {
+    console.log(`[IntentAnalyzer] Query: "${query.slice(0, 80)}${query.length > 80 ? '...' : ''}"`);
+    console.log(`[IntentAnalyzer] Signals collected: ${allSignals.length}`);
+    for (const signal of allSignals) {
+      console.log(`  - ${signal.tool}: ${signal.source} (score: ${signal.score.toFixed(2)}) - ${signal.reason || 'matched'}`);
+    }
+  }
+
+  // Calculate weighted scores for each tool
+  const weightedScores = calculateWeightedScores(allSignals);
+
+  // Debug: Log weighted scores
+  if (debugMode) {
+    console.log(`[IntentAnalyzer] Weighted scores:`);
+    for (const [tool, data] of weightedScores) {
+      console.log(`  - ${tool}: ${data.score.toFixed(2)}`);
+    }
+  }
+
+  // Step 1: Add user explicitly selected tools (always included regardless of score)
   for (const tool of userSelectedTools) {
     if (availableTools.includes(tool) && !selectedTools.includes(tool)) {
       selectedTools.push(tool);
@@ -621,17 +1226,7 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     }
   }
 
-  // Step 1.5: Detect explicit tool requests in query (e.g., "use code interpreter", "with file search")
-  const explicitlyRequestedTools = detectExplicitToolRequests(query);
-  for (const tool of explicitlyRequestedTools) {
-    if (availableTools.includes(tool) && !selectedTools.includes(tool)) {
-      selectedTools.push(tool);
-      reasoning.push(`${toolToCapability(tool)} explicitly requested in query`);
-    }
-  }
-
-  // Step 2: Get tools from attachments (file type determines tool)
-  const attachmentTools = getToolsFromAttachments(attachedFiles);
+  // Step 2: Add tools from attachments (always included regardless of score)
   for (const tool of attachmentTools) {
     if (availableTools.includes(tool) && !selectedTools.includes(tool)) {
       selectedTools.push(tool);
@@ -639,57 +1234,47 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     }
   }
 
-  // Step 3: Analyze query intent for all available tools
-  // Check if query references documents (affects web search scoring when files are attached)
-  const hasAttachments = attachmentTools.length > 0;
-  const referencesDocuments = queryReferencesDocuments(query);
-  
-  const queryScores = new Map<Tool, number>();
-  for (const tool of availableTools) {
-    const score = scoreQueryIntent(query, tool, hasAttachments, referencesDocuments);
-    if (score > 0) {
-      queryScores.set(tool, score);
-    }
-  }
-
-  // Step 4: CONSERVATIVE tool selection for auto-enabled tools
-  // Only add auto-enabled tools if there's a meaningful signal (not just because they're auto-enabled)
-  // This ensures ephemeral agents don't get tools by default - LLM can respond from memory
+  // Step 3: Process auto-enabled tools with weighted scoring
+  // Lower threshold for auto-enabled tools
   for (const tool of autoEnabledTools) {
     if (!selectedTools.includes(tool) && availableTools.includes(tool)) {
-      const score = queryScores.get(tool) ?? 0;
-      // Require at least a medium confidence pattern match (0.25) for auto-enabled tools
-      // OR the tool is needed for attached files
-      if (score >= 0.25 || attachmentTools.includes(tool)) {
+      const toolData = weightedScores.get(tool);
+      const score = toolData?.score ?? 0;
+      
+      // Auto-enabled tools need lower threshold (0.3 instead of 0.5)
+      if (score >= CONFIDENCE_THRESHOLDS.LOW) {
         selectedTools.push(tool);
-        reasoning.push(`${toolToCapability(tool)} auto-enabled with signal (query score: ${score.toFixed(2)})`);
+        reasoning.push(`${toolToCapability(tool)} auto-enabled (score: ${score.toFixed(2)})`);
       }
     }
   }
 
-  // Step 5: Add non-auto-enabled tools with HIGH query match only
-  const sortedByScore = [...queryScores.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .filter(([tool]) => !selectedTools.includes(tool) && !autoEnabledTools.includes(tool));
+  // Step 4: Add non-auto-enabled tools that exceed threshold
+  const sortedTools = [...weightedScores.entries()]
+    .sort((a, b) => b[1].score - a[1].score)
+    .filter(([tool]) => 
+      !selectedTools.includes(tool) && 
+      !autoEnabledTools.includes(tool) &&
+      availableTools.includes(tool)
+    );
 
-  for (const [tool, score] of sortedByScore) {
-    // High threshold for non-auto-enabled tools - need strong signal
-    if (score >= 0.4) {
+  for (const [tool, data] of sortedTools) {
+    // Non-auto-enabled tools need higher threshold
+    if (data.score >= CONFIDENCE_THRESHOLDS.MEDIUM) {
       selectedTools.push(tool);
-      reasoning.push(`${toolToCapability(tool)} matches query intent (score: ${score.toFixed(2)})`);
+      reasoning.push(`${toolToCapability(tool)} matched (score: ${data.score.toFixed(2)})`);
     }
   }
 
-  // Calculate overall confidence based on the best signal
+  // Calculate overall confidence from the best signal
   const userSelectedConfidence = userSelectedTools.length > 0 ? 1.0 : 0;
   const attachmentConfidence = attachmentTools.length > 0 ? 0.9 : 0;
-  // Get the highest query score from any SELECTED tool (not just the sortedByScore filtered list)
-  const selectedToolScores = selectedTools.map(t => queryScores.get(t) ?? 0);
-  const bestSelectedScore = selectedToolScores.length > 0 ? Math.max(...selectedToolScores) : 0;
-  const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestSelectedScore, 0.3);
+  const bestWeightedScore = selectedTools.length > 0 
+    ? Math.max(...selectedTools.map(t => weightedScores.get(t)?.score ?? 0))
+    : 0;
+  const confidence = Math.max(userSelectedConfidence, attachmentConfidence, bestWeightedScore, 0.3);
 
-  // Step 6: Check if clarification is needed (e.g., charts can use either artifacts or execute_code)
-  // Pass attachmentTools.length so we skip clarification when tools were selected based on file types
+  // Step 5: Check if clarification is needed
   const multiToolClarification = generateMultiToolClarification(
     query, 
     selectedTools, 
@@ -698,13 +1283,23 @@ export function analyzeQueryIntent(context: QueryContext): QueryIntentResult {
     attachmentTools.length
   );
 
-  // Return result with optional clarification
-  // - If confidence >= 0.4 and multiple tools: regex handles clarification
-  // - If confidence < 0.4: LLM fallback will be triggered and LLM handles clarification
+  // Build detailed reasoning with signal breakdown
+  const detailedReasoning = reasoning.length > 0 
+    ? reasoning.join('; ') 
+    : 'No specific tool intent detected';
+
+  // Debug: Log final decision
+  if (debugMode) {
+    console.log(`[IntentAnalyzer] Final decision:`);
+    console.log(`  - Selected tools: [${selectedTools.join(', ') || 'none'}]`);
+    console.log(`  - Confidence: ${confidence.toFixed(2)}`);
+    console.log(`  - Reasoning: ${detailedReasoning}`);
+  }
+
   return {
     tools: selectedTools,
     confidence,
-    reasoning: reasoning.join('; ') || 'No specific tool intent detected',
+    reasoning: detailedReasoning,
     ...(multiToolClarification && {
       clarificationPrompt: multiToolClarification.prompt,
       clarificationOptions: multiToolClarification.options,

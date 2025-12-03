@@ -160,6 +160,8 @@ endpoints:
         - "us.amazon.nova-pro-v1:0"
         - "us.amazon.nova-lite-v1:0"
         - "us.amazon.nova-micro-v1:0"
+        # Amazon Nova 2 models
+        - "global.amazon.nova-2-lite-v1:0"
         # Amazon Titan models
         - "amazon.titan-text-premier-v1:0"
         - "amazon.titan-text-express-v1"
@@ -251,8 +253,13 @@ webSearch:
   firecrawlApiKey: '${FIRECRAWL_API_KEY}'
   firecrawlApiUrl: '${FIRECRAWL_API_URL}'
   
-  # Scraper timeout (optional, in ms) - increased for financial sites
-  scraperTimeout: 25000
+  # Reranker - disabled for speed (options: 'jina', 'cohere', 'none')
+  # Reranking adds latency but improves result relevance
+  rerankerType: 'none'
+  # jinaApiKey: '${JINA_API_KEY}'
+  
+  # Scraper timeout (optional, in ms) - lower for faster responses
+  scraperTimeout: 5000
   
   # Safe search (optional: 0=OFF, 1=MODERATE, 2=STRICT)
   safeSearch: 1
@@ -268,9 +275,9 @@ webSearch:
     skipTlsVerification: true
     # Caching - optimized for financial/stock data freshness (15 minutes)
     maxAge: 900000
-    # Timeouts and delays
+    # Timeouts and delays - reduced for speed
     waitFor: 0
-    timeout: 10000
+    timeout: 5000
     # Content filtering for better quality
     excludeTags: ["nav", "footer", "aside", ".ads", ".sidebar", ".menu", ".header-nav", ".social-share"]
     includeTags: ["main", "article", ".content", ".post", ".entry"]

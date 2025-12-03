@@ -37,12 +37,17 @@ export type {
   AttachedFileContext,
   QueryContext,
   QueryIntentResult,
+  // New types for weighted scoring
+  PreviousToolContext,
+  IntentSignal,
+  SignalSource,
   // Model Routing Types
   ModelTier,
   ModelRoutingResult,
   UnifiedQueryResult,
   UnifiedAnalysisOptions,
   LlmFallbackFunction,
+  LlmFallbackResponse,
 } from './types';
 
 // Upload Intent

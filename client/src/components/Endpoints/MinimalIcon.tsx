@@ -75,7 +75,7 @@ const MinimalIcon: React.FC<IconProps> = (props) => {
       name: getDisplayName('Assistant'),
     },
     [EModelEndpoint.agents]: {
-      icon: <img src={iconURL || FALLBACK_AGENT_ICON_URL} alt="" className="icon-sm object-contain" />,
+      icon: <img src={iconURL || FALLBACK_AGENT_ICON_URL} alt="" className="icon-sm object-contain" width="20" height="20" />,
       name: getDisplayName(alternateName[EModelEndpoint.agents] as string),
     },
     [EModelEndpoint.bedrock]: {
