@@ -78,13 +78,17 @@ const App = () => {
 export default () => (
   <ScreenshotProvider>
     <App />
-    <iframe
+    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+    <audio
       src="assets/silence.mp3"
-      allow="autoplay"
+      autoPlay
+      muted
+      playsInline
       id="audio"
-      title="audio-silence"
       style={{
         display: 'none',
+        width: 0,
+        height: 0,
       }}
     />
   </ScreenshotProvider>
