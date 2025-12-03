@@ -180,6 +180,7 @@ export enum AgentCapabilities {
   execute_code = 'execute_code',
   file_search = 'file_search',
   web_search = 'web_search',
+  youtube_video = 'youtube_video',
   artifacts = 'artifacts',
   actions = 'actions',
   context = 'context',
@@ -1812,6 +1813,8 @@ export enum LocalStorageKeys {
   LAST_WEB_SEARCH_TOGGLE_ = 'LAST_WEB_SEARCH_TOGGLE_',
   /** Last checked toggle for File Search per conversation ID */
   LAST_FILE_SEARCH_TOGGLE_ = 'LAST_FILE_SEARCH_TOGGLE_',
+  /** Last checked toggle for YouTube Video per conversation ID */
+  LAST_YOUTUBE_VIDEO_TOGGLE_ = 'LAST_YOUTUBE_VIDEO_TOGGLE_',
   /** Last checked toggle for Artifacts per conversation ID */
   LAST_ARTIFACTS_TOGGLE_ = 'LAST_ARTIFACTS_TOGGLE_',
   /** Key for the last selected agent provider */

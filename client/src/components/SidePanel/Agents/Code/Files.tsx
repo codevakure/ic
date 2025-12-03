@@ -25,7 +25,8 @@ export default function Files({
   files?: [string, ExtendedFile][];
 }) {
   const localize = useLocalize();
-  const { setFilesLoading } = useChatContext();
+  const chatContext = useChatContext();
+  const setFilesLoading = chatContext?.setFilesLoading ?? (() => {});
   const { watch } = useFormContext<AgentForm>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<Map<string, ExtendedFile>>(new Map());

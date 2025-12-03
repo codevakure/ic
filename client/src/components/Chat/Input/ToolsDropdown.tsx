@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import * as Ariakit from '@ariakit/react';
-import { Globe, Settings, Settings2, TerminalSquareIcon } from 'lucide-react';
+import { Globe, Settings, Settings2, TerminalSquareIcon, Video } from 'lucide-react';
 import { TooltipAnchor, DropdownPopup, PinIcon, VectorIcon } from '@librechat/client';
 import type { MenuItemProps } from '~/common';
 import {
@@ -31,6 +31,7 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     webSearch,
     artifacts,
     fileSearch,
+    youtubeVideo,
     agentsConfig,
     mcpServerManager,
     codeApiKeyForm,
@@ -47,6 +48,7 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     webSearchEnabled, 
     artifactsEnabled, 
     fileSearchEnabled,
+    youtubeVideoEnabled,
     isAutoEnabled,
   } = useAgentCapabilities(
     agentsConfig?.capabilities ?? defaultAgentCapabilities,
@@ -68,6 +70,7 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     authData: codeAuthData,
   } = codeInterpreter;
   const { isPinned: isFileSearchPinned, setIsPinned: setIsFileSearchPinned } = fileSearch;
+  const { isPinned: isYoutubeVideoPinned, setIsPinned: setIsYoutubeVideoPinned } = youtubeVideo;
   const { isPinned: isArtifactsPinned, setIsPinned: setIsArtifactsPinned } = artifacts;
 
   const canUseWebSearch = useHasAccess({
@@ -82,6 +85,11 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
 
   const canUseFileSearch = useHasAccess({
     permissionType: PermissionTypes.FILE_SEARCH,
+    permission: Permissions.USE,
+  });
+
+  const canUseYoutubeVideo = useHasAccess({
+    permissionType: PermissionTypes.YOUTUBE_VIDEO,
     permission: Permissions.USE,
   });
 
@@ -110,6 +118,11 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     const newValue = !fileSearch.toggleState;
     fileSearch.debouncedChange({ value: newValue });
   }, [fileSearch]);
+
+  const handleYoutubeVideoToggle = useCallback(() => {
+    const newValue = !youtubeVideo.toggleState;
+    youtubeVideo.debouncedChange({ value: newValue });
+  }, [youtubeVideo]);
 
   const handleArtifactsToggle = useCallback(() => {
     const currentState = artifacts.toggleState;
@@ -169,6 +182,39 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
           >
             <div className="h-4 w-4">
               <PinIcon unpin={isFileSearchPinned} />
+            </div>
+          </button>
+        </div>
+      ),
+    });
+  }
+
+  // Only show YouTube video in dropdown if it's NOT auto-enabled
+  if (youtubeVideoEnabled && canUseYoutubeVideo && !isAutoEnabled(AgentCapabilities.youtube_video)) {
+    dropdownItems.push({
+      onClick: handleYoutubeVideoToggle,
+      hideOnClick: false,
+      render: (props) => (
+        <div {...props}>
+          <div className="flex items-center gap-2">
+            <Video className="icon-md" />
+            <span>{localize('com_ui_youtube_video')}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsYoutubeVideoPinned(!isYoutubeVideoPinned);
+            }}
+            className={cn(
+              'rounded p-1 transition-all duration-200',
+              'hover:bg-surface-secondary hover:shadow-sm',
+              !isYoutubeVideoPinned && 'text-text-secondary hover:text-text-primary',
+            )}
+            aria-label={isYoutubeVideoPinned ? 'Unpin' : 'Pin'}
+          >
+            <div className="h-4 w-4">
+              <PinIcon unpin={isYoutubeVideoPinned} />
             </div>
           </button>
         </div>

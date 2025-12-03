@@ -35,7 +35,8 @@ export default function Knowledge({
   files?: [string, ExtendedFile][];
 }) {
   const localize = useLocalize();
-  const { setFilesLoading } = useChatContext();
+  const chatContext = useChatContext();
+  const setFilesLoading = chatContext?.setFilesLoading ?? (() => {});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<Map<string, ExtendedFile>>(new Map());
   const { data: fileConfig = null } = useGetFileConfig({

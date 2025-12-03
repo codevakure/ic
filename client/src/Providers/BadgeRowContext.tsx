@@ -18,6 +18,7 @@ interface BadgeRowContextType {
   webSearch: ReturnType<typeof useToolToggle>;
   artifacts: ReturnType<typeof useToolToggle>;
   fileSearch: ReturnType<typeof useToolToggle>;
+  youtubeVideo: ReturnType<typeof useToolToggle>;
   codeInterpreter: ReturnType<typeof useToolToggle>;
   codeApiKeyForm: ReturnType<typeof useCodeApiKeyForm>;
   searchApiKeyForm: ReturnType<typeof useSearchApiKeyForm>;
@@ -65,11 +66,13 @@ export default function BadgeRowProvider({
       const codeToggleKey = `${LocalStorageKeys.LAST_CODE_TOGGLE_}${key}`;
       const webSearchToggleKey = `${LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_}${key}`;
       const fileSearchToggleKey = `${LocalStorageKeys.LAST_FILE_SEARCH_TOGGLE_}${key}`;
+      const youtubeVideoToggleKey = `${LocalStorageKeys.LAST_YOUTUBE_VIDEO_TOGGLE_}${key}`;
       const artifactsToggleKey = `${LocalStorageKeys.LAST_ARTIFACTS_TOGGLE_}${key}`;
 
       const codeToggleValue = getTimestampedValue(codeToggleKey);
       const webSearchToggleValue = getTimestampedValue(webSearchToggleKey);
       const fileSearchToggleValue = getTimestampedValue(fileSearchToggleKey);
+      const youtubeVideoToggleValue = getTimestampedValue(youtubeVideoToggleKey);
       const artifactsToggleValue = getTimestampedValue(artifactsToggleKey);
 
       const initialValues: Record<string, any> = {};
@@ -98,6 +101,14 @@ export default function BadgeRowProvider({
         }
       }
 
+      if (youtubeVideoToggleValue !== null) {
+        try {
+          initialValues[Tools.youtube_video] = JSON.parse(youtubeVideoToggleValue);
+        } catch (e) {
+          console.error('Failed to parse youtube video toggle value:', e);
+        }
+      }
+
       if (artifactsToggleValue !== null) {
         try {
           initialValues[AgentCapabilities.artifacts] = JSON.parse(artifactsToggleValue);
@@ -114,6 +125,7 @@ export default function BadgeRowProvider({
         [Tools.execute_code]: initialValues[Tools.execute_code] ?? false,
         [Tools.web_search]: initialValues[Tools.web_search] ?? false,
         [Tools.file_search]: initialValues[Tools.file_search] ?? false,
+        [Tools.youtube_video]: initialValues[Tools.youtube_video] ?? false,
         [AgentCapabilities.artifacts]: initialValues[AgentCapabilities.artifacts] ?? false,
       };
 
@@ -131,6 +143,8 @@ export default function BadgeRowProvider({
             storageKey = webSearchToggleKey;
           } else if (toolKey === Tools.file_search) {
             storageKey = fileSearchToggleKey;
+          } else if (toolKey === Tools.youtube_video) {
+            storageKey = youtubeVideoToggleKey;
           }
           // Store the value and set timestamp for existing values
           localStorage.setItem(storageKey, JSON.stringify(value));
@@ -178,6 +192,14 @@ export default function BadgeRowProvider({
     isAuthenticated: true,
   });
 
+  /** YouTubeVideo hook - keyless tool, no API key required */
+  const youtubeVideo = useToolToggle({
+    conversationId,
+    toolKey: Tools.youtube_video,
+    localStorageKey: LocalStorageKeys.LAST_YOUTUBE_VIDEO_TOGGLE_,
+    isAuthenticated: true,
+  });
+
   /** Artifacts hook - using a custom key since it's not a Tool but a capability */
   const artifacts = useToolToggle({
     conversationId,
@@ -192,6 +214,7 @@ export default function BadgeRowProvider({
     webSearch,
     artifacts,
     fileSearch,
+    youtubeVideo,
     agentsConfig,
     conversationId,
     codeApiKeyForm,

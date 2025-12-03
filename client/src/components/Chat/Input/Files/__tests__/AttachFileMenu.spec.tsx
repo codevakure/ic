@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { RecoilRoot } from 'recoil';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -65,13 +65,23 @@ jest.mock('@librechat/client', () => {
   };
 });
 
-jest.mock('@ariakit/react', () => ({
-  MenuButton: ({ children, onClick, disabled, ...props }: any) => (
-    <button onClick={onClick} disabled={disabled} {...props}>
-      {children}
-    </button>
-  ),
-}));
+jest.mock('@ariakit/react', () => {
+  const React = jest.requireActual('react');
+  return {
+    MenuProvider: ({ children }: any) => <div data-testid="menu-provider">{children}</div>,
+    MenuButton: ({ children, onClick, disabled, ...props }: any) => (
+      <button onClick={onClick} disabled={disabled} {...props}>
+        {children}
+      </button>
+    ),
+    Menu: ({ children, ...props }: any) => <div data-testid="menu" {...props}>{children}</div>,
+    MenuItem: ({ children, onClick, ...props }: any) => (
+      <button onClick={onClick} data-testid="menu-item" {...props}>
+        {children}
+      </button>
+    ),
+  };
+});
 
 const mockUseAgentToolPermissions = jest.requireMock('~/hooks').useAgentToolPermissions;
 const mockUseAgentCapabilities = jest.requireMock('~/hooks').useAgentCapabilities;
@@ -94,6 +104,7 @@ describe('AttachFileMenu', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    cleanup(); // Ensure clean DOM between tests
 
     // Default mock implementations
     mockUseLocalize.mockReturnValue((key: string) => {
@@ -105,6 +116,7 @@ describe('AttachFileMenu', () => {
         com_ui_upload_code_files: 'Upload Code Files',
         com_sidepanel_attach_files: 'Attach Files',
         com_files_upload_sharepoint: 'Upload from SharePoint',
+        com_ui_add_photos_files: 'Attach file options',
       };
       return translations[key] || key;
     });

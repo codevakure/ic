@@ -163,13 +163,20 @@ const RightPanel = React.memo(
 
 RightPanel.displayName = 'RightPanel';
 
-const PromptForm = () => {
+interface PromptFormProps {
+  /** Optional groupId - if not provided, will use useParams() */
+  groupId?: string;
+  /** Optional callback when form should close (for panel usage) */
+  onClose?: () => void;
+}
+
+const PromptForm = ({ groupId: propGroupId, onClose }: PromptFormProps = {}) => {
   const params = useParams();
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const { hasAccess } = usePromptGroupsContext();
   const alwaysMakeProd = useRecoilValue(store.alwaysMakeProd);
-  const promptId = params.promptId || '';
+  const promptId = propGroupId || params.promptId || '';
 
   const editorMode = useRecoilValue(store.promptsEditorMode);
   const [selectionIndex, setSelectionIndex] = useState<number>(0);

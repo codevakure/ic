@@ -186,3 +186,19 @@ export const img: React.ElementType = memo(({ src, alt, title, className, style 
 
   return <img src={fixedSrc} alt={alt} title={title} className={className} style={style} />;
 });
+
+type TTableProps = {
+  children: React.ReactNode;
+};
+
+/**
+ * Responsive table wrapper that enables horizontal scrolling
+ * when table content exceeds the chat window width
+ */
+export const table: React.ElementType = memo(({ children }: TTableProps) => {
+  return (
+    <div className="my-2 w-full overflow-x-auto">
+      <table className="min-w-full border-collapse">{children}</table>
+    </div>
+  );
+});

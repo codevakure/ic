@@ -52,6 +52,10 @@ export enum PermissionTypes {
    * Type for using the "File Citations" feature in agents
    */
   FILE_CITATIONS = 'FILE_CITATIONS',
+  /**
+   * Type for using the "YouTube Video" feature
+   */
+  YOUTUBE_VIDEO = 'YOUTUBE_VIDEO',
 }
 
 /**
@@ -144,6 +148,11 @@ export const fileCitationsPermissionsSchema = z.object({
 });
 export type TFileCitationsPermissions = z.infer<typeof fileCitationsPermissionsSchema>;
 
+export const youtubeVideoPermissionsSchema = z.object({
+  [Permissions.USE]: z.boolean().default(true),
+});
+export type TYoutubeVideoPermissions = z.infer<typeof youtubeVideoPermissionsSchema>;
+
 // Define a single permissions schema that holds all permission types.
 export const permissionsSchema = z.object({
   [PermissionTypes.PROMPTS]: promptPermissionsSchema,
@@ -158,4 +167,5 @@ export const permissionsSchema = z.object({
   [PermissionTypes.MARKETPLACE]: marketplacePermissionsSchema,
   [PermissionTypes.FILE_SEARCH]: fileSearchPermissionsSchema,
   [PermissionTypes.FILE_CITATIONS]: fileCitationsPermissionsSchema,
+  [PermissionTypes.YOUTUBE_VIDEO]: youtubeVideoPermissionsSchema,
 });

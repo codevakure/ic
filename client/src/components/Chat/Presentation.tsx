@@ -1,100 +1,60 @@
-import { useRecoilValue } from 'recoil';
-import { useEffect, useMemo } from 'react';
-import { FileSources, LocalStorageKeys } from 'librechat-data-provider';
-import type { ExtendedFile } from '~/common';
-import { useDeleteFilesMutation } from '~/data-provider';
 import DragDropWrapper from '~/components/Chat/Input/Files/DragDropWrapper';
-import { EditorProvider, SidePanelProvider, ArtifactsProvider } from '~/Providers';
-import { GlobalSourcesPanel } from '~/components/ui/SidePanel';
-import Artifacts from '~/components/Artifacts/Artifacts';
-import { SidePanelGroup } from '~/components/SidePanel';
-import { useSetFilesToDelete } from '~/hooks';
-import store from '~/store';
 
+/**
+ * =============================================================================
+ * Presentation - Chat View Wrapper
+ * =============================================================================
+ * 
+ * Lightweight wrapper for the chat view that provides:
+ * - Drag and drop file upload support
+ * - Background styling
+ * 
+ * ## Architecture
+ * 
+ * This is a child of AppLayout (via Root), which provides:
+ * - SidePanelGroup (shared resizable panel infrastructure)
+ * - GlobalSourcesPanel (overlay and mobile bottom sheet)
+ * - Artifacts panel support
+ * 
+ * ```
+ * AppLayout (provides SidePanelGroup + GlobalSourcesPanel + Artifacts)
+ * └── Root (ChatLayout - provides Nav, MobileNav, LeftPanel)
+ *     └── ChatView
+ *         └── Presentation (this file)
+ *             └── DragDropWrapper
+ *                 └── main (chat content)
+ * ```
+ * 
+ * ## Previous vs Current Architecture
+ * 
+ * Previously, Presentation contained:
+ * - SidePanelGroup (now in AppLayout)
+ * - GlobalSourcesPanel (now in AppLayout)
+ * - Artifacts rendering (now in AppLayout)
+ * - File cleanup logic (now in AppLayout)
+ * 
+ * This caused duplicate panels and inconsistent behavior.
+ * 
+ * Now, Presentation is just a simple wrapper that:
+ * - Provides drag-drop file upload
+ * - Sets the chat presentation background
+ * 
+ * ## Using Panels from Chat
+ * 
+ * ```tsx
+ * const { openPanel, closePanel } = useSourcesPanel();
+ * openPanel('Sources', <SourcesContent />, 'push');
+ * ```
+ * 
+ * @see AppLayout - Parent layout providing shared panel infrastructure
+ * @see DragDropWrapper - Handles file drag and drop
+ */
 export default function Presentation({ children }: { children: React.ReactNode }) {
-  const artifacts = useRecoilValue(store.artifactsState);
-  const artifactsVisibility = useRecoilValue(store.artifactsVisibility);
-
-  const setFilesToDelete = useSetFilesToDelete();
-
-  const { mutateAsync } = useDeleteFilesMutation({
-    onSuccess: () => {
-      console.log('Temporary Files deleted');
-      setFilesToDelete({});
-    },
-    onError: (error) => {
-      console.log('Error deleting temporary files:', error);
-    },
-  });
-
-  useEffect(() => {
-    const filesToDelete = localStorage.getItem(LocalStorageKeys.FILES_TO_DELETE);
-    const map = JSON.parse(filesToDelete ?? '{}') as Record<string, ExtendedFile>;
-    const files = Object.values(map)
-      .filter(
-        (file) =>
-          file.filepath != null && file.source && !(file.embedded ?? false) && file.temp_file_id,
-      )
-      .map((file) => ({
-        file_id: file.file_id,
-        filepath: file.filepath as string,
-        source: file.source as FileSources,
-        embedded: !!(file.embedded ?? false),
-      }));
-
-    if (files.length === 0) {
-      return;
-    }
-    mutateAsync({ files });
-  }, [mutateAsync]);
-
-  const defaultLayout = useMemo(() => {
-    const resizableLayout = localStorage.getItem('react-resizable-panels:layout');
-    return typeof resizableLayout === 'string' ? JSON.parse(resizableLayout) : undefined;
-  }, []);
-  const defaultCollapsed = useMemo(() => {
-    const collapsedPanels = localStorage.getItem('react-resizable-panels:collapsed');
-    return typeof collapsedPanels === 'string' ? JSON.parse(collapsedPanels) : true;
-  }, []);
-  const fullCollapse = useMemo(() => localStorage.getItem('fullPanelCollapse') === 'true', []);
-
-  /**
-   * Memoize artifacts JSX to prevent recreating it on every render
-   * This is critical for performance - prevents entire artifact tree from re-rendering
-   */
-  const artifactsElement = useMemo(() => {
-    if (artifactsVisibility === true && Object.keys(artifacts ?? {}).length > 0) {
-      return (
-        <ArtifactsProvider>
-          <EditorProvider>
-            <Artifacts />
-          </EditorProvider>
-        </ArtifactsProvider>
-      );
-    }
-    return null;
-  }, [artifactsVisibility, artifacts]);
-
   return (
     <DragDropWrapper className="relative flex w-full grow overflow-hidden bg-presentation">
-      <SidePanelProvider>
-        <SidePanelGroup
-          defaultLayout={defaultLayout}
-          fullPanelCollapse={fullCollapse}
-          defaultCollapsed={defaultCollapsed}
-          artifacts={artifactsElement}
-        >
-          <main className="flex h-full flex-col overflow-y-auto" role="main">
-            {children}
-          </main>
-        </SidePanelGroup>
-      </SidePanelProvider>
-      {/* GlobalSourcesPanel: 
-          - Push mode: Rendered inline in flex container, pushes content
-          - Overlay mode: Rendered via portal, slides over content
-          - Mobile: Always renders as bottom sheet via portal
-      */}
-      <GlobalSourcesPanel />
+      <main className="flex h-full w-full flex-col overflow-y-auto" role="main">
+        {children}
+      </main>
     </DragDropWrapper>
   );
 }

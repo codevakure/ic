@@ -308,6 +308,7 @@ const FileItem = React.memo(function FileItem({
             />,
             'push',
             actions,
+            40, // 40% width for document preview
           );
         };
 
@@ -324,6 +325,8 @@ const FileItem = React.memo(function FileItem({
             highlightText={highlightText}
           />,
           'push',
+          undefined,
+          40, // 40% width for document preview
         );
 
         // Clean up the blob URL
@@ -653,6 +656,8 @@ function FilesGroup({ files, messageId, conversationId, limit = 3 }: FilesGroupP
         ))}
       </div>,
       'push', // Use push mode to push content aside
+      undefined,
+      40, // 40% width for citations panel
     );
   }, [visibleFiles, remainingFiles, openPanel, localize, messageId, conversationId]);
 

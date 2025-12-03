@@ -1,11 +1,13 @@
 export * from './Auth';
 export * from './Agents';
 export * from './Endpoints';
+export * from './Executions';
 export * from './Files';
 /* Memories */
 export * from './Memories';
 export * from './Messages';
 export * from './Misc';
+export * from './Schedules';
 export * from './Tools';
 export * from './connection';
 export * from './mutations';

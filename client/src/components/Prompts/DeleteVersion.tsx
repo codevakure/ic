@@ -3,32 +3,49 @@ import { Trash2 } from 'lucide-react';
 import { useDeletePrompt } from '~/data-provider';
 import { Button, OGDialog, OGDialogTrigger, Label, OGDialogTemplate } from '@librechat/client';
 import { useLocalize } from '~/hooks';
+import { cn } from '~/utils';
+
+interface DeleteConfirmDialogProps {
+  name: string;
+  disabled?: boolean;
+  selectHandler: () => void;
+  className?: string;
+  iconClassName?: string;
+  variant?: 'default' | 'ghost';
+}
 
 const DeleteConfirmDialog = ({
   name,
   disabled,
   selectHandler,
-}: {
-  name: string;
-  disabled?: boolean;
-  selectHandler: () => void;
-}) => {
+  className,
+  iconClassName,
+  variant = 'default',
+}: DeleteConfirmDialogProps) => {
   const localize = useLocalize();
 
   return (
     <OGDialog>
       <OGDialogTrigger asChild>
         <Button
-          variant="destructive"
+          variant={variant === 'ghost' ? 'ghost' : 'destructive'}
           size="sm"
           aria-label="Delete version"
-          className="h-10 w-10 p-0.5"
+          className={cn(
+            variant === 'ghost'
+              ? 'h-7 w-7 p-0 text-text-tertiary hover:bg-surface-hover hover:text-red-500'
+              : 'h-10 w-10 p-0.5',
+            className
+          )}
           disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
           }}
         >
-          <Trash2 className="size-5 cursor-pointer text-white" />
+          <Trash2 className={cn(
+            variant === 'ghost' ? 'h-4 w-4' : 'size-5 cursor-pointer text-white',
+            iconClassName
+          )} />
         </Button>
       </OGDialogTrigger>
       <OGDialogTemplate
@@ -65,10 +82,13 @@ interface DeletePromptProps {
   groupId: string;
   promptName: string;
   disabled: boolean;
+  className?: string;
+  iconClassName?: string;
+  variant?: 'default' | 'ghost';
 }
 
 const DeletePrompt = React.memo(
-  ({ promptId, groupId, promptName, disabled }: DeletePromptProps) => {
+  ({ promptId, groupId, promptName, disabled, className, iconClassName, variant = 'default' }: DeletePromptProps) => {
     const deletePromptMutation = useDeletePrompt();
 
     const handleDelete = useCallback(() => {
@@ -91,6 +111,9 @@ const DeletePrompt = React.memo(
         name={promptName}
         disabled={disabled || !promptId}
         selectHandler={handleDelete}
+        className={className}
+        iconClassName={iconClassName}
+        variant={variant}
       />
     );
   },

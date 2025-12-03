@@ -6,6 +6,8 @@ const v1 = require('~/server/controllers/agents/v1');
 const { getRoleByName } = require('~/models/Role');
 const actions = require('./actions');
 const tools = require('./tools');
+const schedules = require('./schedules');
+const executions = require('./executions');
 
 const router = express.Router();
 const avatar = express.Router();
@@ -43,6 +45,18 @@ router.use('/actions', configMiddleware, actions);
  * @route GET /agents/tools
  */
 router.use('/tools', configMiddleware, tools);
+
+/**
+ * Agent schedules routes (nested under agent ID).
+ * @route GET|POST|PATCH|DELETE /agents/:agentId/schedules
+ */
+router.use('/:agentId/schedules', schedules);
+
+/**
+ * Agent execution history and traces routes (nested under agent ID).
+ * @route GET|DELETE /agents/:agentId/executions
+ */
+router.use('/:agentId/executions', executions);
 
 /**
  * Get all agent categories with counts

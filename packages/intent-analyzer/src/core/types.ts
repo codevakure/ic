@@ -31,6 +31,8 @@ export enum Tool {
   ARTIFACTS = 'artifacts',
   /** Search the web for information */
   WEB_SEARCH = 'web_search',
+  /** Fetch transcripts and metadata from YouTube videos */
+  YOUTUBE_VIDEO = 'youtube_video',
 }
 
 /**

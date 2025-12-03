@@ -6,6 +6,7 @@ const FluxAPI = require('./structured/FluxAPI');
 const OpenWeather = require('./structured/OpenWeather');
 const StructuredWolfram = require('./structured/Wolfram');
 const createYouTubeTools = require('./structured/YouTube');
+const createYouTubeVideoLoaderTools = require('./structured/YouTubeVideoLoader');
 const StructuredACS = require('./structured/AzureAISearch');
 const StructuredSD = require('./structured/StableDiffusion');
 const GoogleSearchAPI = require('./structured/GoogleSearch');
@@ -30,6 +31,7 @@ module.exports = {
   TraversaalSearch,
   StructuredWolfram,
   createYouTubeTools,
+  createYouTubeVideoLoaderTools,
   TavilySearchResults,
   createOpenAIImageTools,
   PostgreSQL,

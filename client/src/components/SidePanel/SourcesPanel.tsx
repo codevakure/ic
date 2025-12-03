@@ -107,16 +107,16 @@ const SourcesPanel = memo(function SourcesPanel({
           >
             {/* Header */}
             <div className="flex flex-shrink-0 items-center justify-between border-b border-border-light px-4 py-3">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <button
-                  className="text-text-secondary hover:text-text-primary"
+                  className="flex-shrink-0 text-text-secondary hover:text-text-primary"
                   onClick={closePanel}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <h3 className="truncate text-base font-medium text-text-primary">{title}</h3>
+                <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{title}</h3>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 {headerActions}
                 <button
                   className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"

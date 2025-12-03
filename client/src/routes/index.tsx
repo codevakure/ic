@@ -8,14 +8,17 @@ import {
   TwoFactorScreen,
   RequestPasswordReset,
 } from '~/components/Auth';
-import { MarketplaceProvider } from '~/components/Agents/MarketplaceContext';
 import AgentMarketplace from '~/components/Agents/Marketplace';
 import ConversationHistoryPage from '~/components/Conversations/ConversationHistoryPage';
+import BookmarksPage from '~/components/Bookmarks/BookmarksPage';
+import ProfilePage from '~/components/Profile/ProfilePage';
+import { PromptsPage } from '~/components/Prompts';
 import { PlaceholderPage } from '~/components/Placeholder';
 import FilesPage from '~/components/Files/FilesPage';
 import { OAuthSuccess, OAuthError } from '~/components/OAuth';
 import { AuthContextProvider } from '~/hooks/AuthContext';
 import LeftPanelLayout from './Layouts/LeftPanelLayout';
+import AppLayout from './Layouts/AppLayout';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import StartupLayout from './Layouts/Startup';
 import LoginLayout from './Layouts/Login';
@@ -99,55 +102,79 @@ export const router = createBrowserRouter(
           ],
         },
         dashboardRoutes,
+        /**
+         * AppLayout: Shared panel infrastructure for authenticated routes.
+         * 
+         * Provides SidePanelGroup with:
+         * - Push mode sources panel (resizable)
+         * - Artifacts panel
+         * - Right nav panel (conditional based on route)
+         * 
+         * All child routes can use useSourcesPanel() to open push/overlay panels.
+         * @see AppLayout for detailed documentation
+         */
         {
-          path: '/',
-          element: <LeftPanelLayout />,
+          element: <AppLayout />,
           children: [
             {
-              path: 'placeholder',
-              element: <PlaceholderPage />,
+              path: '/',
+              element: <LeftPanelLayout />,
+              children: [
+                {
+                  path: 'placeholder',
+                  element: <PlaceholderPage />,
+                },
+                {
+                  path: 'bookmarks',
+                  element: <BookmarksPage />,
+                },
+                {
+                  path: 'files',
+                  element: <FilesPage />,
+                },
+                {
+                  path: 'profile',
+                  element: <ProfilePage />,
+                },
+                {
+                  path: 'agents',
+                  element: <AgentMarketplace />,
+                },
+                {
+                  path: 'agents/:category',
+                  element: <AgentMarketplace />,
+                },
+                {
+                  path: 'prompts',
+                  element: <PromptsPage />,
+                },
+                {
+                  path: 'prompts/:promptId',
+                  element: <PromptsPage />,
+                },
+              ],
             },
-          ],
-        },
-        {
-          path: '/',
-          element: <Root />,
-          children: [
             {
-              index: true,
-              element: <Navigate to="/c/new" replace={true} />,
-            },
-            {
-              path: 'c/:conversationId?',
-              element: <ChatRoute />,
-            },
-            {
-              path: 'search',
-              element: <Search />,
-            },
-            {
-              path: 'files',
-              element: <FilesPage />,
-            },
-            {
-              path: 'conversations',
-              element: <ConversationHistoryPage />,
-            },
-            {
-              path: 'agents',
-              element: (
-                <MarketplaceProvider>
-                  <AgentMarketplace />
-                </MarketplaceProvider>
-              ),
-            },
-            {
-              path: 'agents/:category',
-              element: (
-                <MarketplaceProvider>
-                  <AgentMarketplace />
-                </MarketplaceProvider>
-              ),
+              path: '/',
+              element: <Root />,
+              children: [
+                {
+                  index: true,
+                  element: <Navigate to="/c/new" replace={true} />,
+                },
+                {
+                  path: 'c/:conversationId?',
+                  element: <ChatRoute />,
+                },
+                {
+                  path: 'search',
+                  element: <Search />,
+                },
+                {
+                  path: 'conversations',
+                  element: <ConversationHistoryPage />,
+                },
+              ],
             },
           ],
         },

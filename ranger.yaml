@@ -46,7 +46,7 @@ interface:
   presets: true
   prompts: true
   bookmarks: true
-  multiConvo: true
+  multiConvo: false
   agents: true
   peoplePicker:
     users: true
@@ -59,6 +59,64 @@ interface:
 # Registration settings
 registration:
   socialLogins: ['openid']  # Enable Okta/OpenID login
+
+# Memory Configuration - Personalized User Experience
+# Enables persistent memory across conversations for a personalized experience
+# The AI can remember user preferences, important facts, and context
+memory:
+  disabled: false                    # Enable memory feature
+  personalize: true                  # Allow users to toggle memory on/off in their settings
+  tokenLimit: 4000                   # Maximum tokens for memory storage (controls cost)
+  charLimit: 15000                   # Maximum characters per memory entry
+  messageWindowSize: 8               # Number of recent messages to analyze for memory updates
+  
+  # Valid memory categories - restricts what types of information can be stored
+  # This provides structure and helps the memory agent organize information
+  validKeys:
+    - "user_preferences"             # Communication style, topics of interest, workflow preferences
+    - "personal_info"                # Name, role, team, location (explicitly shared by user)
+    - "project_context"              # Ongoing projects, tasks, deadlines mentioned
+    - "technical_preferences"        # Preferred languages, frameworks, tools, coding style
+    - "learned_facts"                # Important facts about the user's work or domain
+  
+  # Memory agent configuration - uses Nova Micro (cheapest model) for memory processing
+  agent:
+    provider: "bedrock"
+    model: "us.amazon.nova-micro-v1:0"
+    instructions: |
+      You are a memory management assistant. Your ONLY job is to respond to explicit memory requests.
+      
+      CRITICAL - ONLY use memory tools when the user EXPLICITLY says one of these phrases:
+      - "Remember [that] [I]..."
+      - "Don't forget [that] [I]..."
+      - "Please remember..."
+      - "Store this..."
+      - "Save this..."
+      - "Keep in mind..."
+      - "Note that..."
+      - "Forget [that] [I]..."
+      - "Delete the memory about..."
+      
+      ABSOLUTE RULES - VIOLATIONS ARE FORBIDDEN:
+      1. NEVER store information just because the user mentioned it in conversation
+      2. NEVER use memory tools when the user asks you to use OTHER tools (like image generation, code execution, web search, etc.)
+      3. NEVER save task requests, commands, or actions the user is performing
+      4. NEVER save one-time requests like "generate an image", "write code", "search for X"
+      5. Memory tools are EXCLUSIVELY for explicit memory requests, nothing else
+      
+      VALID MEMORY CATEGORIES:
+      - user_preferences: Communication style, response preferences
+      - personal_info: Name, role, team (only if user explicitly asks to remember)
+      - project_context: Ongoing projects (only if user explicitly asks to remember)
+      - technical_preferences: Preferred languages, frameworks (only if user explicitly asks to remember)
+      - learned_facts: Domain knowledge (only if user explicitly asks to remember)
+      
+      WHEN IN DOUBT: DO NOT USE ANY MEMORY TOOLS. END THE TURN IMMEDIATELY.
+      
+      If the user hasn't said "remember", "save", "store", "note", "keep in mind", or "don't forget" - DO NOTHING.
+    model_parameters:
+      temperature: 0.1                # Very low temperature for strict rule following
+      max_tokens: 1500
 
 # Intent Analyzer Configuration - Unified Tool Selection + Model Routing
 # Uses @ranger/intent-analyzer package for both features
@@ -113,9 +171,9 @@ endpoints:
     maxCitationsPerFile: 7
     # Lower threshold for RAG - cosine distances result in relevance scores around 0.05-0.45
     minRelevanceScore: 0.05
-    capabilities: ["execute_code", "file_search", "web_search", "artifacts", "actions", "tools", "context", "chain"]
+    capabilities: ["execute_code", "file_search", "web_search", "youtube_video", "artifacts", "actions", "tools", "context", "chain"]
     # Tools that are auto-enabled (included by default unless intent classification says not needed)
-    toolsAutoEnabled: ["execute_code", "file_search", "artifacts", "web_search"]
+    toolsAutoEnabled: ["execute_code", "file_search", "artifacts", "youtube_video", "web_search"]
 
   # AWS Bedrock configuration
   bedrock:

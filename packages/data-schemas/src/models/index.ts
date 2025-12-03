@@ -6,6 +6,7 @@ import { createConversationModel } from './convo';
 import { createMessageModel } from './message';
 import { createAgentModel } from './agent';
 import { createAgentCategoryModel } from './agentCategory';
+import { createAgentScheduleModel } from './agentSchedule';
 import { createRoleModel } from './role';
 import { createActionModel } from './action';
 import { createAssistantModel } from './assistant';
@@ -22,6 +23,8 @@ import { createConversationTagModel } from './conversationTag';
 import { createSharedLinkModel } from './sharedLink';
 import { createToolCallModel } from './toolCall';
 import { createMemoryModel } from './memory';
+import { createTriggerExecutionModel } from './triggerExecution';
+import { createExecutionTraceModel } from './executionTrace';
 import { createAccessRoleModel } from './accessRole';
 import { createAclEntryModel } from './aclEntry';
 import { createGroupModel } from './group';
@@ -39,6 +42,7 @@ export function createModels(mongoose: typeof import('mongoose')) {
     Message: createMessageModel(mongoose),
     Agent: createAgentModel(mongoose),
     AgentCategory: createAgentCategoryModel(mongoose),
+    AgentSchedule: createAgentScheduleModel(mongoose),
     Role: createRoleModel(mongoose),
     Action: createActionModel(mongoose),
     Assistant: createAssistantModel(mongoose),
@@ -55,6 +59,8 @@ export function createModels(mongoose: typeof import('mongoose')) {
     SharedLink: createSharedLinkModel(mongoose),
     ToolCall: createToolCallModel(mongoose),
     MemoryEntry: createMemoryModel(mongoose),
+    TriggerExecution: createTriggerExecutionModel(mongoose),
+    ExecutionTrace: createExecutionTraceModel(mongoose),
     AccessRole: createAccessRoleModel(mongoose),
     AclEntry: createAclEntryModel(mongoose),
     Group: createGroupModel(mongoose),

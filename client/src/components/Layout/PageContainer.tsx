@@ -26,11 +26,17 @@ interface PageContainerProps {
  * - Consistent header height (h-12) with sidebar toggle
  * - Consistent padding (px-6 pb-5)
  * - Scrollable content area
+ * 
+ * Note: Works both under Root (has navVisible context) and LeftPanelLayout (no context).
+ * When no context is available, the sidebar toggle is not shown.
  */
 const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
   ({ children, className, headerContent }, ref) => {
     const isSmallScreen = useMediaQuery('(max-width: 768px)');
-    const { navVisible, setNavVisible } = useOutletContext<ContextType>();
+    // Context is optional - LeftPanelLayout doesn't provide it, Root does
+    const context = useOutletContext<ContextType | undefined>();
+    const navVisible = context?.navVisible;
+    const setNavVisible = context?.setNavVisible;
 
     return (
       <div className="relative flex h-full w-full grow overflow-hidden bg-presentation">
@@ -39,8 +45,8 @@ const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
             ref={ref}
             className="scrollbar-gutter-stable flex h-full flex-col overflow-y-auto overflow-x-hidden"
           >
-            {/* Header with sidebar toggle - only show when sidebar is collapsed */}
-            {!navVisible && !isSmallScreen && (
+            {/* Header with sidebar toggle - only show when sidebar is collapsed and context exists */}
+            {setNavVisible && !navVisible && !isSmallScreen && (
               <div className="flex h-12 flex-shrink-0 items-center px-4">
                 <div className="flex items-center gap-2">
                   <OpenSidebar setNavVisible={setNavVisible} />

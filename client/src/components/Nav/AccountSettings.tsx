@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, User } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 // import FilesView from '~/components/Chat/Input/Files/FilesView';
@@ -61,6 +61,14 @@ function AccountSettings() {
             <DropdownMenuSeparator />
           </>
         )}
+        <Select.SelectItem
+          value=""
+          onClick={() => navigate('/profile')}
+          className="select-item text-sm"
+        >
+          <User className="icon-md" aria-hidden="true" />
+          {localize('com_nav_profile')}
+        </Select.SelectItem>
         <Select.SelectItem
           value=""
           onClick={() => navigate('/files')}

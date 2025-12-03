@@ -70,6 +70,14 @@ const TOOL_DETECTION_PATTERNS: Record<Tool, RegExp[]> = {
     /built.*interface/i,
     /created.*mermaid/i,
   ],
+  [ToolEnum.YOUTUBE_VIDEO]: [
+    /transcript.*video/i,
+    /video.*transcript/i,
+    /youtube.*video/i,
+    /from the video/i,
+    /according to the video/i,
+    /the video (says|mentions|discusses)/i,
+  ],
 };
 
 /**

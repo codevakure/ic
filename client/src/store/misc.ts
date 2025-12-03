@@ -75,6 +75,8 @@ export interface SourcesPanelState {
   content: React.ReactNode | null;
   mode: SourcesPanelMode;
   headerActions?: React.ReactNode | null;
+  /** Panel width as percentage (0-100). Default: 30 for push mode, ignored for overlay */
+  width?: number;
 }
 
 const sourcesPanelState = atom<SourcesPanelState>({
@@ -85,6 +87,7 @@ const sourcesPanelState = atom<SourcesPanelState>({
     content: null,
     mode: 'overlay',
     headerActions: null,
+    width: 30,
   },
 });
 

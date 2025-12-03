@@ -506,7 +506,7 @@ describe('Conversation History Context', () => {
 
     // Verify conversation history was included in prompt
     expect(capturedPrompt).toContain('stocks');
-    expect(capturedPrompt).toContain('conversation');
+    expect(capturedPrompt.toLowerCase()).toContain('conversation');
   });
 
   it('should understand follow-up visualization request from history', async () => {

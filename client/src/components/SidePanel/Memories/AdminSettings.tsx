@@ -46,7 +46,15 @@ const LabelController: React.FC<LabelControllerProps> = ({ control, memoryPerm, 
   </div>
 );
 
-const AdminSettings = () => {
+interface AdminSettingsProps {
+  iconSize?: string;
+  buttonSize?: string;
+}
+
+const AdminSettings: React.FC<AdminSettingsProps> = ({
+  iconSize = 'h-5 w-5',
+  buttonSize = 'h-9 w-9',
+}) => {
   const localize = useLocalize();
   const { user, roles } = useAuthContext();
   const { showToast } = useToastContext();
@@ -139,16 +147,15 @@ const AdminSettings = () => {
     <OGDialog>
       <OGDialogTrigger asChild>
         <Button
-          size={'sm'}
-          variant={'outline'}
-          className="btn btn-neutral border-token-border-light relative h-9 w-full gap-1 rounded-lg font-medium"
+          variant="outline"
+          size="icon"
+          className={`relative ${buttonSize} rounded-lg border-border-medium`}
           aria-label={localize('com_ui_admin_settings')}
         >
-          <ShieldEllipsis className="cursor-pointer" aria-hidden="true" />
-          {localize('com_ui_admin_settings')}
+          <ShieldEllipsis className={iconSize} aria-hidden="true" />
         </Button>
       </OGDialogTrigger>
-      <OGDialogContent className="border-border-light bg-surface-primary text-text-primary lg:w-1/4">
+      <OGDialogContent className="w-11/12 max-w-md border-border-light bg-surface-primary text-text-primary">
         <OGDialogTitle>{`${localize('com_ui_admin_settings')} - ${localize(
           'com_ui_memories',
         )}`}</OGDialogTitle>

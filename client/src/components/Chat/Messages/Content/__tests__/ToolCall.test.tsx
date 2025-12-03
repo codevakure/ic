@@ -1,8 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { RecoilRoot } from 'recoil';
+import { RecoilRoot, MutableSnapshot } from 'recoil';
 import { Tools } from 'librechat-data-provider';
 import ToolCall from '../ToolCall';
+import store from '~/store';
 
 // Mock dependencies
 jest.mock('~/hooks', () => ({
@@ -81,7 +82,11 @@ describe('ToolCall', () => {
   };
 
   const renderWithRecoil = (component: React.ReactElement) => {
-    return render(<RecoilRoot>{component}</RecoilRoot>);
+    const initializeState = ({ set }: MutableSnapshot) => {
+      // Enable showToolCallDetails to test the detailed view functionality
+      set(store.showToolCallDetails, true);
+    };
+    return render(<RecoilRoot initializeState={initializeState}>{component}</RecoilRoot>);
   };
 
   beforeEach(() => {
@@ -104,7 +109,7 @@ describe('ToolCall', () => {
 
       renderWithRecoil(<ToolCall {...mockProps} attachments={attachments} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       expect(toolCallInfo).toBeInTheDocument();
@@ -116,7 +121,7 @@ describe('ToolCall', () => {
     it('should pass empty array when no attachments', () => {
       renderWithRecoil(<ToolCall {...mockProps} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const attachmentsData = toolCallInfo.getAttribute('data-attachments');
@@ -147,7 +152,7 @@ describe('ToolCall', () => {
 
       renderWithRecoil(<ToolCall {...mockProps} attachments={attachments} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const attachmentsData = toolCallInfo.getAttribute('data-attachments');
@@ -197,11 +202,11 @@ describe('ToolCall', () => {
       expect(screen.queryByTestId('tool-call-info')).not.toBeInTheDocument();
 
       // Click to open
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
       expect(screen.getByTestId('tool-call-info')).toBeInTheDocument();
 
       // Click to close
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
       expect(screen.queryByTestId('tool-call-info')).not.toBeInTheDocument();
     });
 
@@ -227,7 +232,7 @@ describe('ToolCall', () => {
 
       renderWithRecoil(<ToolCall {...propsWithDomain} />);
 
-      fireEvent.click(screen.getByText('Completed action on test.domain.com'));
+      fireEvent.click(screen.getByText('Completed action on Test.Domain.Com'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const props = JSON.parse(toolCallInfo.textContent!);
@@ -278,7 +283,7 @@ describe('ToolCall', () => {
         />,
       );
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const props = JSON.parse(toolCallInfo.textContent!);
@@ -318,7 +323,7 @@ describe('ToolCall', () => {
     it('should handle undefined args', () => {
       renderWithRecoil(<ToolCall {...mockProps} args={undefined} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const props = JSON.parse(toolCallInfo.textContent!);
@@ -328,7 +333,7 @@ describe('ToolCall', () => {
     it('should handle null output', () => {
       renderWithRecoil(<ToolCall {...mockProps} output={null} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const props = JSON.parse(toolCallInfo.textContent!);
@@ -338,7 +343,7 @@ describe('ToolCall', () => {
     it('should handle missing domain', () => {
       renderWithRecoil(<ToolCall {...mockProps} domain={undefined} authDomain={undefined} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const props = JSON.parse(toolCallInfo.textContent!);
@@ -369,7 +374,7 @@ describe('ToolCall', () => {
 
       renderWithRecoil(<ToolCall {...mockProps} attachments={complexAttachments} />);
 
-      fireEvent.click(screen.getByText('Completed testFunction'));
+      fireEvent.click(screen.getByText('Completed TestFunction'));
 
       const toolCallInfo = screen.getByTestId('tool-call-info');
       const attachmentsData = toolCallInfo.getAttribute('data-attachments');

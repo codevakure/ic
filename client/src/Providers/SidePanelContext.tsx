@@ -8,8 +8,21 @@ interface SidePanelContextValue {
 
 const SidePanelContext = createContext<SidePanelContextValue | undefined>(undefined);
 
+/**
+ * SidePanelProvider - Provides side panel context with optional ChatContext dependency
+ * 
+ * This provider is used in AppLayout which wraps ALL authenticated routes,
+ * not just chat routes where ChatContext.Provider exists. Therefore we must
+ * make ChatContext optional to avoid errors on non-chat routes like:
+ * - /bookmarks
+ * - /agents
+ * - /files
+ * - /placeholder
+ */
 export function SidePanelProvider({ children }: { children: React.ReactNode }) {
-  const { conversation } = useChatContext();
+  // ChatContext is optional - may not exist on non-chat routes (bookmarks, agents, etc.)
+  const chatContext = useChatContext();
+  const conversation = chatContext?.conversation;
 
   /** Context value only created when endpoint changes */
   const contextValue = useMemo<SidePanelContextValue>(

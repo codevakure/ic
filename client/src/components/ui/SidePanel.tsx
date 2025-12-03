@@ -1,10 +1,37 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useContext, createContext } from 'react';
 import { createPortal } from 'react-dom';
 import { useRecoilState, useSetRecoilState } from 'recoil';
 import { ArrowLeft, X } from 'lucide-react';
 import { useMediaQuery } from '@librechat/client';
 import store from '~/store';
 import { cn } from '~/utils';
+
+/**
+ * Context to detect if we're inside SidePanelGroup.
+ * When true, push mode is handled by SourcesPanel inside SidePanelGroup.
+ * GlobalSourcesPanel should NOT render push mode panel in this case.
+ */
+const SidePanelGroupContext = createContext<boolean>(false);
+
+/**
+ * Provider to mark that we're inside SidePanelGroup.
+ * Used by SidePanelGroup to indicate that SourcesPanel will handle push mode.
+ */
+export function SidePanelGroupProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <SidePanelGroupContext.Provider value={true}>
+      {children}
+    </SidePanelGroupContext.Provider>
+  );
+}
+
+/**
+ * Hook to check if we're inside SidePanelGroup.
+ * Returns true if SourcesPanel will handle push mode, false otherwise.
+ */
+export function useIsInsideSidePanelGroup() {
+  return useContext(SidePanelGroupContext);
+}
 
 export interface SidePanelProps {
   /** Whether the panel is open */
@@ -263,7 +290,13 @@ export function useSourcesPanel() {
   const setArtifactsVisible = useSetRecoilState(store.artifactsVisibility);
 
   const openPanel = useCallback(
-    (title: string, content: React.ReactNode, mode: SourcesPanelMode = 'overlay', headerActions?: React.ReactNode) => {
+    (
+      title: string,
+      content: React.ReactNode,
+      mode: SourcesPanelMode = 'overlay',
+      headerActions?: React.ReactNode,
+      width: number = 30,
+    ) => {
       // Close artifacts panel when opening sources panel
       setArtifactsVisible(false);
       
@@ -273,6 +306,7 @@ export function useSourcesPanel() {
         content,
         mode,
         headerActions: headerActions ?? null,
+        width,
       });
     },
     [setPanelState, setArtifactsVisible],
@@ -285,14 +319,23 @@ export function useSourcesPanel() {
     }));
   }, [setPanelState]);
 
+  const updateHeaderActions = useCallback((headerActions: React.ReactNode) => {
+    setPanelState((prev) => ({
+      ...prev,
+      headerActions: headerActions ?? null,
+    }));
+  }, [setPanelState]);
+
   return {
     isOpen: panelState.isOpen,
     title: panelState.title,
     content: panelState.content,
     mode: panelState.mode,
     headerActions: panelState.headerActions,
+    width: panelState.width ?? 30,
     openPanel,
     closePanel,
+    updateHeaderActions,
   };
 }
 
@@ -316,14 +359,20 @@ export function useSidePanel(initialOpen = false) {
 }
 
 /**
- * Global Sources Panel component for overlay mode and mobile bottom sheet
- * - Push mode: Handled by SourcesPanel inside SidePanelGroup (like Artifacts)
+ * Global Sources Panel component for overlay mode and mobile bottom sheet.
+ * 
+ * - Push mode on desktop: Handled by SourcesPanel inside SidePanelGroup (with draggable resize)
  * - Overlay mode: Panel slides over content (rendered via portal)
  * - Mobile: Always renders as a bottom sheet via portal
- * This should be rendered at the layout level (e.g., in Presentation.tsx)
+ * 
+ * This should be rendered at the layout level (e.g., in Presentation.tsx, LeftPanelLayout.tsx)
+ * 
+ * Note: LeftPanelLayout uses SidePanelGroup with hideNavPanel=true to get the same
+ * push panel functionality as the chat view.
  */
 export function GlobalSourcesPanel() {
-  const { isOpen, title, content, mode, closePanel } = useSourcesPanel();
+  const { isOpen, title, content, mode, headerActions, closePanel } = useSourcesPanel();
+  const isInsideSidePanelGroup = useIsInsideSidePanelGroup();
   const isMobile = useMediaQuery('(max-width: 868px)');
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -444,9 +493,9 @@ export function GlobalSourcesPanel() {
     return null;
   }
 
-  // Desktop Push mode is handled by SourcesPanel inside SidePanelGroup
-  // GlobalSourcesPanel only handles mobile (bottom sheet) and desktop overlay mode
-  if (!isMobile && mode === 'push') {
+  // Desktop Push mode: If inside SidePanelGroup, SourcesPanel handles it with resizable panels
+  // GlobalSourcesPanel only handles overlay mode and mobile bottom sheet
+  if (!isMobile && mode === 'push' && isInsideSidePanelGroup) {
     return null;
   }
 
@@ -501,17 +550,17 @@ export function GlobalSourcesPanel() {
 
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border-light px-4 py-2">
-            <div className="flex items-center">
+            <div className="flex min-w-0 flex-1 items-center">
               <button
-                className="mr-2 text-text-secondary hover:text-text-primary"
+                className="mr-2 flex-shrink-0 text-text-secondary hover:text-text-primary"
                 onClick={handleClose}
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <h3 className="truncate text-sm font-medium text-text-primary">{title}</h3>
+              <h3 className="max-w-[200px] truncate text-sm font-medium text-text-primary">{title}</h3>
             </div>
             <button
-              className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+              className="flex-shrink-0 rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
               onClick={handleClose}
               aria-label="Close panel"
             >
@@ -549,22 +598,25 @@ export function GlobalSourcesPanel() {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-light px-4 py-3">
-          <div className="flex items-center">
+          <div className="flex min-w-0 flex-1 items-center">
             <button
-              className="mr-2 text-text-secondary hover:text-text-primary"
+              className="mr-2 flex-shrink-0 text-text-secondary hover:text-text-primary"
               onClick={handleClose}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <h3 className="text-base font-medium text-text-primary">{title}</h3>
+            <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{title}</h3>
           </div>
-          <button
-            className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-            onClick={handleClose}
-            aria-label="Close panel"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex flex-shrink-0 items-center gap-1">
+            {headerActions}
+            <button
+              className="rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+              onClick={handleClose}
+              aria-label="Close panel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

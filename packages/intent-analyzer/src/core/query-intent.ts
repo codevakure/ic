@@ -199,6 +199,39 @@ const NGRAM_PHRASES: Record<Tool, string[]> = {
     'make a chart',
     'generate a graph',
   ],
+  [Tool.YOUTUBE_VIDEO]: [
+    // Direct video references
+    'this youtube video',
+    'this video',
+    'the youtube video',
+    'the video',
+    'that video',
+    'that youtube video',
+    // Transcript requests
+    'get the transcript',
+    'fetch the transcript',
+    'transcript of the video',
+    'transcript from youtube',
+    'video transcript',
+    'youtube transcript',
+    // Summarize video
+    'summarize the video',
+    'summarize this video',
+    'summary of the video',
+    'what is this video about',
+    'what does the video say',
+    'what does this video',
+    // YouTube specific
+    'from youtube',
+    'on youtube',
+    'youtube.com',
+    'youtu.be',
+    // Video content extraction
+    'what did they say',
+    'what was said in',
+    'key points from the video',
+    'main points from the video',
+  ],
 };
 
 // ============================================================================
@@ -714,6 +747,38 @@ const QUERY_PATTERNS: Record<Tool, { high: RegExp[]; medium: RegExp[]; low: RegE
       /\b(news|media|press|report|article)\b/i,
     ],
   },
+  [Tool.YOUTUBE_VIDEO]: {
+    high: [
+      // YouTube URLs - very strong signal
+      /\b(youtube\.com|youtu\.be)\/[\w\-]+/i,
+      /\bhttps?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]+/i,
+      
+      // Direct transcript requests
+      /\b(get|fetch|extract|show)\b.*\b(transcript|subtitles?|captions?)\b.*\b(from|of)\b.*\b(youtube|video)\b/i,
+      /\b(youtube|video)\b.*\b(transcript|subtitles?|captions?)\b/i,
+      
+      // Summarize video requests
+      /\b(summarize|summary|overview)\b.*\b(this|the|that)\b.*\b(youtube|video)\b/i,
+      /\b(youtube|video)\b.*\b(summary|summarize|overview)\b/i,
+      
+      // What does video say/cover
+      /\bwhat\b.*\b(does|did)\b.*\b(video|youtube)\b.*\b(say|cover|discuss|explain|mention)\b/i,
+    ],
+    medium: [
+      // Video content requests
+      /\b(content|key\s*points?|main\s*points?|highlights?)\b.*\b(of|from|in)\b.*\b(video|youtube)\b/i,
+      /\b(video|youtube)\b.*\b(content|key\s*points?|main\s*points?|highlights?)\b/i,
+      
+      // "this video" or "the video" with action
+      /\b(explain|describe|tell\s*me\s*about)\b.*\b(this|the|that)\b.*\bvideo\b/i,
+    ],
+    low: [
+      // Generic video/youtube keywords
+      /\b(youtube|video|watch)\b/i,
+      // Transcript keywords alone
+      /\b(transcript|subtitles?|captions?)\b/i,
+    ],
+  },
 };
 
 /**
@@ -742,6 +807,17 @@ const EXPLICIT_TOOL_REQUESTS: Record<Tool, RegExp[]> = {
     /\b(use|enable|activate|with|using)\b.*\b(web\s*search|internet\s*search|google|bing)\b/i,
     /\b(web\s*search|internet\s*search)\b.*\b(to|for|and)\b/i,
     /\bsearch\s+(the\s+)?(web|internet|online)\s+(for|about)\b/i,
+  ],
+  [Tool.YOUTUBE_VIDEO]: [
+    // Explicit YouTube tool requests
+    /\b(use|enable|activate|with|using)\b.*\b(youtube\s*video|youtube\s*tool|video\s*transcript)\b/i,
+    /\b(get|fetch|extract)\b.*\b(youtube|video)\b.*\b(transcript|content|info)\b/i,
+    // YouTube URL patterns
+    /\bhttps?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]+/i,
+    /\byoutube\.com\/watch\?v=/i,
+    /\byoutu\.be\//i,
+    // Video summarization requests
+    /\b(summarize|analyze|explain)\b.*\b(this|the|that)\b.*\b(youtube|video)\b/i,
   ],
 };
 
@@ -1044,6 +1120,7 @@ export function capabilityToTool(capability: string): Tool | null {
     'execute_code': Tool.CODE_INTERPRETER,
     'artifacts': Tool.ARTIFACTS,
     'web_search': Tool.WEB_SEARCH,
+    'youtube_video': Tool.YOUTUBE_VIDEO,
   };
   return mapping[capability] ?? null;
 }
@@ -1057,6 +1134,7 @@ export function toolToCapability(tool: Tool): string {
     [Tool.CODE_INTERPRETER]: 'execute_code',
     [Tool.ARTIFACTS]: 'artifacts',
     [Tool.WEB_SEARCH]: 'web_search',
+    [Tool.YOUTUBE_VIDEO]: 'youtube_video',
   };
   return mapping[tool];
 }

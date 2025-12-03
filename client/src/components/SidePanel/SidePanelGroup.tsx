@@ -4,7 +4,7 @@ import { useRecoilValue } from 'recoil';
 import { getConfigDefaults } from 'librechat-data-provider';
 import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@librechat/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { useSourcesPanel } from '~/components/ui/SidePanel';
+import { useSourcesPanel, SidePanelGroupProvider, GlobalSourcesPanel } from '~/components/ui/SidePanel';
 import { useGetStartupConfig } from '~/data-provider';
 import ArtifactsPanel from './ArtifactsPanel';
 import SourcesPanel from './SourcesPanel';
@@ -19,6 +19,8 @@ interface SidePanelProps {
   fullPanelCollapse?: boolean;
   artifacts?: React.ReactNode;
   children: React.ReactNode;
+  /** Hide the right navigation side panel (for standalone pages like Bookmarks) */
+  hideNavPanel?: boolean;
 }
 
 const defaultMinSize = 20;
@@ -32,6 +34,7 @@ const SidePanelGroup = memo(
     navCollapsedSize = 3,
     artifacts,
     children,
+    hideNavPanel = false,
   }: SidePanelProps) => {
     const { data: startupConfig } = useGetStartupConfig();
     const interfaceConfig = useMemo(
@@ -51,17 +54,16 @@ const SidePanelGroup = memo(
     const hideSidePanel = useRecoilValue(store.hideSidePanel);
     
     // Get sources panel state to include in layout calculations
-    const { isOpen: sourcesOpen, mode: sourcesMode } = useSourcesPanel();
+    const { isOpen: sourcesOpen, mode: sourcesMode, width: sourcesWidth } = useSourcesPanel();
     const sourcesActive = sourcesOpen && sourcesMode === 'push' && !isSmallScreen;
 
     const calculateLayout = useCallback(() => {
-      // When sources panel is active (push mode), calculate layout like artifacts (50/50 split)
+      // When sources panel is active (push mode), use dynamic width
       if (sourcesActive && artifacts == null) {
         const navSize = 0;
-        const remainingSpace = 100 - navSize;
-        const newMainSize = Math.floor(remainingSpace / 2);
-        const sourcesSize = remainingSpace - newMainSize;
-        return [newMainSize, sourcesSize, navSize];
+        const panelWidth = sourcesWidth ?? 30; // Use configured width or default to 30%
+        const mainSize = 100 - navSize - panelWidth;
+        return [mainSize, panelWidth, navSize];
       }
       if (artifacts == null) {
         const navSize = defaultLayout.length === 2 ? defaultLayout[1] : defaultLayout[2];
@@ -73,7 +75,7 @@ const SidePanelGroup = memo(
         const artifactsSize = remainingSpace - newMainSize;
         return [newMainSize, artifactsSize, navSize];
       }
-    }, [artifacts, defaultLayout, sourcesActive]);
+    }, [artifacts, defaultLayout, sourcesActive, sourcesWidth]);
 
     const currentLayout = useMemo(() => normalizeLayout(calculateLayout()), [calculateLayout]);
 
@@ -122,7 +124,7 @@ const SidePanelGroup = memo(
     }, []);
 
     return (
-      <>
+      <SidePanelGroupProvider>
         <ResizablePanelGroup
           direction="horizontal"
           onLayout={(sizes) => throttledSaveLayout(sizes)}
@@ -150,7 +152,7 @@ const SidePanelGroup = memo(
           {!isSmallScreen && (
             <SourcesPanel
               currentLayout={currentLayout}
-              defaultSize={currentLayout[1] || 50}
+              defaultSize={sourcesWidth ?? 30}
               minSize={minSizeMain}
               maxSize={70}
               order={2}
@@ -159,7 +161,7 @@ const SidePanelGroup = memo(
             />
           )}
 
-          {!hideSidePanel && interfaceConfig.sidePanel === true && (
+          {!hideNavPanel && !hideSidePanel && interfaceConfig.sidePanel === true && (
             <SidePanel
               panelRef={panelRef}
               minSize={minSize}
@@ -179,14 +181,22 @@ const SidePanelGroup = memo(
         {artifacts != null && isSmallScreen && (
           <div className="fixed inset-0 z-[100]">{artifacts}</div>
         )}
-        {!hideSidePanel && interfaceConfig.sidePanel === true && (
+        {!hideNavPanel && !hideSidePanel && interfaceConfig.sidePanel === true && (
           <button
             aria-label="Close right side panel"
             className={`nav-mask ${!isCollapsed ? 'active' : ''}`}
             onClick={handleClosePanel}
           />
         )}
-      </>
+        {/* 
+          GlobalSourcesPanel is rendered INSIDE SidePanelGroupProvider context.
+          This ensures:
+          - Push mode on desktop: Returns null (SourcesPanel handles it)
+          - Overlay mode: Renders slide-over panel via portal
+          - Mobile: Renders bottom sheet via portal
+        */}
+        <GlobalSourcesPanel />
+      </SidePanelGroupProvider>
     );
   },
 );

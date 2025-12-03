@@ -9,6 +9,7 @@ interface AgentCapabilitiesResult {
   contextEnabled: boolean;
   fileSearchEnabled: boolean;
   webSearchEnabled: boolean;
+  youtubeVideoEnabled: boolean;
   codeEnabled: boolean;
   /** Check if a capability is auto-enabled (handled by backend intent analyzer) */
   isAutoEnabled: (capability: AgentCapabilities) => boolean;
@@ -58,6 +59,11 @@ export default function useAgentCapabilities(
     [capabilities],
   );
 
+  const youtubeVideoEnabled = useMemo(
+    () => capabilities?.includes(AgentCapabilities.youtube_video) ?? false,
+    [capabilities],
+  );
+
   const codeEnabled = useMemo(
     () => capabilities?.includes(AgentCapabilities.execute_code) ?? false,
     [capabilities],
@@ -71,6 +77,7 @@ export default function useAgentCapabilities(
     contextEnabled,
     artifactsEnabled,
     webSearchEnabled,
+    youtubeVideoEnabled,
     fileSearchEnabled,
     isAutoEnabled,
   };

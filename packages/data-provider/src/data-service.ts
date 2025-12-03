@@ -6,6 +6,8 @@ import * as ag from './types/agents';
 import * as m from './types/mutations';
 import * as q from './types/queries';
 import * as f from './types/files';
+import * as sch from './types/schedules';
+import * as exec from './types/executions';
 import * as config from './config';
 import request from './request';
 import * as s from './schemas';
@@ -475,6 +477,196 @@ export const revertAgentVersion = ({
   agent_id: string;
   version_index: number;
 }): Promise<a.Agent> => request.post(endpoints.revertAgentVersion(agent_id), { version_index });
+
+/**
+ * Agent Schedules
+ */
+
+export const getAgentSchedules = ({
+  agentId,
+}: {
+  agentId: string;
+}): Promise<sch.ScheduleListResponse> => {
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/schedules`,
+    }),
+  );
+};
+
+export const getAgentSchedule = ({
+  agentId,
+  scheduleId,
+}: {
+  agentId: string;
+  scheduleId: string;
+}): Promise<sch.AgentSchedule> => {
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/schedules/${scheduleId}`,
+    }),
+  );
+};
+
+export const createAgentSchedule = ({
+  agentId,
+  data,
+}: {
+  agentId: string;
+  data: sch.CreateScheduleParams;
+}): Promise<sch.AgentSchedule> => {
+  return request.post(
+    endpoints.agents({
+      path: `${agentId}/schedules`,
+    }),
+    data,
+  );
+};
+
+export const updateAgentSchedule = ({
+  agentId,
+  scheduleId,
+  data,
+}: {
+  agentId: string;
+  scheduleId: string;
+  data: sch.UpdateScheduleParams;
+}): Promise<sch.AgentSchedule> => {
+  return request.patch(
+    endpoints.agents({
+      path: `${agentId}/schedules/${scheduleId}`,
+    }),
+    data,
+  );
+};
+
+export const deleteAgentSchedule = ({
+  agentId,
+  scheduleId,
+}: {
+  agentId: string;
+  scheduleId: string;
+}): Promise<{ success: boolean }> => {
+  return request.delete(
+    endpoints.agents({
+      path: `${agentId}/schedules/${scheduleId}`,
+    }),
+  );
+};
+
+export const getScheduleExecutions = ({
+  agentId,
+  scheduleId,
+  limit = 50,
+  skip = 0,
+}: {
+  agentId: string;
+  scheduleId: string;
+  limit?: number;
+  skip?: number;
+}): Promise<sch.ScheduleExecutionListResponse> => {
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/schedules/${scheduleId}/executions`,
+      options: { limit, skip },
+    }),
+  );
+};
+
+/**
+ * Agent Executions (Trace System)
+ */
+
+export const getAgentExecutions = ({
+  agentId,
+  limit = 20,
+  offset = 0,
+  status,
+  scheduleId,
+}: {
+  agentId: string;
+  limit?: number;
+  offset?: number;
+  status?: string;
+  scheduleId?: string;
+}): Promise<exec.ExecutionListResponse> => {
+  const options: Record<string, unknown> = { limit, offset };
+  if (status) options.status = status;
+  if (scheduleId) options.scheduleId = scheduleId;
+  
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/executions`,
+      options,
+    }),
+  );
+};
+
+export const getAgentExecution = ({
+  agentId,
+  executionId,
+}: {
+  agentId: string;
+  executionId: string;
+}): Promise<exec.ExecutionSummary> => {
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/executions/${executionId}`,
+    }),
+  );
+};
+
+export const getExecutionTrace = ({
+  agentId,
+  executionId,
+}: {
+  agentId: string;
+  executionId: string;
+}): Promise<exec.ExecutionTraceTree> => {
+  return request.get(
+    endpoints.agents({
+      path: `${agentId}/executions/${executionId}/trace`,
+    }),
+  );
+};
+
+export const deleteAgentExecution = ({
+  agentId,
+  executionId,
+}: {
+  agentId: string;
+  executionId: string;
+}): Promise<{ success: boolean; deleted: string }> => {
+  return request.delete(
+    endpoints.agents({
+      path: `${agentId}/executions/${executionId}`,
+    }),
+  );
+};
+
+export const deleteAgentExecutions = ({
+  agentId,
+  status,
+  scheduleId,
+  olderThan,
+}: {
+  agentId: string;
+  status?: string;
+  scheduleId?: string;
+  olderThan?: string;
+}): Promise<exec.DeleteExecutionsResponse> => {
+  const options: Record<string, unknown> = {};
+  if (status) options.status = status;
+  if (scheduleId) options.scheduleId = scheduleId;
+  if (olderThan) options.olderThan = olderThan;
+  
+  return request.delete(
+    endpoints.agents({
+      path: `${agentId}/executions`,
+      options,
+    }),
+  );
+};
 
 /* Marketplace */
 

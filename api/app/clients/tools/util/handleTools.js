@@ -33,6 +33,7 @@ const {
   TraversaalSearch,
   StructuredWolfram,
   createYouTubeTools,
+  createYouTubeVideoLoaderTools,
   TavilySearchResults,
   createOpenAIImageTools,
   PostgreSQL,
@@ -221,6 +222,24 @@ const loadTools = async ({
       const authFields = getAuthFields('youtube');
       const authValues = await loadAuthValues({ userId: user, authFields });
       return createYouTubeTools(authValues);
+    },
+    youtube_video: async (toolContextMap) => {
+      // No auth needed - this is a keyless tool
+      toolContextMap.youtube_video = `# \`youtube_video\`:
+A tool for fetching video transcripts and metadata from YouTube. Use this when users:
+- Share a YouTube URL and want information about the video
+- Ask to summarize, analyze, or discuss a YouTube video
+- Want to know what a video is about
+- Need transcript/caption content from a video
+
+**URL Detection - ALWAYS use youtube_video for:**
+- youtube.com/watch?v=...
+- youtu.be/...
+- youtube.com/shorts/...
+- Any YouTube video link
+
+Returns: Video title, description, author, and full transcript text.`;
+      return createYouTubeVideoLoaderTools();
     },
     image_gen_oai: async (toolContextMap) => {
       const authFields = getAuthFields('image_gen_oai');

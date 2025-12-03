@@ -2,15 +2,13 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, TextareaAutosize, Input } from '@librechat/client';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
-import { LocalStorageKeys, PermissionTypes, Permissions } from 'librechat-data-provider';
+import { LocalStorageKeys, PermissionTypes, Permissions, Constants } from 'librechat-data-provider';
 import CategorySelector from '~/components/Prompts/Groups/CategorySelector';
 import VariablesDropdown from '~/components/Prompts/VariablesDropdown';
-import PromptVariables from '~/components/Prompts/PromptVariables';
-import Description from '~/components/Prompts/Description';
 import { usePromptGroupsContext } from '~/Providers';
 import { useLocalize, useHasAccess } from '~/hooks';
-import Command from '~/components/Prompts/Command';
 import { useCreatePrompt } from '~/data-provider';
+import { extractUniqueVariables } from '~/utils';
 import { cn } from '~/utils';
 
 type CreateFormValues = {
@@ -31,11 +29,22 @@ const defaultPrompt: CreateFormValues = {
   command: undefined,
 };
 
+interface CreatePromptFormProps {
+  defaultValues?: CreateFormValues;
+  /** Optional callback on successful creation (for panel usage) */
+  onSuccess?: (groupId: string) => void;
+  /** Optional callback to close the panel */
+  onClose?: () => void;
+  /** If true, won't redirect when user lacks access */
+  isPanel?: boolean;
+}
+
 const CreatePromptForm = ({
   defaultValues = defaultPrompt,
-}: {
-  defaultValues?: CreateFormValues;
-}) => {
+  onSuccess,
+  onClose,
+  isPanel = false,
+}: CreatePromptFormProps) => {
   const localize = useLocalize();
   const navigate = useNavigate();
   const { hasAccess: hasUseAccess } = usePromptGroupsContext();
@@ -47,7 +56,7 @@ const CreatePromptForm = ({
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
-    if (!hasAccess) {
+    if (!hasAccess && !isPanel) {
       timeoutId = setTimeout(() => {
         navigate('/c/new');
       }, 1000);
@@ -55,7 +64,7 @@ const CreatePromptForm = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [hasAccess, navigate]);
+  }, [hasAccess, navigate, isPanel]);
 
   const methods = useForm({
     defaultValues: {
@@ -73,11 +82,16 @@ const CreatePromptForm = ({
 
   const createPromptMutation = useCreatePrompt({
     onSuccess: (response) => {
-      navigate(`/d/prompts/${response.prompt.groupId}`, { replace: true });
+      if (onSuccess) {
+        onSuccess(response.prompt.groupId);
+      } else {
+        navigate(`/d/prompts/${response.prompt.groupId}`, { replace: true });
+      }
     },
   });
 
   const promptText = watch('prompt');
+  const variables = extractUniqueVariables(promptText || '');
 
   const onSubmit = (data: CreateFormValues) => {
     const { name, category, oneliner, command, ...rest } = data;
@@ -103,84 +117,141 @@ const CreatePromptForm = ({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full px-4 py-2">
-        <div className="mb-1 flex flex-col items-center justify-between font-bold sm:text-xl md:mb-0 md:text-2xl">
-          <div className="flex w-full flex-col items-center justify-between sm:flex-row">
-            <Controller
-              name="name"
-              control={control}
-              rules={{ required: localize('com_ui_prompt_name_required') }}
-              render={({ field }) => (
-                <div className="mb-1 flex items-center md:mb-0">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex h-full flex-col bg-surface-primary">
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex flex-col gap-4">
+            {/* Name Input */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                {localize('com_ui_name')} <span className="text-red-500">*</span>
+              </label>
+              <Controller
+                name="name"
+                control={control}
+                rules={{ required: localize('com_ui_prompt_name_required') }}
+                render={({ field }) => (
                   <Input
                     {...field}
                     type="text"
-                    className="mr-2 w-full border border-border-medium p-2 text-2xl text-text-primary placeholder:text-text-tertiary dark:placeholder:text-text-secondary"
-                    placeholder={`${localize('com_ui_prompt_name')}*`}
+                    className="h-10 border-border-medium bg-surface-secondary text-text-primary"
+                    placeholder={localize('com_ui_prompt_name')}
                     tabIndex={0}
                   />
-                  <div
-                    className={cn(
-                      'mt-1 w-56 text-sm text-red-500',
-                      errors.name ? 'visible h-auto' : 'invisible h-0',
-                    )}
-                  >
-                    {errors.name ? errors.name.message : ' '}
-                  </div>
-                </div>
+                )}
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
               )}
-            />
-            <CategorySelector />
-          </div>
-        </div>
-        <div className="flex w-full flex-col gap-4 md:mt-[1.075rem]">
-          <div>
-            <h2 className="flex items-center justify-between rounded-t-lg border border-border-medium py-2 pl-4 pr-1 text-base font-semibold dark:text-gray-200">
-              <span>{localize('com_ui_prompt_text')}*</span>
-              <VariablesDropdown fieldName="prompt" className="mr-2" />
-            </h2>
-            <div className="min-h-32 rounded-b-lg border border-border-medium p-4 transition-all duration-150">
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                {localize('com_ui_category')}
+              </label>
+              <CategorySelector className="w-full" />
+            </div>
+
+            {/* Prompt Text */}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-sm font-medium text-text-primary">
+                  {localize('com_ui_prompt_text')} <span className="text-red-500">*</span>
+                </label>
+                <VariablesDropdown fieldName="prompt" />
+              </div>
               <Controller
                 name="prompt"
                 control={control}
                 rules={{ required: localize('com_ui_prompt_text_required') }}
                 render={({ field }) => (
-                  <div>
-                    <TextareaAutosize
-                      {...field}
-                      className="w-full rounded border border-border-medium px-2 py-1 focus:outline-none dark:bg-transparent dark:text-gray-200"
-                      minRows={6}
-                      tabIndex={0}
-                      aria-label={localize('com_ui_prompt_input_field')}
-                    />
-                    <div
-                      className={`mt-1 text-sm text-red-500 ${
-                        errors.prompt ? 'visible h-auto' : 'invisible h-0'
-                      }`}
-                    >
-                      {errors.prompt ? errors.prompt.message : ' '}
-                    </div>
-                  </div>
+                  <TextareaAutosize
+                    {...field}
+                    className="w-full resize-none rounded-lg border border-border-medium bg-surface-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary transition-colors focus:border-border-heavy focus:outline-none focus:ring-1 focus:ring-border-heavy"
+                    minRows={5}
+                    maxRows={12}
+                    tabIndex={0}
+                    aria-label={localize('com_ui_prompt_input_field')}
+                  />
+                )}
+              />
+              {errors.prompt && (
+                <p className="mt-1 text-sm text-red-500">{errors.prompt.message}</p>
+              )}
+              {/* Variables tags */}
+              {variables.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {variables.map((v, i) => (
+                    <span key={i} className="rounded-md border border-border-light bg-surface-tertiary px-2 py-1 text-xs text-text-secondary">
+                      {`{{${v}}}`}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                {localize('com_ui_description')}
+              </label>
+              <Controller
+                name="oneliner"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    type="text"
+                    className="h-10 border-border-medium bg-surface-secondary text-text-primary"
+                    placeholder={localize('com_ui_description_placeholder')}
+                    tabIndex={0}
+                  />
                 )}
               />
             </div>
+
+            {/* Command */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                Command
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-tertiary">/</span>
+                <Controller
+                  name="command"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="text"
+                      className="h-10 border-border-medium bg-surface-secondary pl-7 text-text-primary"
+                      placeholder="command-name"
+                      onChange={(e) => {
+                        let newValue = e.target.value.toLowerCase().replace(/\s/g, '-').replace(/[^a-z0-9-]/g, '');
+                        if (newValue.length <= Constants.COMMANDS_MAX_LENGTH) {
+                          field.onChange(newValue);
+                        }
+                      }}
+                      tabIndex={0}
+                    />
+                  )}
+                />
+              </div>
+            </div>
           </div>
-          <PromptVariables promptText={promptText} />
-          <Description
-            onValueChange={(value) => methods.setValue('oneliner', value)}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-border-medium px-4 py-3">
+          <Button
+            aria-label={localize('com_ui_create_prompt')}
             tabIndex={0}
-          />
-          <Command onValueChange={(value) => methods.setValue('command', value)} tabIndex={0} />
-          <div className="mt-4 flex justify-end">
-            <Button
-              aria-label={localize('com_ui_create_prompt')}
-              tabIndex={0}
-              type="submit"
-              disabled={!isDirty || isSubmitting || !isValid}
-            >
-              {localize('com_ui_create_prompt')}
-            </Button>
-          </div>
+            type="submit"
+            className="h-10 w-full"
+            disabled={!isDirty || isSubmitting || !isValid}
+          >
+            {localize('com_ui_create_prompt')}
+          </Button>
         </div>
       </form>
     </FormProvider>

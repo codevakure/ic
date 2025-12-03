@@ -51,6 +51,9 @@ export interface IRole extends Document {
     [PermissionTypes.FILE_CITATIONS]?: {
       [Permissions.USE]?: boolean;
     };
+    [PermissionTypes.YOUTUBE_VIDEO]?: {
+      [Permissions.USE]?: boolean;
+    };
   };
 }
 

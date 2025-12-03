@@ -211,6 +211,7 @@ export function Citation(props: CitationComponentProps) {
             />,
             'push',
             actions,
+            40, // 40% width for document preview
           );
         };
 
@@ -227,6 +228,8 @@ export function Citation(props: CitationComponentProps) {
             highlightText={highlightText}
           />,
           'push',
+          undefined,
+          40, // 40% width for document preview
         );
 
         // Clean up blob URL

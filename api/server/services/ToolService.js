@@ -411,6 +411,8 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
     } else if (tool === Tools.web_search) {
       includesWebSearch = checkCapability(AgentCapabilities.web_search);
       return includesWebSearch;
+    } else if (tool === Tools.youtube_video) {
+      return checkCapability(AgentCapabilities.youtube_video);
     } else if (!areToolsEnabled && !tool.includes(actionDelimiter)) {
       return false;
     }

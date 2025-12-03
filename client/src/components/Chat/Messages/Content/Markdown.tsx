@@ -20,7 +20,7 @@ import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset, preprocessLaTeX } from '~/utils';
 import { unicodeCitation } from '~/components/Web';
-import { code, a, p, img } from './MarkdownComponents';
+import { code, a, p, img, table } from './MarkdownComponents';
 import store from '~/store';
 
 type TContentProps = {
@@ -95,6 +95,7 @@ const Markdown = memo(({ content = '', isLatestMessage }: TContentProps) => {
                   a,
                   p,
                   img,
+                  table,
                   artifact: Artifact,
                   citation: Citation,
                   'highlighted-text': HighlightedText,

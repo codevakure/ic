@@ -4,6 +4,7 @@ import { AgentCapabilities } from 'librechat-data-provider';
 import { useFormContext, Controller } from 'react-hook-form';
 import type { AgentForm } from '~/common';
 import { useAgentPanelContext } from '~/Providers';
+import AgentSchedulePanel from './AgentSchedulePanel';
 import MaxAgentSteps from './MaxAgentSteps';
 import AgentHandoffs from './AgentHandoffs';
 import { useLocalize } from '~/hooks';
@@ -57,6 +58,8 @@ export default function AdvancedPanel() {
             render={({ field }) => <AgentChain field={field} currentAgentId={currentAgentId} />}
           />
         )}
+        {/* Scheduling Section */}
+        <AgentSchedulePanel />
       </div>
     </div>
   );

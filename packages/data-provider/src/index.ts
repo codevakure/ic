@@ -27,6 +27,8 @@ export * from './types/queries';
 export * from './types/runs';
 export * from './types/web';
 export * from './types/graph';
+export * from './types/schedules';
+export * from './types/executions';
 /* access permissions */
 export * from './accessPermissions';
 /* query/mutation keys */

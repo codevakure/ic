@@ -1,8 +1,9 @@
 import React, { useMemo, useEffect } from 'react';
-import { Spinner } from '@librechat/client';
+import { Spinner, useMediaQuery } from '@librechat/client';
 import { PermissionBits } from 'librechat-data-provider';
 import type t from 'librechat-data-provider';
 import { useMarketplaceAgentsInfiniteQuery } from '~/data-provider/Agents';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { useAgentCategories, useLocalize } from '~/hooks';
 import { useInfiniteScroll } from '~/hooks/useInfiniteScroll';
 import { useHasData } from './SmartLoader';
@@ -29,6 +30,24 @@ const AgentGrid: React.FC<AgentGridProps> = ({
 
   // Get category data from API
   const { categories } = useAgentCategories();
+
+  // Check if sources panel is open to adjust grid layout
+  // When panel is open in push mode, the container width shrinks but viewport breakpoints don't change
+  // So we need to manually reduce the number of columns
+  const { isOpen: panelOpen, mode: panelMode } = useSourcesPanel();
+  const isSmallScreen = useMediaQuery('(max-width: 767px)');
+  const isPanelPushed = panelOpen && panelMode === 'push' && !isSmallScreen;
+
+  // Compute grid classes based on whether panel is pushed
+  // When panel is open, reduce columns to account for reduced container width
+  const gridClasses = useMemo(() => {
+    if (isPanelPushed) {
+      // Panel takes ~30% width, so reduce column count by one level
+      return 'grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3';
+    }
+    // Default: 4 columns on large screens
+    return 'grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+  }, [isPanelPushed]);
 
   // Build query parameters based on current state
   const queryParams = useMemo(() => {
@@ -184,10 +203,10 @@ const AgentGrid: React.FC<AgentGridProps> = ({
             })}
           </div>
 
-          {/* Agent grid - 4 per row on large screens */}
+          {/* Agent grid - responsive columns that adjust when side panel is open */}
           {currentAgents && currentAgents.length > 0 && (
             <div
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+              className={gridClasses}
               role="grid"
               aria-label={localize('com_agents_grid_announcement', {
                 count: currentAgents.length,

@@ -53,6 +53,9 @@ const rolePermissionsSchema = new Schema(
     [PermissionTypes.FILE_CITATIONS]: {
       [Permissions.USE]: { type: Boolean },
     },
+    [PermissionTypes.YOUTUBE_VIDEO]: {
+      [Permissions.USE]: { type: Boolean },
+    },
   },
   { _id: false },
 );

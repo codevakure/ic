@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutGrid, FileText, LogOut, History } from 'lucide-react';
+import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
 import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator } from '@librechat/client';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
@@ -39,26 +39,43 @@ const LeftPanelNav = memo(() => {
       path: '/c/new',
     },
     {
-      id: 'conversations',
-      title: 'All Conversations',
-      icon: History,
-      path: '/conversations',
+      id: 'agents',
+      title: 'Agent Marketplace',
+      icon: Bot,
+      path: '/agents',
     },
     {
-      id: 'placeholder',
-      title: 'Placeholder',
-      icon: LayoutGrid,
-      path: '/placeholder',
+      id: 'prompts',
+      title: 'Prompts',
+      icon: MessageSquareQuote,
+      path: '/prompts',
+    },
+    {
+      id: 'files',
+      title: 'My Files',
+      icon: FileText,
+      path: '/files',
+    },
+    {
+      id: 'bookmarks',
+      title: 'Bookmarks',
+      icon: Bookmark,
+      path: '/bookmarks',
     },
   ];
 
   const isActive = (path: string) => {
     if (path === '/c/new') {
-      // Chat is active for /c/* routes but NOT for /conversations
-      return (location.pathname.startsWith('/c/') || location.pathname === '/') && location.pathname !== '/conversations';
+      // Chat is active for /c/* routes
+      return location.pathname.startsWith('/c/') || location.pathname === '/';
     }
-    if (path === '/conversations') {
-      return location.pathname === '/conversations';
+    if (path === '/agents') {
+      // Agents is active for /agents and /agents/:category
+      return location.pathname.startsWith('/agents');
+    }
+    if (path === '/prompts') {
+      // Prompts is active for /prompts, /prompts/:promptId, and legacy /d/prompts routes
+      return location.pathname.startsWith('/prompts') || location.pathname.startsWith('/d/prompts');
     }
     return location.pathname === path;
   };
@@ -140,11 +157,11 @@ const LeftPanelNav = memo(() => {
           )}
           <Select.SelectItem
             value=""
-            onClick={() => navigate('/files')}
+            onClick={() => navigate('/profile')}
             className="select-item text-sm"
           >
-            <FileText className="icon-md" aria-hidden="true" />
-            {localize('com_nav_my_files')}
+            <User className="icon-md" aria-hidden="true" />
+            {localize('com_nav_profile')}
           </Select.SelectItem>
           {startupConfig?.helpAndFaqURL !== '/' && (
             <Select.SelectItem

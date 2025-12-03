@@ -23,6 +23,8 @@ export enum ToolType {
   IMAGE_GENERATION = 'image_generation',
   /** Web search */
   WEB_SEARCH = 'web_search',
+  /** YouTube video transcript fetching */
+  YOUTUBE_VIDEO = 'youtube_video',
   /** Calculator */
   CALCULATOR = 'calculator',
   /** Custom MCP tools */
@@ -94,6 +96,11 @@ const INTENT_PATTERNS = {
   [ToolType.WEB_SEARCH]: [
     /\b(search (the )?(web|internet|online)|google|look up online|current|latest|recent|news)\b/i,
     /\b(what is|who is|where is|when did)\b/i,
+  ],
+  [ToolType.YOUTUBE_VIDEO]: [
+    /\b(youtube\.com|youtu\.be)\b/i,
+    /\b(youtube|video)\b.*\b(transcript|summary|summarize)\b/i,
+    /\b(transcript|summary|summarize)\b.*\b(youtube|video)\b/i,
   ],
   [ToolType.CALCULATOR]: [
     /\b(\d+\s*[\+\-\*\/\%\^]\s*\d+)\b/,

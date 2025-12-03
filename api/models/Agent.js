@@ -181,6 +181,9 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (ephemeralAgent?.web_search === true) {
     userSelectedTools.push(Tool.WEB_SEARCH);
   }
+  if (ephemeralAgent?.youtube_video === true) {
+    userSelectedTools.push(Tool.YOUTUBE_VIDEO);
+  }
   if (ephemeralAgent?.artifacts === true || ephemeralAgent?.artifacts === 'default') {
     userSelectedTools.push(Tool.ARTIFACTS);
   }
@@ -257,6 +260,8 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
       tools.push(Tools.file_search);
     } else if (capability === 'web_search' && !tools.includes(Tools.web_search)) {
       tools.push(Tools.web_search);
+    } else if (capability === 'youtube_video' && !tools.includes(Tools.youtube_video)) {
+      tools.push(Tools.youtube_video);
     }
     // artifacts is handled separately via ephemeralAgent.artifacts
   }

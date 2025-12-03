@@ -6,7 +6,6 @@ import {
   mergeFileConfig,
   isAgentsEndpoint,
   getEndpointField,
-  isAssistantsEndpoint,
   getEndpointFileConfig,
 } from 'librechat-data-provider';
 import type { TConversation } from 'librechat-data-provider';
@@ -24,7 +23,6 @@ function AttachFileChat({
   const conversationId = conversation?.conversationId ?? Constants.NEW_CONVO;
   const { endpoint } = conversation ?? { endpoint: null };
   const isAgents = useMemo(() => isAgentsEndpoint(endpoint), [endpoint]);
-  const isAssistants = useMemo(() => isAssistantsEndpoint(endpoint), [endpoint]);
 
   const { data: fileConfig = null } = useGetFileConfig({
     select: (data) => mergeFileConfig(data),
@@ -57,9 +55,8 @@ function AttachFileChat({
     [disableInputs, endpointFileConfig?.disabled],
   );
 
-  if (isAssistants && endpointSupportsFiles && !isUploadDisabled) {
-    return <AttachFile disabled={disableInputs} />;
-  } else if (isAgents || (endpointSupportsFiles && !isUploadDisabled)) {
+  // Agents: Show menu with Code Interpreter / File Search options
+  if (isAgents) {
     return (
       <AttachFileMenu
         endpoint={endpoint}
@@ -71,6 +68,12 @@ function AttachFileChat({
       />
     );
   }
+  
+  // All other endpoints (including Assistants): Direct file picker
+  if (endpointSupportsFiles && !isUploadDisabled) {
+    return <AttachFile disabled={disableInputs} />;
+  }
+  
   return null;
 }
 

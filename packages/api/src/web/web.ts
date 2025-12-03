@@ -184,6 +184,11 @@ export async function loadWebSearchAuth({
   ] as const;
   const authTypes: [TWebSearchCategories, AuthType][] = [];
   for (const category of categories) {
+    // Skip reranker auth check if rerankerType is 'none' - no auth needed
+    if (category === SearchCategories.RERANKERS && webSearchConfig?.rerankerType === 'none') {
+      authTypes.push([category, AuthType.SYSTEM_DEFINED]);
+      continue;
+    }
     const [isCategoryAuthenticated, isUserProvided] = await checkAuth(category);
     if (!isCategoryAuthenticated) {
       authenticated = false;

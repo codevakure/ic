@@ -45,6 +45,13 @@
     ]
   },
   {
+    "name": "YouTube Video",
+    "pluginKey": "youtube_video",
+    "description": "Fetch video transcripts and metadata from YouTube without requiring an API key. Extracts captions, video title, description, and author information.",
+    "icon": "https://www.youtube.com/s/desktop/7449ebf7/img/favicon_144x144.png",
+    "authConfig": []
+  },
+  {
     "name": "OpenAI Image Tools",
     "pluginKey": "image_gen_oai",
     "toolkit": true,

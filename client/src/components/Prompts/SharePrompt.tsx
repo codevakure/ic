@@ -11,9 +11,18 @@ import { Button } from '@librechat/client';
 import type { TPromptGroup } from 'librechat-data-provider';
 import { useAuthContext, useHasAccess, useResourcePermissions } from '~/hooks';
 import { GenericGrantAccessDialog } from '~/components/Sharing';
+import { cn } from '~/utils';
+
+interface SharePromptProps {
+  group?: TPromptGroup;
+  disabled: boolean;
+  className?: string;
+  iconClassName?: string;
+  variant?: 'default' | 'ghost';
+}
 
 const SharePrompt = React.memo(
-  ({ group, disabled }: { group?: TPromptGroup; disabled: boolean }) => {
+  ({ group, disabled, className, iconClassName, variant = 'default' }: SharePromptProps) => {
     const { user } = useAuthContext();
 
     // Check if user has permission to share prompts globally
@@ -54,13 +63,21 @@ const SharePrompt = React.memo(
         disabled={disabled}
       >
         <Button
-          variant="default"
+          variant={variant === 'ghost' ? 'ghost' : 'default'}
           size="sm"
           aria-label="Share prompt"
-          className="h-10 w-10 border border-transparent bg-blue-500/90 p-0.5 transition-all hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-800"
+          className={cn(
+            variant === 'ghost' 
+              ? 'h-7 w-7 p-0 text-text-tertiary hover:bg-surface-hover hover:text-text-primary' 
+              : 'h-10 w-10 border border-transparent bg-blue-500/90 p-0.5 transition-all hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-800',
+            className
+          )}
           disabled={disabled}
         >
-          <Share2Icon className="size-5 cursor-pointer text-white" />
+          <Share2Icon className={cn(
+            variant === 'ghost' ? 'h-4 w-4' : 'size-5 cursor-pointer text-white',
+            iconClassName
+          )} />
         </Button>
       </GenericGrantAccessDialog>
     );

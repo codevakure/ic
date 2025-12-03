@@ -11,12 +11,15 @@ export * from './banner';
 export * from './message';
 export * from './agent';
 export * from './agentCategory';
+export * from './agentSchedule';
 export * from './role';
 export * from './action';
 export * from './assistant';
 export * from './file';
 export * from './share';
 export * from './pluginAuth';
+export * from './triggerExecution';
+export * from './executionTrace';
 /* Memories */
 export * from './memory';
 /* Prompts */
