@@ -1,7 +1,7 @@
 import { memo, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
-import { ChevronLeft, Plus, Menu } from 'lucide-react';
+import { ChevronLeft, SquarePen, Menu } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { QueryKeys, Constants } from 'librechat-data-provider';
 import type { TMessage } from 'librechat-data-provider';
@@ -193,7 +193,7 @@ const MobileHeader = memo(({ onMenuClick, showMenu = false }: MobileHeaderProps)
             )}
             aria-label={localize('com_ui_new_chat')}
           >
-            <Plus className="h-5 w-5" />
+            <SquarePen className="h-5 w-5" />
           </button>
         )}
       </div>

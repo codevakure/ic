@@ -201,63 +201,88 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     setDragY(0);
   }, [isDragging, onToggle]);
 
-  // Arrow rotation based on hover/drag
-  const [isHovering, setIsHovering] = useState(false);
-  const rotationDegree = 15;
-  const isActive_ = isHovering || isDragging;
-  const topBarRotation = isActive_ ? `${rotationDegree}deg` : '0deg';
-  const bottomBarRotation = isActive_ ? `-${rotationDegree}deg` : '0deg';
+  // Track if drag started from top zone
+  const dragStartedFromTop = useRef(false);
+
+  // Handle drag from top 30% of screen to open
+  const handleScreenTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isOpen) return; // Only when closed
+    
+    const touchY = e.touches[0].clientY;
+    const screenHeight = window.innerHeight;
+    const topZone = screenHeight * 0.15; // Top 15% of screen
+    
+    if (touchY <= topZone) {
+      dragStartedFromTop.current = true;
+      setIsDragging(true);
+      startY.current = touchY;
+      currentY.current = touchY;
+    }
+  }, [isOpen]);
+
+  const handleScreenTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging || !dragStartedFromTop.current) return;
+    
+    currentY.current = e.touches[0].clientY;
+    const deltaY = currentY.current - startY.current;
+    
+    // Only allow dragging down
+    if (deltaY > 0) {
+      setDragY(deltaY);
+    }
+  }, [isDragging]);
+
+  const handleScreenTouchEnd = useCallback(() => {
+    if (!isDragging || !dragStartedFromTop.current) return;
+    
+    setIsDragging(false);
+    dragStartedFromTop.current = false;
+    
+    const deltaY = currentY.current - startY.current;
+    const threshold = 60; // pixels to trigger open
+    
+    if (deltaY > threshold) {
+      onToggle(); // Open the sheet
+    }
+    
+    setDragY(0);
+  }, [isDragging, onToggle]);
 
   return (
     <>
-      {/* Pull Handle - Arrow style, draggable to open */}
+      {/* Invisible touch zone for top 15% of screen - drag down to open */}
+      {!isOpen && (
+        <div
+          className="fixed left-0 right-0 top-0 z-[99]"
+          style={{ height: '15vh' }}
+          onTouchStart={handleScreenTouchStart}
+          onTouchMove={handleScreenTouchMove}
+          onTouchEnd={handleScreenTouchEnd}
+        />
+      )}
+
+      {/* Small visual indicator - horizontal pill/grabber like native sheets */}
       <div
         className={cn(
-          'fixed left-1/2 top-0 z-[102] -translate-x-1/2',
-          'flex flex-col items-center justify-center',
-          'w-12 h-8 rounded-b-xl',
-          'bg-surface-secondary/80 backdrop-blur-sm',
-          'border-x border-b border-border-light',
+          'fixed left-1/2 z-[102] -translate-x-1/2',
+          'flex items-center justify-center',
+          'pointer-events-none',
           'transition-all duration-200',
-          'touch-none select-none cursor-pointer',
-          isOpen && 'opacity-0 pointer-events-none'
+          isOpen && 'opacity-0'
         )}
-        onClick={onToggle}
-        onTouchStart={handlePullHandleTouchStart}
-        onTouchMove={handlePullHandleTouchMove}
-        onTouchEnd={handlePullHandleTouchEnd}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
         style={{
-          transform: `translateX(-50%) translateY(${!isOpen && isDragging ? dragY : 0}px)`,
+          top: '6px',
+          transform: `translateX(-50%) translateY(${!isOpen && isDragging ? Math.min(dragY, 100) : 0}px)`,
         }}
-        aria-label="Open navigation"
       >
-        {/* Arrow indicator - similar to NavToggle */}
+        {/* Native sheet grabber - horizontal pill */}
         <div 
-          className="flex h-6 w-6 flex-col items-center justify-center"
+          className="w-9 h-1 rounded-full bg-text-tertiary"
           style={{ 
             transition: 'opacity 0.2s ease',
-            opacity: isHovering || isDragging ? 1 : 0.4,
+            opacity: isDragging ? 0.6 : 0.25,
           }}
-        >
-          {/* Top bar */}
-          <div
-            className="h-2.5 w-1 rounded-full bg-text-secondary"
-            style={{
-              transition: 'transform 0.3s ease',
-              transform: `translateY(0.1rem) rotate(${topBarRotation}) translateZ(0px)`,
-            }}
-          />
-          {/* Bottom bar */}
-          <div
-            className="h-2.5 w-1 rounded-full bg-text-secondary"
-            style={{
-              transition: 'transform 0.3s ease',
-              transform: `translateY(-0.1rem) rotate(${bottomBarRotation}) translateZ(0px)`,
-            }}
-          />
-        </div>
+        />
       </div>
 
       {/* Backdrop */}

@@ -98,7 +98,7 @@ function ChatView({ index = 0 }: { index?: number }) {
                       <div className="flex w-full flex-1 items-center justify-center sm:flex-initial">
                         {content}
                       </div>
-                      <div className="w-full max-w-3xl px-4 pb-4 transition-all duration-200 sm:px-0 sm:pb-0 xl:max-w-4xl">
+                      <div className="w-full max-w-3xl transition-all duration-200 xl:max-w-4xl">
                         <ChatForm index={index} />
                         <ConversationStarters />
                       </div>

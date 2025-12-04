@@ -172,13 +172,13 @@ const EditMessage = ({
           dir={isRTL ? 'rtl' : 'ltr'}
         />
       </div>
-      <div className="mt-2 flex w-full justify-center text-center">
+      <div className="mt-2 flex w-full items-center justify-center gap-2">
         <TooltipAnchor
           description="Ctrl + Enter / ⌘ + Enter"
           render={
             <button
               ref={submitButtonRef}
-              className="btn btn-primary relative mr-2"
+              className="rounded-md bg-surface-tertiary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-50"
               disabled={isSubmitting}
               onClick={handleSubmit(resubmitMessage)}
             >
@@ -191,7 +191,7 @@ const EditMessage = ({
           render={
             <button
               ref={saveButtonRef}
-              className="btn btn-secondary relative mr-2"
+              className="rounded-md bg-surface-tertiary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-50"
               disabled={isSubmitting}
               onClick={handleSubmit(updateMessage)}
             >
@@ -202,7 +202,10 @@ const EditMessage = ({
         <TooltipAnchor
           description="Esc"
           render={
-            <button className="btn btn-neutral relative" onClick={() => enterEdit(true)}>
+            <button
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+              onClick={() => enterEdit(true)}
+            >
               {localize('com_ui_cancel')}
             </button>
           }
