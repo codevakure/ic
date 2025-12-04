@@ -63,7 +63,7 @@ const App = () => {
                     <WakeLockManager />
                     {/* <ReactQueryDevtools initialIsOpen={false} position="top-right" /> */}
                     <Toast />
-                    <RadixToast.Viewport className="pointer-events-none fixed right-0 top-0 z-[1000] m-4 flex w-full max-w-sm flex-col items-end gap-2" />
+                    <RadixToast.Viewport className="pointer-events-none fixed right-0 top-0 z-[1000] m-6 flex w-auto flex-col items-end gap-3 outline-none [&>*]:animate-in [&>*]:slide-in-from-right-full [&>*]:duration-300 [&>*]:ease-out" />
                   </DndProvider>
                 </ToastProvider>
               </RadixToast.Provider>

@@ -4,35 +4,43 @@ import { useToast } from '~/hooks';
 
 export function Toast() {
   const { toast, onOpenChange } = useToast();
-  
-  // Professional muted colors that work in both light and dark modes
+
+  // Modern toast with subtle gradients that adapt to light/dark theme
   const severityConfig = {
     [NotificationSeverity.INFO]: {
-      container: 'bg-slate-50 dark:bg-slate-800/90 border-slate-200 dark:border-slate-700',
-      icon: 'text-slate-500 dark:text-slate-400',
-      iconPath: (
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+      container: 'bg-gradient-to-r from-white/95 via-white/90 to-blue-50/80 dark:from-gray-900/95 dark:via-gray-900/90 dark:to-blue-950/50',
+      iconBg: 'bg-blue-500',
+      icon: (
+        <svg className="size-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
       ),
     },
     [NotificationSeverity.SUCCESS]: {
-      container: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/50',
-      icon: 'text-emerald-600 dark:text-emerald-400',
-      iconPath: (
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      container: 'bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/80 dark:from-gray-900/95 dark:via-gray-900/90 dark:to-emerald-950/50',
+      iconBg: 'bg-emerald-500',
+      icon: (
+        <svg className="size-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
       ),
     },
     [NotificationSeverity.WARNING]: {
-      container: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800/50',
-      icon: 'text-amber-600 dark:text-amber-400',
-      iconPath: (
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      container: 'bg-gradient-to-r from-white/95 via-white/90 to-amber-50/80 dark:from-gray-900/95 dark:via-gray-900/90 dark:to-amber-950/50',
+      iconBg: 'bg-amber-500',
+      icon: (
+        <svg className="size-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
       ),
     },
     [NotificationSeverity.ERROR]: {
-      container: 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800/50',
-      icon: 'text-rose-600 dark:text-rose-400',
-      iconPath: (
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      container: 'bg-gradient-to-r from-white/95 via-white/90 to-red-50/80 dark:from-gray-900/95 dark:via-gray-900/90 dark:to-red-950/50',
+      iconBg: 'bg-red-500',
+      icon: (
+        <svg className="size-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
       ),
     },
   };
@@ -43,33 +51,25 @@ export function Toast() {
     <RadixToast.Root
       open={toast.open}
       onOpenChange={onOpenChange}
-      className="pointer-events-auto animate-in slide-in-from-right-full duration-200"
+      className="pointer-events-auto"
     >
-      <div
-        className={`flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg ${config.container}`}
-      >
+      <div className={`flex items-center gap-3 rounded-xl backdrop-blur-sm px-4 py-3 shadow-lg shadow-black/10 dark:shadow-black/30 min-w-[280px] max-w-[380px] ${config.container}`}>
         {toast.showIcon && (
-          <div className={`mt-0.5 flex-shrink-0 ${config.icon}`}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="size-5"
-            >
-              {config.iconPath}
-            </svg>
+          <div className={`flex-shrink-0 flex items-center justify-center size-7 rounded-full ${config.iconBg}`}>
+            {config.icon}
           </div>
         )}
-        <RadixToast.Description className="flex-1 text-sm text-slate-700 dark:text-slate-200">
-          <div className="whitespace-pre-wrap text-left">{toast.message}</div>
+        <RadixToast.Description className="flex-1 min-w-0">
+          <div className="text-sm text-gray-700 dark:text-gray-200 leading-normal whitespace-pre-wrap">
+            {toast.message}
+          </div>
         </RadixToast.Description>
         <button
           onClick={() => onOpenChange(false)}
-          className="flex-shrink-0 rounded-md p-1 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+          className="flex-shrink-0 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors duration-150"
+          aria-label="Close notification"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4">
+          <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
