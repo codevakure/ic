@@ -146,6 +146,11 @@ const userSchema = new Schema<IUser>(
       type: String,
       sparse: true,
     },
+    /** OIDC groups assigned to the user during authentication */
+    oidcGroups: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true },
 );
