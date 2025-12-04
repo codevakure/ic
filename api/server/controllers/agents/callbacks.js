@@ -311,23 +311,15 @@ function createToolEndCallback({ req, res, artifactPromises }) {
   /**
    * @type {ToolEndCallback}
    */
-  const toolEndCallback = (data, metadata) => {
-    const { output } = data;
-    logger.info('[ToolEndCallback] Called for tool:', output?.name || 'unknown');
-    
+  return async (data, metadata) => {
+    const output = data?.output;
     if (!output) {
       return;
     }
 
     if (!output.artifact) {
-      logger.debug('[ToolEndCallback] No artifact for tool:', output.name);
       return;
     }
-    
-    logger.info('[ToolEndCallback] Processing tool with artifact:', { 
-      toolName: output.name, 
-      artifactKeys: Object.keys(output.artifact) 
-    });
 
     if (output.artifact[Tools.file_search]) {
       artifactPromises.push(
@@ -404,10 +396,6 @@ function createToolEndCallback({ req, res, artifactPromises }) {
     if (output.artifact.content) {
       /** @type {FormattedContent[]} */
       const content = output.artifact.content;
-      logger.info('[ToolEndCallback] Found artifact.content for image processing', { 
-        toolName: output.name, 
-        contentLength: content.length 
-      });
       for (let i = 0; i < content.length; i++) {
         const part = content[i];
         if (!part) {
