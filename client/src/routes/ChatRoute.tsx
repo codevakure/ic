@@ -35,17 +35,22 @@ export default function ChatRoute() {
   const clearAllSubmissions = store.useClearSubmissionState();
 
   /**
-   * Reset hasSetConversation when ChatRoute unmounts.
-   * This is needed because SetConvoProvider is in AppLayout (doesn't unmount),
-   * so we need to manually reset the flag when leaving chat routes.
-   * Also clears any pending submissions to prevent re-execution on return.
+   * Clear pending submissions when ChatRoute unmounts.
+   * 
+   * NOTE: We intentionally do NOT reset hasSetConversation.current here.
+   * When navigating from Agent Marketplace to /c/new, the Marketplace
+   * pre-configures the conversation with agent settings. Resetting
+   * hasSetConversation would cause ChatRoute to overwrite that config.
+   * 
+   * The hasSetConversation flag naturally resets when:
+   * - User navigates to an existing conversation (initialConvoQuery triggers)
+   * - User starts a fresh conversation without agent pre-config
    */
   useEffect(() => {
     return () => {
-      hasSetConversation.current = false;
       clearAllSubmissions();
     };
-  }, [hasSetConversation, clearAllSubmissions]);
+  }, [clearAllSubmissions]);
 
   const modelsQuery = useGetModelsQuery({
     enabled: isAuthenticated,
@@ -79,6 +84,9 @@ export default function ChatRoute() {
       return;
     }
 
+    // Check if conversation was pre-configured by Marketplace (has agent settings)
+    const hasAgentConfig = conversation?.agent_id || conversation?.endpoint === EModelEndpoint.agents;
+
     if (conversationId === Constants.NEW_CONVO && endpointsQuery.data && modelsQuery.data) {
       const result = getDefaultModelSpec(startupConfig);
       const spec = result?.default ?? result?.last;
@@ -86,7 +94,8 @@ export default function ChatRoute() {
       newConversation({
         modelsData: modelsQuery.data,
         template: conversation ? conversation : undefined,
-        ...(spec ? { preset: getModelSpecPreset(spec) } : {}),
+        // Only apply default spec if this isn't a pre-configured agent conversation
+        ...(spec && !hasAgentConfig ? { preset: getModelSpecPreset(spec) } : {}),
       });
 
       hasSetConversation.current = true;
