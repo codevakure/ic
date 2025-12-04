@@ -133,7 +133,10 @@ const ContentParts = memo(
               </MessageContext.Provider>
             );
           })}
-          <Sources messageId={messageId} conversationId={conversationId || undefined} />
+          {/* Show sources only after all content is processed and if not currently submitting */}
+          {!effectiveIsSubmitting && (
+            <Sources messageId={messageId} conversationId={conversationId || undefined} />
+          )}
         </SearchContext.Provider>
       </>
     );

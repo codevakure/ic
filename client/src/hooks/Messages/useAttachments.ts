@@ -12,10 +12,18 @@ export default function useAttachments({
   attachments?: TAttachment[];
 }) {
   const messageAttachmentsMap = useRecoilValue(store.messageAttachmentsMap);
-  const messageAttachments = useMemo(
-    () => attachments ?? messageAttachmentsMap[messageId ?? ''] ?? [],
-    [attachments, messageAttachmentsMap, messageId],
-  );
+  const messageAttachments = useMemo(() => {
+    const propsAttachments = attachments ?? [];
+    const mapAttachments = messageAttachmentsMap[messageId ?? ''] ?? [];
+
+    // Prefer whichever source has more data to handle the case where
+    // streaming attachments are in messageAttachmentsMap but final message
+    // may have empty or partial attachments array
+    if (propsAttachments.length >= mapAttachments.length) {
+      return propsAttachments;
+    }
+    return mapAttachments;
+  }, [attachments, messageAttachmentsMap, messageId]);
 
   const searchResults = useSearchResultsByTurn(messageAttachments);
 
