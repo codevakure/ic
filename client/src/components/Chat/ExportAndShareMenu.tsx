@@ -47,7 +47,7 @@ export default function ExportAndShareMenu({
     {
       label: localize('com_ui_share'),
       onClick: shareHandler,
-      icon: <Share2 className="h-4 w-4 mr-2 text-text-secondary" />,
+      icon: <Share2 className="h-4 w-4 mr-2" />,
       show: isSharedButtonEnabled,
       /** NOTE: THE FOLLOWING PROPS ARE REQUIRED FOR MENU ITEMS THAT OPEN DIALOGS */
       hideOnClick: false,
@@ -57,7 +57,7 @@ export default function ExportAndShareMenu({
     {
       label: localize('com_endpoint_export'),
       onClick: exportHandler,
-      icon: <Upload className="h-4 w-4 mr-2 text-text-secondary" />,
+      icon: <Upload className="h-4 w-4 mr-2" />,
       /** NOTE: THE FOLLOWING PROPS ARE REQUIRED FOR MENU ITEMS THAT OPEN DIALOGS */
       hideOnClick: false,
       ref: exportButtonRef,
@@ -84,7 +84,7 @@ export default function ExportAndShareMenu({
                 className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-border-light bg-transparent text-text-primary transition-all ease-in-out hover:bg-surface-tertiary disabled:pointer-events-none disabled:opacity-50 radix-state-open:bg-surface-tertiary"
               >
                 <Share2
-                  className="h-4 w-4 text-text-secondary"
+                  className="h-4 w-4 text-blue-500"
                   aria-hidden="true"
                   focusable="false"
                 />

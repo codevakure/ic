@@ -1,22 +1,34 @@
-import { memo, useCallback } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMediaQuery, TooltipAnchor } from '@librechat/client';
 import { useLocalStorage, useLocalize } from '~/hooks';
 import LeftPanelNav from './LeftPanelNav';
+import MobileNavSheet from './MobileNavSheet';
 import { cn } from '~/utils';
 
 const LeftPanel = memo(() => {
   const localize = useLocalize();
   const isSmallScreen = useMediaQuery('(max-width: 767px)');
   const [isCollapsed, setIsCollapsed] = useLocalStorage('leftPanelCollapsed', false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
   const toggleCollapse = useCallback(() => {
     setIsCollapsed(!isCollapsed);
   }, [isCollapsed, setIsCollapsed]);
 
-  // Don't render on small screens
+  const toggleMobileSheet = useCallback(() => {
+    setIsMobileSheetOpen(!isMobileSheetOpen);
+  }, [isMobileSheetOpen]);
+
+  // Render mobile sheet on small screens
   if (isSmallScreen) {
-    return null;
+    return (
+      <MobileNavSheet 
+        isOpen={isMobileSheetOpen} 
+        onToggle={toggleMobileSheet}
+        onClose={() => setIsMobileSheetOpen(false)}
+      />
+    );
   }
 
   const Icon = isCollapsed ? ChevronRight : ChevronLeft;

@@ -206,7 +206,7 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
 
   // Default landing page with custom logo and greeting
   return (
-    <div className="flex w-full flex-col items-center justify-center px-6 text-center">
+    <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
       <div className="mb-8 animate-fade-in-up opacity-0" style={{ animationFillMode: 'forwards' }}>
         <Logo height={120} />
       </div>

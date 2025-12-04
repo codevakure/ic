@@ -1,7 +1,7 @@
 /**
  * Datadog LLM Observability Package
  * 
- * Standalone package for Datadog LLM Observability integration in LibreChat.
+ * Standalone package for Datadog LLM Observability integration in Ranger.
  * 
  * @packageDocumentation
  */
@@ -30,7 +30,8 @@ export {
   traceUserSession,
   recordLLMMetric,
   recordLLMFeedback,
-  setGetUserById
+  setGetUserById,
+  recordGuardrailBlock
 } from './llm-tracing';
 
 // Re-export specific utility functions for convenience

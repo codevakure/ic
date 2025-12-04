@@ -6,8 +6,10 @@ import {
   TransformComponent,
   ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
-import mermaid from "mermaid";
 import { Button } from "/components/ui/button";
+
+// Access mermaid from window object (loaded via CDN)
+const getMermaid = () => (window as any).mermaid;
 
 const ZoomIn = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -45,77 +47,98 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
   const [isRendered, setIsRendered] = useState(false);
 
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "base",
-      themeVariables: {
-        background: "#282C34",
-        primaryColor: "#333842",
-        secondaryColor: "#333842",
-        tertiaryColor: "#333842",
-        primaryTextColor: "#ABB2BF",
-        secondaryTextColor: "#ABB2BF",
-        lineColor: "#636D83",
-        fontSize: "16px",
-        nodeBorder: "#636D83",
-        mainBkg: '#282C34',
-        altBackground: '#282C34',
-        textColor: '#ABB2BF',
-        edgeLabelBackground: '#282C34',
-        clusterBkg: '#282C34',
-        clusterBorder: "#636D83",
-        labelBoxBkgColor: "#333842",
-        labelBoxBorderColor: "#636D83",
-        labelTextColor: "#ABB2BF",
-      },
-      flowchart: {
-        curve: "basis",
-        nodeSpacing: 50,
-        rankSpacing: 50,
-        diagramPadding: 8,
-        htmlLabels: true,
-        useMaxWidth: true,
-        padding: 15,
-        wrappingWidth: 200,
-      },
-    });
-
-    const renderDiagram = async () => {
-      if (mermaidRef.current) {
-        try {
-          const { svg } = await mermaid.render("mermaid-diagram", content);
-          mermaidRef.current.innerHTML = svg;
-
-          const svgElement = mermaidRef.current.querySelector("svg");
-          if (svgElement) {
-            svgElement.style.width = "100%";
-            svgElement.style.height = "100%";
-
-            const pathElements = svgElement.querySelectorAll("path");
-            pathElements.forEach((path) => {
-              path.style.strokeWidth = "1.5px";
-            });
-
-            const rectElements = svgElement.querySelectorAll("rect");
-            rectElements.forEach((rect) => {
-              const parent = rect.parentElement;
-              if (parent && parent.classList.contains("node")) {
-                rect.style.stroke = "#636D83";
-                rect.style.strokeWidth = "1px";
-              } else {
-                rect.style.stroke = "none";
-              }
-            });
+    // Inject Mermaid CDN script if not already present
+    const mermaidLib = getMermaid();
+    if (typeof window !== 'undefined' && !mermaidLib) {
+      const existingScript = document.querySelector('script[src*="mermaid"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+        script.async = true;
+        script.onload = () => {
+          renderDiagram();
+        };
+        script.onerror = () => {
+          if (mermaidRef.current) {
+            mermaidRef.current.innerHTML = 'Failed to load Mermaid library';
           }
-          setIsRendered(true);
-        } catch (error) {
-          console.error("Mermaid rendering error:", error);
-          mermaidRef.current.innerHTML = "Error rendering diagram";
-        }
+        };
+        document.head.appendChild(script);
+      } else {
+        renderDiagram();
       }
-    };
+    } else if (mermaidLib) {
+      renderDiagram();
+    }
 
-    renderDiagram();
+    async function renderDiagram() {
+      const mermaidLib = getMermaid();
+      if (!mermaidLib || !mermaidRef.current) return;
+      mermaidLib.initialize({
+        startOnLoad: false,
+        theme: "base",
+        themeVariables: {
+          background: "#282C34",
+          primaryColor: "#333842",
+          secondaryColor: "#333842",
+          tertiaryColor: "#333842",
+          primaryTextColor: "#ABB2BF",
+          secondaryTextColor: "#ABB2BF",
+          lineColor: "#636D83",
+          fontSize: "16px",
+          nodeBorder: "#636D83",
+          mainBkg: '#282C34',
+          altBackground: '#282C34',
+          textColor: '#ABB2BF',
+          edgeLabelBackground: '#282C34',
+          clusterBkg: '#282C34',
+          clusterBorder: "#636D83",
+          labelBoxBkgColor: "#333842",
+          labelBoxBorderColor: "#636D83",
+          labelTextColor: "#ABB2BF",
+        },
+        flowchart: {
+          curve: "basis",
+          nodeSpacing: 50,
+          rankSpacing: 50,
+          diagramPadding: 8,
+          htmlLabels: true,
+          useMaxWidth: true,
+          padding: 15,
+          wrappingWidth: 200,
+        },
+      });
+      try {
+        const { svg } = await mermaidLib.render("mermaid-diagram", content);
+        mermaidRef.current.innerHTML = svg;
+        const svgElement = mermaidRef.current.querySelector("svg");
+        if (svgElement) {
+          // Set max-width to prevent overflow and ensure proper scaling
+          svgElement.style.width = "100%";
+          svgElement.style.height = "100%";
+          svgElement.style.maxWidth = "100%";
+          svgElement.style.display = "block";
+          const pathElements = svgElement.querySelectorAll("path");
+          pathElements.forEach((path) => {
+            path.style.strokeWidth = "1.5px";
+          });
+          const rectElements = svgElement.querySelectorAll("rect");
+          rectElements.forEach((rect) => {
+            const parent = rect.parentElement;
+            if (parent && parent.classList.contains("node")) {
+              rect.style.stroke = "#636D83";
+              rect.style.strokeWidth = "1px";
+            } else {
+              rect.style.stroke = "none";
+            }
+          });
+        }
+        setIsRendered(true);
+      } catch (error) {
+        console.error("Mermaid rendering error:", error);
+        mermaidRef.current.innerHTML = "Error rendering diagram";
+      }
+    }
   }, [content]);
 
   const centerAndFitDiagram = () => {
@@ -193,14 +216,22 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ content }) => {
                 height: "100%",
                 overflow: "hidden",
               }}
+              contentStyle={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               <div
                 ref={mermaidRef}
                 style={{
-                  width: "auto",
-                  height: "auto",
-                  minWidth: "100%",
-                  minHeight: "100%",
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               />
             </TransformComponent>

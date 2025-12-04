@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
 import throttle from 'lodash/throttle';
 import { useRecoilValue } from 'recoil';
-import { getConfigDefaults } from 'librechat-data-provider';
+import { getConfigDefaults, SystemRoles } from 'librechat-data-provider';
 import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@librechat/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useSourcesPanel, SidePanelGroupProvider, GlobalSourcesPanel } from '~/components/ui/SidePanel';
 import { useGetStartupConfig } from '~/data-provider';
+import { useAuthContext } from '~/hooks/AuthContext';
 import ArtifactsPanel from './ArtifactsPanel';
 import SourcesPanel from './SourcesPanel';
 import { normalizeLayout } from '~/utils';
@@ -37,10 +38,14 @@ const SidePanelGroup = memo(
     hideNavPanel = false,
   }: SidePanelProps) => {
     const { data: startupConfig } = useGetStartupConfig();
+    const { user } = useAuthContext();
     const interfaceConfig = useMemo(
       () => startupConfig?.interface ?? defaultInterface,
       [startupConfig],
     );
+
+    // Hide side panel for non-admin users
+    const shouldHideSidePanel = user?.role !== SystemRoles.ADMIN;
 
     const panelRef = useRef<ImperativePanelHandle>(null);
     const [minSize, setMinSize] = useState(defaultMinSize);
@@ -71,8 +76,8 @@ const SidePanelGroup = memo(
       } else {
         const navSize = 0;
         const remainingSpace = 100 - navSize;
-        const newMainSize = Math.floor(remainingSpace / 2);
-        const artifactsSize = remainingSpace - newMainSize;
+        const artifactsSize = 40; // 40% for artifacts panel
+        const newMainSize = remainingSpace - artifactsSize;
         return [newMainSize, artifactsSize, navSize];
       }
     }, [artifacts, defaultLayout, sourcesActive, sourcesWidth]);
@@ -161,7 +166,7 @@ const SidePanelGroup = memo(
             />
           )}
 
-          {!hideNavPanel && !hideSidePanel && interfaceConfig.sidePanel === true && (
+          {!hideNavPanel && !hideSidePanel && !shouldHideSidePanel && interfaceConfig.sidePanel === true && (
             <SidePanel
               panelRef={panelRef}
               minSize={minSize}
@@ -181,7 +186,7 @@ const SidePanelGroup = memo(
         {artifacts != null && isSmallScreen && (
           <div className="fixed inset-0 z-[100]">{artifacts}</div>
         )}
-        {!hideNavPanel && !hideSidePanel && interfaceConfig.sidePanel === true && (
+        {!hideNavPanel && !hideSidePanel && !shouldHideSidePanel && interfaceConfig.sidePanel === true && (
           <button
             aria-label="Close right side panel"
             className={`nav-mask ${!isCollapsed ? 'active' : ''}`}

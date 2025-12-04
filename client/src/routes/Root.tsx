@@ -5,7 +5,7 @@ import { useSearchEnabled, useAuthContext } from '~/hooks';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
 import { TermsAndConditionsModal } from '~/components/ui';
 import { LeftPanel } from '~/components/LeftPanel';
-import { Nav, MobileNav } from '~/components/Nav';
+import { Nav, MobileHeader } from '~/components/Nav';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
 
@@ -119,7 +119,7 @@ export default function Root() {
           <LeftPanel />
           <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
           <div className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden">
-            <MobileNav navVisible={navVisible} setNavVisible={setNavVisible} />
+            <MobileHeader showMenu onMenuClick={() => setNavVisible(!navVisible)} />
             <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
           </div>
         </div>

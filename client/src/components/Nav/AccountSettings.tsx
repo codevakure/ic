@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as Select from '@ariakit/react/select';
 import { FileText, LogOut, User } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
+import { SystemRoles } from 'librechat-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 // import FilesView from '~/components/Chat/Input/Files/FilesView';
 import { useAuthContext } from '~/hooks/AuthContext';
@@ -87,14 +88,17 @@ function AccountSettings() {
             {localize('com_nav_help_faq')}
           </Select.SelectItem>
         )}
-        <Select.SelectItem
-          value=""
-          onClick={() => setShowSettings(true)}
-          className="select-item text-sm"
-        >
-          <GearIcon className="icon-md" aria-hidden="true" />
-          {localize('com_nav_settings')}
-        </Select.SelectItem>
+        {/* Show Settings only for SystemRoles.ADMIN role */}
+        {user?.role === SystemRoles.ADMIN && (
+          <Select.SelectItem
+            value=""
+            onClick={() => setShowSettings(true)}
+            className="select-item text-sm"
+          >
+            <GearIcon className="icon-md" aria-hidden="true" />
+            {localize('com_nav_settings')}
+          </Select.SelectItem>
+        )}
         <DropdownMenuSeparator />
         <Select.SelectItem
           aria-selected={true}

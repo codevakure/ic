@@ -1,8 +1,9 @@
 import { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote } from 'lucide-react';
+import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
-import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator } from '@librechat/client';
+import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator, ThemeSelector } from '@librechat/client';
+import { SystemRoles } from 'librechat-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
@@ -120,10 +121,44 @@ const LeftPanelNav = memo(() => {
             }
           />
         ))}
+        {/* Admin Dashboard - Only for admin users */}
+        {user?.role === SystemRoles.ADMIN && (
+          <TooltipAnchor
+            description="Admin Dashboard"
+            side="right"
+            render={
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  location.pathname.startsWith('/admin')
+                    ? 'bg-surface-tertiary text-text-primary'
+                    : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                )}
+              >
+                <LayoutDashboard className="h-[15px] w-[15px]" />
+                <span className="sr-only">Admin Dashboard</span>
+              </button>
+            }
+          />
+        )}
       </div>
 
-      {/* Avatar at bottom */}
-      <Select.SelectProvider>
+      {/* Theme Toggle and Avatar at bottom */}
+      <div className="flex flex-col items-center gap-2">
+        {/* Theme Toggle */}
+        <TooltipAnchor
+          description="Toggle theme (Ctrl+Shift+T)"
+          side="right"
+          render={
+            <div className="flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary [&_button]:p-0 [&_svg]:h-[15px] [&_svg]:w-[15px]">
+              <ThemeSelector returnThemeOnly={true} />
+            </div>
+          }
+        />
+
+        {/* User Avatar */}
+        <Select.SelectProvider>
         <TooltipAnchor
           description={user?.name ?? user?.username ?? localize('com_nav_user')}
           side="right"
@@ -173,14 +208,30 @@ const LeftPanelNav = memo(() => {
               {localize('com_nav_help_faq')}
             </Select.SelectItem>
           )}
-          <Select.SelectItem
-            value=""
-            onClick={() => setShowSettings(true)}
-            className="select-item text-sm"
-          >
-            <GearIcon className="icon-md" aria-hidden="true" />
-            {localize('com_nav_settings')}
-          </Select.SelectItem>
+          {/* Show Settings only for SystemRoles.ADMIN role */}
+          {user?.role === SystemRoles.ADMIN && (
+            <Select.SelectItem
+              value=""
+              onClick={() => setShowSettings(true)}
+              className="select-item text-sm"
+            >
+              <GearIcon className="icon-md" aria-hidden="true" />
+              {localize('com_nav_settings')}
+            </Select.SelectItem>
+          )}
+          {user?.role === SystemRoles.ADMIN && (
+            <>
+              <DropdownMenuSeparator />
+              <Select.SelectItem
+                value=""
+                onClick={() => navigate('/admin/dashboard')}
+                className="select-item text-sm"
+              >
+                <LayoutDashboard className="icon-md" aria-hidden="true" />
+                Admin Dashboard
+              </Select.SelectItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <Select.SelectItem
             aria-selected={true}
@@ -194,6 +245,7 @@ const LeftPanelNav = memo(() => {
         </Select.SelectPopover>
         {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
       </Select.SelectProvider>
+      </div>
     </div>
   );
 });

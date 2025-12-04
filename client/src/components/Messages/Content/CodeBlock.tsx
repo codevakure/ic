@@ -9,6 +9,7 @@ import ResultSwitcher from '~/components/Messages/Content/ResultSwitcher';
 import { useToolCallsMapContext, useMessageContext } from '~/Providers';
 import { LogContent } from '~/components/Chat/Messages/Content/Parts';
 import RunCode from '~/components/Messages/Content/RunCode';
+import { Watermark } from '~/components/ui/Watermark';
 import { useLocalize } from '~/hooks';
 import { getLanguageDisplay } from '~/utils/titleCase';
 import { showCodeOutputAtom } from '~/store/showCodeOutput';
@@ -135,7 +136,12 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   const showOutput = hasOutput && showCodeOutput;
 
   return (
-    <div className="w-full rounded-md bg-gray-100 dark:bg-gray-900 text-xs text-gray-800 dark:text-white/80 overflow-hidden">
+    <div className="w-full rounded-md bg-gray-100 dark:bg-gray-900 text-xs text-gray-800 dark:text-white/80 overflow-hidden relative">
+      {/* Watermark Logo positioned so only 70% is visible */}
+      <div className="absolute -right-20 bottom-0 translate-y-[25%] z-10 opacity-30 pointer-events-none">
+        <Watermark width={300} height={300} />
+      </div>
+
       <CodeBar
         lang={lang}
         error={error}

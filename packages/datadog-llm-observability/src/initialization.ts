@@ -24,7 +24,7 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
   const isEnabled = options.enabled ?? process.env.DD_LLMOBS_ENABLED === 'true';
 
   if (!isEnabled) {
-    console.info('[Datadog] LLM Observability is disabled');
+    console.info('Datadog LLM Observability is disabled');
     return null;
   }
 
@@ -35,7 +35,7 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
     // Initialize the Datadog tracer with LLM Observability
     tracer = ddTrace.init({
       // Service configuration
-      service: options.service || process.env.DD_SERVICE || 'librechat',
+      service: options.service || process.env.DD_SERVICE || 'ranger',
       env: options.env || process.env.DD_ENV || 'development',
       version: options.version || process.env.DD_VERSION || 'v1.0.0',
       
@@ -56,23 +56,23 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
       plugins: {
         'openai': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'librechat',
+          service: options.service || process.env.DD_SERVICE || 'ranger',
         },
         'http': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'librechat',
+          service: options.service || process.env.DD_SERVICE || 'ranger',
         },
         'express': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'librechat',
+          service: options.service || process.env.DD_SERVICE || 'ranger',
         },
         'mongodb': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'librechat',
+          service: options.service || process.env.DD_SERVICE || 'ranger',
         },
         'redis': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'librechat',
+          service: options.service || process.env.DD_SERVICE || 'ranger',
         }
       }
     });
@@ -103,24 +103,35 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
             checkForSnowflakeTool(span.output);
           
           if (isSnowflakeToolSpan) {
+            console.info('🚫 Filtering out Snowflake tool span');
             return null;
           }
           
           return span;
         });
         
-        console.info(`[Datadog] LLM Observability enabled (mlApp: ${options.mlApp || process.env.DD_LLMOBS_ML_APP}, service: ${options.service || process.env.DD_SERVICE})`);
+        console.info('LLM Observability enabled successfully', {
+          enabled: tracer.llmobs.enabled,
+          agentless: options.agentlessEnabled || process.env.DD_LLMOBS_AGENTLESS_ENABLED,
+          mlApp: options.mlApp || process.env.DD_LLMOBS_ML_APP,
+          service: options.service || process.env.DD_SERVICE,
+          env: options.env || process.env.DD_ENV
+        });
       } catch (enableError: any) {
-        console.error(`[Datadog] Failed to enable LLM Observability: ${enableError.message}`);
+        console.error('Failed to enable LLM Observability', {
+          error: enableError.message,
+          stack: enableError.stack
+        });
       }
     } else {
-      console.warn('[Datadog] LLM Observability not available - tracer.llmobs not found');
+      console.warn('LLM Observability not available - tracer.llmobs not found');
     }
 
+    console.info('Datadog tracer initialized with LLM Observability support');
     isInitialized = true;
     
   } catch (error: any) {
-    console.error('[Datadog] Failed to initialize tracer:', error.message);
+    console.error('Failed to initialize Datadog tracer:', error);
     tracer = null;
   }
 
@@ -129,9 +140,26 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
 
 /**
  * Get the current tracer instance
+ * Falls back to requiring dd-trace directly if not initialized via this module
  */
 export function getTracer(): any {
-  return tracer;
+  // If we have a tracer from our initialization, return it
+  if (tracer) {
+    return tracer;
+  }
+  
+  // Otherwise, try to get the globally initialized dd-trace instance
+  try {
+    const ddTrace = require('dd-trace');
+    // Only return if it's actually initialized (has _tracer property)
+    if (ddTrace && (ddTrace._tracer || ddTrace.tracer)) {
+      return ddTrace;
+    }
+  } catch (e) {
+    // dd-trace not available or not installed
+  }
+  
+  return null;
 }
 
 /**
@@ -152,7 +180,7 @@ export function traceOperation(operationName: string, options: any = {}, callbac
   const span = tracer.startSpan(operationName, {
     tags: {
       'ranger.operation': operationName,
-      'service.name': process.env.DD_SERVICE || 'librechat',
+      'service.name': process.env.DD_SERVICE || 'ranger',
       ...options.tags
     },
     resource: options.resource || operationName,

@@ -85,22 +85,32 @@ function ChatView({ index = 0 }: { index?: number }) {
                 <div
                   className={cn(
                     'flex flex-col',
-                    // Always keep chat input at bottom by default; when landing, center form if enabled
+                    // Mobile: input at bottom; Desktop: center everything together
                     isLandingPage
                       ? 'flex-1 items-center justify-end sm:justify-center'
                       : 'h-full overflow-y-auto',
                   )}
                 >
-                  {content}
-                  <div
-                    className={cn(
-                      'w-full',
-                      isLandingPage && 'max-w-3xl transition-all duration-200 xl:max-w-4xl',
-                    )}
-                  >
-                    <ChatForm index={index} />
-                    {isLandingPage ? <ConversationStarters /> : null}
-                  </div>
+                  {isLandingPage ? (
+                    // On desktop (sm+): wrap landing + form together so they center as a unit
+                    // On mobile: keep them separate so landing is at top, form at bottom
+                    <>
+                      <div className="flex w-full flex-1 items-center justify-center sm:flex-initial">
+                        {content}
+                      </div>
+                      <div className="w-full max-w-3xl px-4 pb-4 transition-all duration-200 sm:px-0 sm:pb-0 xl:max-w-4xl">
+                        <ChatForm index={index} />
+                        <ConversationStarters />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {content}
+                      <div className="w-full">
+                        <ChatForm index={index} />
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             </div>

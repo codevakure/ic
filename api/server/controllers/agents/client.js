@@ -50,6 +50,7 @@ const BaseClient = require('~/app/clients/BaseClient');
 const { getRoleByName } = require('~/models/Role');
 const { loadAgent } = require('~/models/Agent');
 const { getMCPManager } = require('~/config');
+const { getCodeExecutorInstructions } = require('~/server/utils/presentationInstructions');
 
 const omitTitleOptions = new Set([
   'stream',
@@ -436,8 +437,8 @@ class AgentClient extends BaseClient {
       (tool) => tool && (tool.name === 'execute_code' || tool.name?.includes('execute_code'))
     );
     if (hasCodeExecutor) {
-      const codeExecutorInfo = `\n\n# Code Execution Environment\n\nAvailable Python packages for code execution:\n- **Data Processing**: numpy, pandas, scipy, faker\n- **Visualization**: matplotlib, seaborn, plotly\n- **PDF Processing**: PyMuPDF (import as 'fitz' - recommended for speed/quality), pdfplumber\n- **Documents**: openpyxl (Excel), python-docx (Word), python-pptx (PowerPoint), reportlab (PDF generation)\n- **Images**: pillow (PIL)\n- **Web**: requests, beautifulsoup4\n- **Parsing**: lxml\n\nNote: Use PyMuPDF (import fitz) for PDF processing - it's 10-20x faster than PyPDF2 and has better text extraction.`;
-      systemContent += codeExecutorInfo;
+      const codeExecutorInfo = getCodeExecutorInstructions();
+      systemContent += '\n\n' + codeExecutorInfo;
     }
 
     // Inject MCP server instructions if available

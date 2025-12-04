@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAuthContext } from '~/hooks';
 import { LeftPanel } from '~/components/LeftPanel';
+import { MobileHeader } from '~/components/Nav';
 
 /**
  * =============================================================================
@@ -56,6 +57,7 @@ export default function LeftPanelLayout() {
       <LeftPanel />
       {/* Content area - receives full width from SidePanelGroup's main panel */}
       <div className="flex h-full w-full flex-col overflow-hidden">
+        <MobileHeader />
         <Outlet />
       </div>
     </div>

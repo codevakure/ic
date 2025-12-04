@@ -6,39 +6,22 @@ import type {
 } from '@codesandbox/sandpack-react';
 
 const artifactFilename = {
-  'application/vnd.react': 'App.tsx',
-  'text/html': 'index.html',
-  'application/vnd.code-html': 'index.html',
-  // mermaid and markdown types are handled separately in useArtifactProps.ts
-  default: 'index.html',
-  // 'css': 'css',
-  // 'javascript': 'js',
-  // 'typescript': 'ts',
-  // 'jsx': 'jsx',
-  // 'tsx': 'tsx',
+  'application/vnd.react': '/App.tsx',
+  'text/html': '/index.html',
+  'application/vnd.code-html': '/index.html',
+  // mermaid type is handled separately in useArtifactProps.ts
+  default: '/index.html',
 };
 
 const artifactTemplate: Record<
-  | keyof typeof artifactFilename
-  | 'application/vnd.mermaid'
-  | 'text/markdown'
-  | 'text/md'
-  | 'text/plain',
+  keyof typeof artifactFilename | 'application/vnd.mermaid',
   SandpackPredefinedTemplate | undefined
 > = {
   'text/html': 'static',
   'application/vnd.react': 'react-ts',
   'application/vnd.mermaid': 'react-ts',
   'application/vnd.code-html': 'static',
-  'text/markdown': 'react-ts',
-  'text/md': 'react-ts',
-  'text/plain': 'react-ts',
   default: 'static',
-  // 'css': 'css',
-  // 'javascript': 'js',
-  // 'typescript': 'ts',
-  // 'jsx': 'jsx',
-  // 'tsx': 'tsx',
 };
 
 export function getKey(type: string, language?: string): string {
@@ -56,15 +39,21 @@ export function getTemplate(type: string, language?: string): SandpackPredefined
 }
 
 const standardDependencies = {
-  three: '^0.167.1',
+  // three: '^0.167.1', // Removed - has Node.js dependencies that break in browser sandboxes
   'lucide-react': '^0.394.0',
   'react-router-dom': '^6.11.2',
   'class-variance-authority': '^0.6.0',
   clsx: '^1.2.1',
-  'date-fns': '^3.3.1',
   'tailwind-merge': '^1.9.1',
-  'tailwindcss-animate': '^1.0.5',
-  recharts: '2.12.7',
+  // 'tailwindcss-animate': '^1.0.5', // Removed - requires tailwindcss as peer dependency
+  // recharts: '2.1.9', // Removed - has lodash submodule dependencies that break in browser bundlers (lodash/toString)
+  'chart.js': '^4.4.0',
+  'react-chartjs-2': '^5.2.0',
+  // Radix UI peer dependencies
+  '@radix-ui/react-visually-hidden': '^1.0.3',
+  '@radix-ui/react-collection': '^1.0.3',
+  '@radix-ui/react-context': '^1.0.3',
+  '@swc/helpers': '^0.5.1',
   '@radix-ui/react-accordion': '^1.1.2',
   '@radix-ui/react-alert-dialog': '^1.0.2',
   '@radix-ui/react-aspect-ratio': '^1.1.0',
@@ -90,14 +79,14 @@ const standardDependencies = {
   '@radix-ui/react-toggle': '^1.1.0',
   '@radix-ui/react-toggle-group': '^1.1.0',
   '@radix-ui/react-tooltip': '^1.2.8',
+  '@radix-ui/react-portal': '^1.0.2',
   'embla-carousel-react': '^8.2.0',
-  'react-day-picker': '^9.0.8',
   'dat.gui': '^0.7.9',
   vaul: '^0.9.1',
+  'resize-observer-polyfill': '^1.5.1',
 };
 
 const mermaidDependencies = {
-  mermaid: '^11.4.1',
   'react-zoom-pan-pinch': '^3.6.1',
   'class-variance-authority': '^0.6.0',
   clsx: '^1.2.1',
@@ -105,25 +94,14 @@ const mermaidDependencies = {
   '@radix-ui/react-slot': '^1.1.0',
 };
 
-const markdownDependencies = {
-  'marked-react': '^2.0.0',
-};
-
 const dependenciesMap: Record<
-  | keyof typeof artifactFilename
-  | 'application/vnd.mermaid'
-  | 'text/markdown'
-  | 'text/md'
-  | 'text/plain',
+  keyof typeof artifactFilename | 'application/vnd.mermaid',
   Record<string, string>
 > = {
   'application/vnd.mermaid': mermaidDependencies,
   'application/vnd.react': standardDependencies,
-  'text/html': standardDependencies,
-  'application/vnd.code-html': standardDependencies,
-  'text/markdown': markdownDependencies,
-  'text/md': markdownDependencies,
-  'text/plain': markdownDependencies,
+  'text/html': {}, // Static HTML needs no dependencies
+  'application/vnd.code-html': {}, // Static HTML needs no dependencies
   default: standardDependencies,
 };
 
@@ -132,6 +110,10 @@ export function getDependencies(type: string): Record<string, string> {
 }
 
 export function getProps(type: string): Partial<SandpackProviderProps> {
+  // For static HTML, don't pass any customSetup to avoid creating custom bundler instances
+  if (type === 'text/html' || type === 'application/vnd.code-html') {
+    return {};
+  }
   return {
     customSetup: {
       dependencies: getDependencies(type),
@@ -139,12 +121,69 @@ export function getProps(type: string): Partial<SandpackProviderProps> {
   };
 }
 
-export const sharedOptions: SandpackProviderProps['options'] = {
-  externalResources: ['https://cdn.tailwindcss.com/3.4.17'],
-};
+/** Tailwind CSS CDN - Play CDN script for on-the-fly compilation */
+export const TAILWIND_CDN = 'https://cdn.tailwindcss.com/3.4.16?plugins=forms,typography';
+
+/** Default Sandpack bundler URL */
+export const DEFAULT_BUNDLER_URL = 'https://sandpack-bundler.codesandbox.io';
 
 export const sharedFiles = {
   '/lib/utils.ts': shadcnComponents.utils,
+  // Tailwind CSS loader - loads Tailwind CDN and waits for it to be ready
+  '/lib/tailwind.ts': {
+    code: dedent`
+      // Tailwind CDN URL
+      const TAILWIND_CDN = '${TAILWIND_CDN}';
+      
+      // Promise that resolves when Tailwind is loaded
+      export const tailwindReady = new Promise<void>((resolve) => {
+        // Check if Tailwind is already loaded
+        if (typeof (window as any).tailwind !== 'undefined') {
+          resolve();
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = TAILWIND_CDN;
+        script.onload = () => resolve();
+        script.onerror = () => resolve(); // Resolve anyway to not block rendering
+        document.head.insertBefore(script, document.head.firstChild);
+      });
+    `,
+    hidden: true,
+  },
+  // Custom entry point that waits for Tailwind before rendering
+  '/index.tsx': {
+    code: dedent`
+      import { StrictMode } from "react";
+      import { createRoot } from "react-dom/client";
+      import "./styles.css";
+      import App from "./App";
+      import { tailwindReady } from "./lib/tailwind";
+
+      // Wait for Tailwind to load, then render React
+      tailwindReady.then(() => {
+        const root = createRoot(document.getElementById("root")!);
+        root.render(
+          <StrictMode>
+            <App />
+          </StrictMode>
+        );
+      });
+    `,
+    hidden: true,
+  },
+  '/App.css': {
+    code: dedent`
+      /* Base styles */
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+    `,
+    hidden: true,
+  },
   '/components/ui/accordion.tsx': shadcnComponents.accordian,
   '/components/ui/alert-dialog.tsx': shadcnComponents.alertDialog,
   '/components/ui/alert.tsx': shadcnComponents.alert,
@@ -182,18 +221,4 @@ export const sharedFiles = {
   '/components/ui/toggle.tsx': shadcnComponents.toggle,
   '/components/ui/tooltip.tsx': shadcnComponents.tooltip,
   '/components/ui/use-toast.tsx': shadcnComponents.useToast,
-  '/public/index.html': dedent`
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Document</title>
-        <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-      </head>
-      <body>
-        <div id="root"></div>
-      </body>
-    </html>
-  `,
 };

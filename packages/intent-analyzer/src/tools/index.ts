@@ -83,6 +83,10 @@ const INTENT_PATTERNS = {
     /\b(python|javascript|typescript|sql)\b/i,
     /\b(spreadsheet|excel|csv|dataframe)\b/i,
     /\b(math|equation|formula|statistics)\b/i,
+    // Document generation patterns - PDF, Word, PowerPoint, Excel
+    /\b(generate|create|make|build|produce)\s+(a\s+)?(pdf|word|powerpoint|ppt|pptx|excel|xlsx|document|presentation|slide|report)\b/i,
+    /\b(pdf|word|powerpoint|ppt|pptx|excel|xlsx)\s+(document|file|report|presentation)\b/i,
+    /\b(export|save|convert)\s+(to|as)\s+(pdf|word|powerpoint|ppt|excel|xlsx)\b/i,
   ],
   [ToolType.FILE_SEARCH]: [
     /\b(search|find|look up|what does .* say|according to|in the (document|file|pdf))\b/i,
