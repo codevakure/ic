@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Cron Parser Utilities
+ * @ranger/triggers - Cron Parser Utilities
  *
  * Utilities for working with cron expressions.
  * Converts intervals to cron, validates expressions, and calculates next runs.

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useContext, createCont
 import { createPortal } from 'react-dom';
 import { useRecoilState, useSetRecoilState } from 'recoil';
 import { ArrowLeft, X } from 'lucide-react';
-import { useMediaQuery } from '@librechat/client';
+import { useMediaQuery } from '@ranger/client';
 import store from '~/store';
 import { cn } from '~/utils';
 

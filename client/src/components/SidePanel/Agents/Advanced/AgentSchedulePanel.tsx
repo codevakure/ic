@@ -8,9 +8,9 @@
 import React, { useState } from 'react';
 import { Clock, Plus, Trash2, Play, Pause, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { useWatch, useFormContext } from 'react-hook-form';
-import { Button, useToastContext } from '@librechat/client';
+import { Button, useToastContext } from '@ranger/client';
 import type { AgentForm } from '~/common';
-import type { AgentSchedule, ScheduleConfig } from 'librechat-data-provider';
+import type { AgentSchedule, ScheduleConfig } from 'ranger-data-provider';
 import { ExecutionsTable } from '../Executions';
 import {
   useAgentSchedulesQuery,

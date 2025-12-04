@@ -1,9 +1,9 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
- * Snowflake Financial Analyst Tool for LibreChat Agents
+ * Snowflake Financial Analyst Tool for Ranger Agents
  * Executes SQL queries against Snowflake data warehouse for financial analysis
  * Uses pre-configured credentials from environment variables
  */
@@ -83,7 +83,7 @@ class SnowflakeFinancialAnalyst extends Tool {
         password: this.password,
         warehouse: this.warehouse,
         role: this.role,
-        application: 'LIBRECHAT_FINANCIAL_ANALYST'
+        application: 'RANGER_FINANCIAL_ANALYST'
       };
 
       // Add database if specified

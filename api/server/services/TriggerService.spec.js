@@ -26,7 +26,7 @@ jest.mock('~/db/models', () => ({
 }));
 
 // Mock the logger
-jest.mock('@librechat/data-schemas', () => ({
+jest.mock('@ranger/data-schemas', () => ({
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
@@ -36,7 +36,7 @@ jest.mock('@librechat/data-schemas', () => ({
 }));
 
 // Mock the triggers package
-jest.mock('@librechat/triggers', () => {
+jest.mock('@ranger/triggers', () => {
   const mockTrigger = {
     start: jest.fn(),
     stop: jest.fn(),

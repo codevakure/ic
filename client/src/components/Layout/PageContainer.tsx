@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useMediaQuery } from '@librechat/client';
+import { useMediaQuery } from '@ranger/client';
 import { OpenSidebar } from '~/components/Chat/Menus';
 import type { ContextType } from '~/common';
 import { cn } from '~/utils';

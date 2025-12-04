@@ -2,7 +2,7 @@
  * Model Routing Module
  * 
  * Determines which model tier to use based on query complexity.
- * Ported from @librechat/llm-router for unified interface.
+ * Ported from @ranger/llm-router for unified interface.
  * 
  * 4-TIER MAPPING (score ranges):
  * - 0.80-1.00: expert   - System architecture, PhD-level research (Opus 4.5)

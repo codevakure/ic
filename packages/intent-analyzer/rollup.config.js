@@ -30,7 +30,7 @@ export default {
     }),
   ],
   external: [
-    'librechat-data-provider',
+    'ranger-data-provider',
     'mime-types',
   ],
 };

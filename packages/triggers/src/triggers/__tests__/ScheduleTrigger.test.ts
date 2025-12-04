@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Schedule Trigger Tests
+ * @ranger/triggers - Schedule Trigger Tests
  *
  * Tests for ScheduleTrigger implementation.
  *

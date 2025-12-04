@@ -1,7 +1,7 @@
 /**
- * @librechat/triggers
+ * @ranger/triggers
  *
- * Extensible trigger system for LibreChat agents.
+ * Extensible trigger system for Ranger agents.
  * Supports scheduled (cron/interval), webhook, and event-based triggers.
  *
  * See README.md for full documentation and examples.

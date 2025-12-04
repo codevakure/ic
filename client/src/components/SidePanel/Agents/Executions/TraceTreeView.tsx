@@ -20,7 +20,7 @@ import {
   ChevronRight,
   Zap,
 } from 'lucide-react';
-import type { ExecutionTraceStep, ExecutionTraceTree } from 'librechat-data-provider';
+import type { ExecutionTraceStep, ExecutionTraceTree } from 'ranger-data-provider';
 import { useExecutionTraceQuery } from '~/data-provider/Executions';
 import { cn } from '~/utils';
 

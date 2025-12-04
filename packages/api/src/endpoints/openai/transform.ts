@@ -1,5 +1,5 @@
-import { EModelEndpoint } from 'librechat-data-provider';
-import type { ClientOptions } from '@librechat/agents';
+import { EModelEndpoint } from 'ranger-data-provider';
+import type { ClientOptions } from 'illuma-agents';
 import type * as t from '~/types';
 import { knownOpenAIParams } from './llm';
 

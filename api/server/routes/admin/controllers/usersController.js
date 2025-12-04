@@ -4,8 +4,8 @@
  * Handles all user management endpoints for administrators.
  */
 
-const { logger } = require('@librechat/data-schemas');
-const { SystemRoles } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { SystemRoles } = require('ranger-data-provider');
 const adminService = require('../services/adminService');
 const userService = require('../services/userService');
 

@@ -1,16 +1,16 @@
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const {
   EnvVar,
   Calculator,
   createSearchTool,
   createCodeExecutionTool,
-} = require('@librechat/agents');
+} = require('illuma-agents');
 const {
   checkAccess,
   createSafeUser,
   mcpToolPattern,
   loadWebSearchAuth,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   Tools,
   Constants,
@@ -18,7 +18,7 @@ const {
   EToolResources,
   PermissionTypes,
   replaceSpecialVars,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const {
   availableTools,
   manifestToolMap,

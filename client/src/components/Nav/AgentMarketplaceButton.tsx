@@ -1,8 +1,8 @@
 import React, { useCallback, useContext } from 'react';
 import { LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PermissionTypes, Permissions } from 'librechat-data-provider';
-import { TooltipAnchor, Button } from '@librechat/client';
+import { PermissionTypes, Permissions } from 'ranger-data-provider';
+import { TooltipAnchor, Button } from '@ranger/client';
 import { useLocalize, useHasAccess, AuthContext } from '~/hooks';
 
 interface AgentMarketplaceButtonProps {

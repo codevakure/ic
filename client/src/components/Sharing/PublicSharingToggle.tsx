@@ -1,8 +1,8 @@
 import React from 'react';
 import { Globe, Shield } from 'lucide-react';
-import { ResourceType } from 'librechat-data-provider';
-import { Switch, InfoHoverCard, ESide, Label } from '@librechat/client';
-import type { AccessRoleIds } from 'librechat-data-provider';
+import { ResourceType } from 'ranger-data-provider';
+import { Switch, InfoHoverCard, ESide, Label } from '@ranger/client';
+import type { AccessRoleIds } from 'ranger-data-provider';
 import AccessRolesPicker from './AccessRolesPicker';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';

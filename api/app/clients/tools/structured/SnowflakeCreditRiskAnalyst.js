@@ -1,9 +1,9 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
- * Snowflake Credit Risk Analyst Tool for LibreChat Agents
+ * Snowflake Credit Risk Analyst Tool for Ranger Agents
  * Executes SQL queries against Snowflake data warehouse for credit risk analysis
  * Uses pre-configured credentials from environment variables
  */
@@ -83,7 +83,7 @@ class SnowflakeCreditRiskAnalyst extends Tool {
         password: this.password,
         warehouse: this.warehouse,
         role: this.role,
-        application: 'LIBRECHAT_CREDIT_RISK_ANALYST'
+        application: 'RANGER_CREDIT_RISK_ANALYST'
       };
 
       // Add database if specified

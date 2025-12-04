@@ -6,9 +6,9 @@ const axios = require('axios');
 const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { Tool } = require('@langchain/core/tools');
-const { logger } = require('@librechat/data-schemas');
-const { FileContext, ContentTypes } = require('librechat-data-provider');
-const { getBasePath } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { FileContext, ContentTypes } = require('ranger-data-provider');
+const { getBasePath } = require('@ranger/api');
 const paths = require('~/config/paths');
 
 const displayMessage =

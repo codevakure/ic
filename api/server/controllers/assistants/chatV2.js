@@ -1,11 +1,11 @@
 const { v4 } = require('uuid');
-const { sleep } = require('@librechat/agents');
-const { logger } = require('@librechat/data-schemas');
-const { sendEvent, getBalanceConfig, getModelMaxTokens, countTokens } = require('@librechat/api');
+const { sleep } = require('illuma-agents');
+const { logger } = require('@ranger/data-schemas');
+const { sendEvent, getBalanceConfig, getModelMaxTokens, countTokens } = require('@ranger/api');
 const {
   traceConversationWorkflow,
   extractUserMetadata,
-} = require('@librechat/datadog-llm-observability');
+} = require('@ranger/datadog-llm-observability');
 const {
   Time,
   Constants,
@@ -16,7 +16,7 @@ const {
   EModelEndpoint,
   retrievalMimeTypes,
   AssistantStreamEvents,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const {
   initThread,
   recordUsage,
@@ -95,7 +95,7 @@ const chatV2 = async (req, res) => {
   let parentMessageId = _parentId;
   /** @type {TMessage[]} */
   let previousMessages = [];
-  /** @type {import('librechat-data-provider').TConversation | null} */
+  /** @type {import('ranger-data-provider').TConversation | null} */
   let conversation = null;
   /** @type {string[]} */
   let file_ids = [];

@@ -9,7 +9,7 @@ const {
   AccessRoleIds,
   PrincipalType,
   PermissionBits,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 
 // Mock modules before importing
 jest.mock('~/server/services/Config', () => ({

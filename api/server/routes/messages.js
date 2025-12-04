@@ -1,8 +1,8 @@
 const express = require('express');
-const { logger } = require('@librechat/data-schemas');
-const { ContentTypes } = require('librechat-data-provider');
-const { recordLLMFeedback } = require('@librechat/datadog-llm-observability');
-const { unescapeLaTeX, countTokens } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { ContentTypes } = require('ranger-data-provider');
+const { recordLLMFeedback } = require('@ranger/datadog-llm-observability');
+const { unescapeLaTeX, countTokens } = require('@ranger/api');
 const {
   saveConvo,
   getMessage,

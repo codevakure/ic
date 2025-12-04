@@ -1,5 +1,5 @@
 const { getUserPluginAuthValue } = require('~/server/services/PluginService');
-const { decrypt } = require('@librechat/api');
+const { decrypt } = require('@ranger/api');
 
 /**
  * Load auth values for the specified authentication fields.

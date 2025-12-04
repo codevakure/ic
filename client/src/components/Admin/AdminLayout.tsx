@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Loader2, Menu, X } from 'lucide-react';
 import { useAuthContext } from '~/hooks/AuthContext';
-import { SystemRoles } from 'librechat-data-provider';
+import { SystemRoles } from 'ranger-data-provider';
 import { useLocalStorage } from '~/hooks';
 import AdminSidebar from './AdminSidebar';
 import { AdminStats } from './components/AdminStats';

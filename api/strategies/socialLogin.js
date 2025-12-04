@@ -1,6 +1,6 @@
-const { logger } = require('@librechat/data-schemas');
-const { ErrorTypes } = require('librechat-data-provider');
-const { isEnabled, isEmailDomainAllowed } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { ErrorTypes } = require('ranger-data-provider');
+const { isEnabled, isEmailDomainAllowed } = require('@ranger/api');
 const { createSocialUser, handleExistingUser } = require('./process');
 const { getAppConfig } = require('~/server/services/Config');
 const { findUser } = require('~/models');

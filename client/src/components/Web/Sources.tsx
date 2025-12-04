@@ -2,10 +2,10 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { useRecoilValue } from 'recoil';
 import * as Ariakit from '@ariakit/react';
 import { VisuallyHidden } from '@ariakit/react';
-import { Tools } from 'librechat-data-provider';
+import { Tools } from 'ranger-data-provider';
 import { ChevronDown, File, Download, Eye } from 'lucide-react';
-import { useToastContext } from '@librechat/client';
-import type { ValidSource, ImageResult } from 'librechat-data-provider';
+import { useToastContext } from '@ranger/client';
+import type { ValidSource, ImageResult } from 'ranger-data-provider';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
 import {
   DocPreviewPanel,

@@ -4,8 +4,8 @@
  * Handles system-related endpoints for administrators.
  */
 
-const { logger } = require('@librechat/data-schemas');
-const { SystemRoles, roleDefaults } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { SystemRoles, roleDefaults } = require('ranger-data-provider');
 const systemService = require('../services/systemService');
 const { Role } = require('~/db/models');
 const { getRoleByName, updateRoleByName } = require('~/models/Role');

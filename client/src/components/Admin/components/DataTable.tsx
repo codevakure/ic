@@ -2,7 +2,7 @@
  * Admin Data Table Component
  * 
  * Reusable data table following the Files page pattern.
- * Uses @tanstack/react-table with LibreChat styling.
+ * Uses @tanstack/react-table with Ranger styling.
  */
 import * as React from 'react';
 import { ListFilter, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
@@ -35,7 +35,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-} from '@librechat/client';
+} from '@ranger/client';
 import { cn } from '~/utils';
 
 interface DataTableProps<TData, TValue> {

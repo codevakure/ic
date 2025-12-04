@@ -1,11 +1,11 @@
-const { isUserProvided, getOpenAIConfig, getCustomEndpointConfig } = require('@librechat/api');
+const { isUserProvided, getOpenAIConfig, getCustomEndpointConfig } = require('@ranger/api');
 const {
   CacheKeys,
   ErrorTypes,
   envVarRegex,
   FetchTokenConfig,
   extractEnvVariable,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const { getUserKeyValues, checkUserKeyExpiry } = require('~/server/services/UserService');
 const { fetchModels } = require('~/server/services/ModelService');
 const OpenAIClient = require('~/app/clients/OpenAIClient');

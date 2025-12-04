@@ -6,8 +6,8 @@ const {
   defaultRetrievalModels,
   defaultAssistantsVersion,
   defaultAgentCapabilities,
-} = require('librechat-data-provider');
-const { sendEvent } = require('@librechat/api');
+} = require('ranger-data-provider');
+const { sendEvent } = require('@ranger/api');
 const partialRight = require('lodash/partialRight');
 
 const addSpaceIfNeeded = (text) => (text.length > 0 && !text.endsWith(' ') ? text + ' ' : text);

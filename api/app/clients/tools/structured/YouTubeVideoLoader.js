@@ -18,7 +18,7 @@
 
 const { tool } = require('@langchain/core/tools');
 const { z } = require('zod');
-const { logger } = require('librechat-data-provider');
+const { logger } = require('ranger-data-provider');
 
 /**
  * Custom error class for YouTube transcript errors

@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { MultiSelect, MCPIcon, Microsoft365Icon } from '@librechat/client';
+import { MultiSelect, MCPIcon, Microsoft365Icon } from '@ranger/client';
 import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
 import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
 import { useBadgeRowContext } from '~/Providers';

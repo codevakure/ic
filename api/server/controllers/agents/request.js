@@ -1,6 +1,6 @@
-const { sendEvent } = require('@librechat/api');
-const { logger } = require('@librechat/data-schemas');
-const { Constants } = require('librechat-data-provider');
+const { sendEvent } = require('@ranger/api');
+const { logger } = require('@ranger/data-schemas');
+const { Constants } = require('ranger-data-provider');
 const {
   handleAbortError,
   createAbortController,
@@ -12,7 +12,7 @@ const { saveMessage } = require('~/models');
 // Datadog LLM Observability - optional tracing
 let traceLLMCallWithUser, LLM_PROVIDERS, LLM_OPERATION_TYPES;
 try {
-  const ddObservability = require('@librechat/datadog-llm-observability');
+  const ddObservability = require('@ranger/datadog-llm-observability');
   traceLLMCallWithUser = ddObservability.traceLLMCallWithUser;
   LLM_PROVIDERS = ddObservability.LLM_PROVIDERS;
   LLM_OPERATION_TYPES = ddObservability.LLM_OPERATION_TYPES;

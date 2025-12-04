@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Trigger Exports
+ * @ranger/triggers - Trigger Exports
  *
  * Export all trigger implementations.
  *

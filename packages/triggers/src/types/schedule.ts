@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Schedule Trigger Types
+ * @ranger/triggers - Schedule Trigger Types
  *
  * Types for cron-based and interval-based scheduling.
  * Supports both simple intervals ("every 5 minutes") and
@@ -199,7 +199,7 @@ export interface ExponentialBackoff {
  * Use these for quick setup or as reference.
  *
  * @example
- * import { SchedulePresets } from '@librechat/triggers';
+ * import { SchedulePresets } from '@ranger/triggers';
  *
  * const config = {
  *   type: 'schedule',

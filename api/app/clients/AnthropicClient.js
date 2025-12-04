@@ -1,5 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const {
   Constants,
@@ -9,8 +9,8 @@ const {
   anthropicSettings,
   getResponseSender,
   validateVisionModel,
-} = require('librechat-data-provider');
-const { sleep, SplitStreamHandler: _Handler, addCacheControl } = require('@librechat/agents');
+} = require('ranger-data-provider');
+const { sleep, SplitStreamHandler: _Handler, addCacheControl } = require('illuma-agents');
 const {
   Tokenizer,
   createFetch,
@@ -21,7 +21,7 @@ const {
   checkPromptCacheSupport,
   getModelMaxOutputTokens,
   createStreamEventHandlers,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   truncateText,
   formatMessage,
@@ -254,7 +254,7 @@ class AnthropicClient extends BaseClient {
   }
 
   /**
-   * Get Token Count for LibreChat Message
+   * Get Token Count for Ranger Message
    * @param {TMessage} responseMessage
    * @returns {number}
    */

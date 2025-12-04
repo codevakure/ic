@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { SettingsIcon } from 'lucide-react';
-import { TooltipAnchor, Spinner } from '@librechat/client';
-import { EModelEndpoint, isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
-import type { TModelSpec } from 'librechat-data-provider';
+import { TooltipAnchor, Spinner } from '@ranger/client';
+import { EModelEndpoint, isAgentsEndpoint, isAssistantsEndpoint } from 'ranger-data-provider';
+import type { TModelSpec } from 'ranger-data-provider';
 import type { Endpoint } from '~/common';
 import { CustomMenu as Menu, CustomMenuItem as MenuItem } from '../CustomMenu';
 import { useModelSelectorContext } from '../ModelSelectorContext';

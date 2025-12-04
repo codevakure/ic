@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { openAISchema, EModelEndpoint } from 'librechat-data-provider';
-import type { TEndpointOption, TAzureConfig, TEndpoint, TConfig } from 'librechat-data-provider';
+import { openAISchema, EModelEndpoint } from 'ranger-data-provider';
+import type { TEndpointOption, TAzureConfig, TEndpoint, TConfig } from 'ranger-data-provider';
 import type { BindToolsInput } from '@langchain/core/language_models/chat_models';
-import type { OpenAIClientOptions, Providers } from '@librechat/agents';
-import type { AppConfig } from '@librechat/data-schemas';
+import type { OpenAIClientOptions, Providers } from 'illuma-agents';
+import type { AppConfig } from '@ranger/data-schemas';
 import type { AzureOptions } from './azure';
 
 export type OpenAIParameters = z.infer<typeof openAISchema>;

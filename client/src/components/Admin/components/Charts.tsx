@@ -2,7 +2,7 @@
  * Admin Chart Components
  * 
  * Custom chart components using recharts for admin dashboard.
- * Styled to match LibreChat design system with blue primary theme.
+ * Styled to match Ranger design system with blue primary theme.
  */
 import React from 'react';
 import {

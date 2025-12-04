@@ -7,12 +7,12 @@
  */
 
 const express = require('express');
-const { generateCheckAccess } = require('@librechat/api');
-const { PermissionTypes, Permissions, PermissionBits } = require('librechat-data-provider');
+const { generateCheckAccess } = require('@ranger/api');
+const { PermissionTypes, Permissions, PermissionBits } = require('ranger-data-provider');
 const { requireJwtAuth, canAccessAgentResource } = require('~/server/middleware');
 const { getRoleByName } = require('~/models/Role');
 const { TriggerExecution, ExecutionTrace } = require('~/db/models');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 const router = express.Router({ mergeParams: true });
 

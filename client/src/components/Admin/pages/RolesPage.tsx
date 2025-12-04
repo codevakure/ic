@@ -20,7 +20,7 @@ import {
   Button,
   Dialog,
   DialogTemplate,
-} from '@librechat/client';
+} from '@ranger/client';
 import { rolesApi, type Role, type RolePermissions } from '../services/adminApi';
 import { cn } from '~/utils';
 

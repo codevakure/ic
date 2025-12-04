@@ -1,12 +1,12 @@
-const { Providers } = require('@librechat/agents');
-const { logger } = require('@librechat/data-schemas');
+const { Providers } = require('illuma-agents');
+const { logger } = require('@ranger/data-schemas');
 const {
   primeResources,
   getModelMaxTokens,
-  extractLibreChatParams,
+  extractRangerParams,
   filterFilesByEndpointConfig,
   optionalChainWithEmptyCheck,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   ErrorTypes,
   EModelEndpoint,
@@ -15,7 +15,7 @@ const {
   isAgentsEndpoint,
   replaceSpecialVars,
   providerEndpointMap,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const generateArtifactsPrompt = require('~/app/clients/prompts/artifacts');
 const { getProviderConfig } = require('~/server/services/Endpoints');
 const { processFiles } = require('~/server/services/Files/process');
@@ -74,7 +74,7 @@ const initializeAgent = async ({
     ),
   );
 
-  const { resendFiles, maxContextTokens, modelOptions } = extractLibreChatParams(_modelOptions);
+  const { resendFiles, maxContextTokens, modelOptions } = extractRangerParams(_modelOptions);
 
   const provider = agent.provider;
   agent.endpoint = provider;
@@ -178,7 +178,7 @@ const initializeAgent = async ({
     agent.provider = options.provider;
   }
 
-  /** @type {import('@librechat/agents').GenericTool[]} */
+  /** @type {import('illuma-agents').GenericTool[]} */
   let tools = options.tools?.length ? options.tools : structuredTools;
   if (
     (agent.provider === Providers.GOOGLE || agent.provider === Providers.VERTEXAI) &&
@@ -196,7 +196,7 @@ const initializeAgent = async ({
     tools = structuredTools.concat(options.tools);
   }
 
-  /** @type {import('@librechat/agents').ClientOptions} */
+  /** @type {import('illuma-agents').ClientOptions} */
   agent.model_parameters = { ...options.llmConfig };
   if (options.configOptions) {
     agent.model_parameters.configuration = options.configOptions;

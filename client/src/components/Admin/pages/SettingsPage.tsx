@@ -20,7 +20,7 @@ import {
   Label,
   Spinner,
   Switch,
-} from '@librechat/client';
+} from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
 import { systemApi, usersApi } from '../services/adminApi';
 

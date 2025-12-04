@@ -5,7 +5,7 @@ import {
   SandpackProviderProps,
 } from '@codesandbox/sandpack-react';
 import type { SandpackPreviewRef } from '@codesandbox/sandpack-react';
-import type { TStartupConfig } from 'librechat-data-provider';
+import type { TStartupConfig } from 'ranger-data-provider';
 import type { ArtifactFiles } from '~/common';
 import { sharedFiles, TAILWIND_CDN, DEFAULT_BUNDLER_URL } from '~/utils/artifacts';
 

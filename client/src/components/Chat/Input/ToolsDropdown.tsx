@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { Globe, Settings, Settings2, TerminalSquareIcon, Video } from 'lucide-react';
-import { TooltipAnchor, DropdownPopup, PinIcon, VectorIcon } from '@librechat/client';
+import { TooltipAnchor, DropdownPopup, PinIcon, VectorIcon } from '@ranger/client';
 import type { MenuItemProps } from '~/common';
 import {
   AuthType,
@@ -11,7 +11,7 @@ import {
   AgentCapabilities,
   defaultAgentCapabilities,
   defaultToolsAutoEnabled,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import { useLocalize, useHasAccess, useAgentCapabilities } from '~/hooks';
 import ArtifactsSubMenu from '~/components/Chat/Input/ArtifactsSubMenu';
 import MCPSubMenu from '~/components/Chat/Input/MCPSubMenu';

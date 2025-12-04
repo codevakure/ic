@@ -24,7 +24,7 @@ import {
   SystemRoles,
   PermissionTypes,
   Permissions,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import {
   Label,
   Slider,
@@ -43,8 +43,8 @@ import {
   OGDialogTemplate,
   useToastContext,
   Avatar as AvatarComponent,
-} from '@librechat/client';
-import type { TUser, TUserMemory } from 'librechat-data-provider';
+} from '@ranger/client';
+import type { TUser, TUserMemory } from 'ranger-data-provider';
 import {
   useUploadAvatarMutation,
   useGetFileConfig,
@@ -591,7 +591,7 @@ const ProfilePage: React.FC = () => {
     return 'bg-green-500';
   };
 
-  useDocumentTitle('Profile | LibreChat');
+  useDocumentTitle('Profile | Ranger');
 
   if (!isAuthenticated) {
     return null;

@@ -17,8 +17,8 @@ import {
   Eye,
   AlertCircle,
 } from 'lucide-react';
-import { Button, useToastContext } from '@librechat/client';
-import type { ExecutionSummary } from 'librechat-data-provider';
+import { Button, useToastContext } from '@ranger/client';
+import type { ExecutionSummary } from 'ranger-data-provider';
 import {
   useAgentExecutionsQuery,
   useDeleteExecutionMutation,

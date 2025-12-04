@@ -17,7 +17,7 @@ function ModelSelectorContent() {
   const localize = useLocalize();
 
   const {
-    // LibreChat
+    // Ranger
     agentsMap,
     modelSpecs,
     mappedEndpoints,

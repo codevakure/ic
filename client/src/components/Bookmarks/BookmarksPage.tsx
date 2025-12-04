@@ -18,8 +18,8 @@ import {
   Button,
   useToastContext,
   useMediaQuery,
-} from '@librechat/client';
-import type { TConversationTag, TConversation } from 'librechat-data-provider';
+} from '@ranger/client';
+import type { TConversationTag, TConversation } from 'ranger-data-provider';
 import {
   useConversationTagsQuery,
   useDeleteConversationTagMutation,
@@ -300,7 +300,7 @@ const BookmarksPage: React.FC = () => {
     return 'grid auto-rows-fr grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
   }, [isPanelPushed]);
 
-  useDocumentTitle('Bookmarks | LibreChat');
+  useDocumentTitle('Bookmarks | Ranger');
 
   const { data: bookmarks = [], isLoading } = useConversationTagsQuery({
     enabled: isAuthenticated,

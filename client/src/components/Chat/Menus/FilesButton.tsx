@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSetRecoilState } from 'recoil';
 import { Folder } from 'lucide-react';
-import { TooltipAnchor } from '@librechat/client';
+import { TooltipAnchor } from '@ranger/client';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
 

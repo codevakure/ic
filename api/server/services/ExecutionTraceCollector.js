@@ -6,7 +6,7 @@
  * for building a Camunda-style tree view visualization.
  */
 
-const { GraphEvents } = require('@librechat/agents');
+const { GraphEvents } = require('illuma-agents');
 const { ExecutionTrace } = require('~/db/models');
 
 /**

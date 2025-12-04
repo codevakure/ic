@@ -1,9 +1,9 @@
 const axios = require('axios');
 const crypto = require('crypto');
-const { isEnabled, sendEvent } = require('@librechat/api');
-const { logger } = require('@librechat/data-schemas');
-const { ErrorTypes, getResponseSender, EModelEndpoint } = require('librechat-data-provider');
-const { getGuardrailsService } = require('@librechat/guardrails');
+const { isEnabled, sendEvent } = require('@ranger/api');
+const { logger } = require('@ranger/data-schemas');
+const { ErrorTypes, getResponseSender, EModelEndpoint } = require('ranger-data-provider');
+const { getGuardrailsService } = require('@ranger/guardrails');
 const { getEndpointsConfig } = require('~/server/services/Config');
 const denyRequest = require('./denyRequest');
 const { saveMessage } = require('~/models');
@@ -84,7 +84,7 @@ async function sendGuardrailResponse(req, res, message, violationDetails = null)
   };
 
   // ALWAYS save guardrail response with violation metadata for audit trail
-  // violationDetails is now the complete metadata object from @librechat/guardrails
+  // violationDetails is now the complete metadata object from @ranger/guardrails
   try {
     await saveMessage(
       req,
@@ -92,7 +92,7 @@ async function sendGuardrailResponse(req, res, message, violationDetails = null)
         ...responseMessage, 
         user,
         conversationId,
-        // Metadata comes pre-formatted from @librechat/guardrails package
+        // Metadata comes pre-formatted from @ranger/guardrails package
         // Includes: guardrailBlocked, violations, originalUserMessage, blockReason, systemNote
         metadata: violationDetails
       },
@@ -121,7 +121,7 @@ async function moderateText(req, res, next) {
     return next();
   }
 
-  // 🛡️ BEDROCK GUARDRAILS: Use high-level handler from @librechat/guardrails package
+  // 🛡️ BEDROCK GUARDRAILS: Use high-level handler from @ranger/guardrails package
   // All guardrails logic is centralized in the package for maintainability
   if (guardrailsService.isEnabled()) {
     try {

@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { getAccessToken } = require('@librechat/api');
-const { logger } = require('@librechat/data-schemas');
-const { CacheKeys } = require('librechat-data-provider');
+const { getAccessToken } = require('@ranger/api');
+const { logger } = require('@ranger/data-schemas');
+const { CacheKeys } = require('ranger-data-provider');
 const { findToken, updateToken, createToken } = require('~/models');
 const { getFlowStateManager } = require('~/config');
 const { getLogStores } = require('~/cache');

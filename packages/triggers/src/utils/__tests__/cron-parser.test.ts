@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Cron Parser Tests
+ * @ranger/triggers - Cron Parser Tests
  *
  * Tests for cron expression utilities.
  */

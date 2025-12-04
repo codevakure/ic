@@ -40,7 +40,7 @@ import {
   DialogDescription,
   DialogFooter,
   Label,
-} from '@librechat/client';
+} from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
 import { AdminAreaChart as AreaChart, AdminBarChart as BarChart } from '../components/Charts';
 import { usersApi, userDetailApi, type UserUsageResponse, type UserConversation, type UserConversationsResponse } from '../services/adminApi';

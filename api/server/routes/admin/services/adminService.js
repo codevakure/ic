@@ -5,7 +5,7 @@
  * Provides comprehensive metrics at every level.
  */
 
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const {
   User,
   Conversation,

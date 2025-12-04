@@ -6,14 +6,14 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { dataService } from 'librechat-data-provider';
+import { dataService } from 'ranger-data-provider';
 import type { UseQueryOptions, UseMutationOptions, UseMutationResult } from '@tanstack/react-query';
 import type {
   ExecutionListResponse,
   ExecutionSummary,
   ExecutionTraceTree,
   DeleteExecutionsResponse,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 
 /** Query key prefix for executions */
 export const EXECUTION_KEYS = {

@@ -1,5 +1,5 @@
-const { isEnabled } = require('@librechat/api');
-const { EModelEndpoint } = require('librechat-data-provider');
+const { isEnabled } = require('@ranger/api');
+const { EModelEndpoint } = require('ranger-data-provider');
 const {
   validateConvoAccess,
   messageUserLimiter,

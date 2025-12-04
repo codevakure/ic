@@ -1,5 +1,5 @@
-const { getBalanceConfig } = require('@librechat/api');
-const { FileSources } = require('librechat-data-provider');
+const { getBalanceConfig } = require('@ranger/api');
+const { FileSources } = require('ranger-data-provider');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
 const { updateUser, createUser, getUserById } = require('~/models');

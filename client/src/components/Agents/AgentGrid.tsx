@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
-import { Spinner, useMediaQuery } from '@librechat/client';
-import { PermissionBits } from 'librechat-data-provider';
-import type t from 'librechat-data-provider';
+import { Spinner, useMediaQuery } from '@ranger/client';
+import { PermissionBits } from 'ranger-data-provider';
+import type t from 'ranger-data-provider';
 import { useMarketplaceAgentsInfiniteQuery } from '~/data-provider/Agents';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { useAgentCategories, useLocalize } from '~/hooks';

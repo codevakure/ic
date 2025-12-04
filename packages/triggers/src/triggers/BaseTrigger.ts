@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Base Trigger Implementation
+ * @ranger/triggers - Base Trigger Implementation
  *
  * Abstract base class that provides common functionality for all triggers.
  * Extend this class to create new trigger types.

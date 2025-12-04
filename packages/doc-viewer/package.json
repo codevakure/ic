@@ -1,5 +1,5 @@
 {
-  "name": "@librechat/doc-viewer",
+  "name": "@ranger/doc-viewer",
   "version": "1.0.1",
   "description": "Document viewer supporting DOCX, XLSX, PPTX, PDF - client-side rendering with full OOXML support",
   "type": "module",
@@ -47,17 +47,17 @@
     "client-side",
     "enterprise"
   ],
-  "author": "LibreChat Team",
+  "author": "Ranger Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danny-avila/LibreChat.git",
+    "url": "git+https://github.com/TexasCapitalDevelopment/coretex.ai.technology.enterprise-chat.git",
     "directory": "packages/doc-viewer"
   },
   "bugs": {
-    "url": "https://github.com/danny-avila/LibreChat/issues"
+    "url": ""
   },
-  "homepage": "https://librechat.ai",
+  "homepage": "https://ranger.tcbinternal.net",
   "dependencies": {
     "docx-preview": "^0.3.2",
     "dompurify": "^3.3.0",

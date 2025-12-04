@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calculator, Info, DollarSign, Zap, TrendingUp } from 'lucide-react';
-import { Input, Label, HoverCard, HoverCardTrigger, HoverCardContent } from '@librechat/client';
+import { Input, Label, HoverCard, HoverCardTrigger, HoverCardContent } from '@ranger/client';
 
 // Intent Analyzer model costs (per MILLION tokens - AWS Bedrock pricing as of Dec 2024)
 // https://aws.amazon.com/bedrock/pricing/

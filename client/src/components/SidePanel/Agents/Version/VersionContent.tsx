@@ -1,4 +1,4 @@
-import { Spinner } from '@librechat/client';
+import { Spinner } from '@ranger/client';
 import type { VersionContext } from './types';
 import VersionItem from './VersionItem';
 import { useLocalize } from '~/hooks';

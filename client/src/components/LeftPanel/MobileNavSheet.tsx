@@ -11,8 +11,8 @@ import {
   LayoutDashboard,
   X,
 } from 'lucide-react';
-import { ThemeSelector } from '@librechat/client';
-import { SystemRoles } from 'librechat-data-provider';
+import { ThemeSelector } from '@ranger/client';
+import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';

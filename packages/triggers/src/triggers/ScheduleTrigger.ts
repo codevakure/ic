@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Schedule Trigger Implementation
+ * @ranger/triggers - Schedule Trigger Implementation
  *
  * Cron and interval-based trigger using node-cron.
  * Supports both simple intervals and complex cron expressions.

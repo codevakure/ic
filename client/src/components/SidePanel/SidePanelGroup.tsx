@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react';
 import throttle from 'lodash/throttle';
 import { useRecoilValue } from 'recoil';
-import { getConfigDefaults, SystemRoles } from 'librechat-data-provider';
-import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@librechat/client';
+import { getConfigDefaults, SystemRoles } from 'ranger-data-provider';
+import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@ranger/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useSourcesPanel, SidePanelGroupProvider, GlobalSourcesPanel } from '~/components/ui/SidePanel';
 import { useGetStartupConfig } from '~/data-provider';

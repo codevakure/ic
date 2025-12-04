@@ -1,16 +1,16 @@
 /**
  * MCP Tools Controller
- * Handles MCP-specific tool endpoints, decoupled from regular LibreChat tools
+ * Handles MCP-specific tool endpoints, decoupled from regular Ranger tools
  */
-const { logger } = require('@librechat/data-schemas');
-const { Constants } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { Constants } = require('ranger-data-provider');
 const {
   cacheMCPServerTools,
   getMCPServerTools,
   getAppConfig,
 } = require('~/server/services/Config');
 const { getMCPManager } = require('~/config');
-const { mcpServersRegistry } = require('@librechat/api');
+const { mcpServersRegistry } = require('@ranger/api');
 
 /**
  * Get all MCP tools available to the user

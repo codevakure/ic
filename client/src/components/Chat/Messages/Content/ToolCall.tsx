@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Button } from '@librechat/client';
+import { Button } from '@ranger/client';
 import { TriangleAlert } from 'lucide-react';
 import { useRecoilValue } from 'recoil';
 import { useAtomValue } from 'jotai';
-import { actionDelimiter, actionDomainSeparator, Constants } from 'librechat-data-provider';
-import type { TAttachment } from 'librechat-data-provider';
+import { actionDelimiter, actionDomainSeparator, Constants } from 'ranger-data-provider';
+import type { TAttachment } from 'ranger-data-provider';
 import { hideCompletedToolCallsAtom } from '~/store/hideCompletedToolCalls';
 import { useLocalize, useProgress } from '~/hooks';
 import { AttachmentGroup } from './Parts';

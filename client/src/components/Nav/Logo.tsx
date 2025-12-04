@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useTheme, isDark } from '@librechat/client';
-import { dataService } from 'librechat-data-provider';
-import type { TCustomLogo } from 'librechat-data-provider';
+import { useTheme, isDark } from '@ranger/client';
+import { dataService } from 'ranger-data-provider';
+import type { TCustomLogo } from 'ranger-data-provider';
 import { cn } from '~/utils';
 
 interface LogoProps {

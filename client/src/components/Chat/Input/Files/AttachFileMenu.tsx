@@ -2,14 +2,14 @@ import React, { useRef, useState } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { Paperclip, FolderOpen } from 'lucide-react';
 import { useSetRecoilState } from 'recoil';
-import { EModelEndpoint } from 'librechat-data-provider';
+import { EModelEndpoint } from 'ranger-data-provider';
 import {
   FileUpload,
   TooltipAnchor,
   AttachmentIcon,
   SharePointIcon,
-} from '@librechat/client';
-import type { EndpointFileConfig } from 'librechat-data-provider';
+} from '@ranger/client';
+import type { EndpointFileConfig } from 'ranger-data-provider';
 import {
   useFileHandling,
   useLocalize,

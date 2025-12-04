@@ -1,7 +1,7 @@
 const { z } = require('zod');
 const { Tool } = require('@langchain/core/tools');
 const { BedrockAgentRuntimeClient, RetrieveCommand } = require('@aws-sdk/client-bedrock-agent-runtime');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 const AWS_ERROR_MESSAGES = {
   AccessDeniedException: 'Access denied to the AWS Bedrock Knowledge Base. Make sure your AWS credentials have the "bedrock:Retrieve" permission for this knowledge base ID.',

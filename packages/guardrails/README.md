@@ -1,6 +1,6 @@
-# @librechat/guardrails
+# @ranger/guardrails
 
-AWS Bedrock Guardrails integration package for content moderation in LibreChat.
+AWS Bedrock Guardrails integration package for content moderation in Ranger.
 
 ## Overview
 
@@ -20,13 +20,13 @@ This package provides a standalone, production-ready service for moderating user
 ## Installation
 
 ```bash
-npm install @librechat/guardrails
+npm install @ranger/guardrails
 ```
 
 ## Quick Start
 
 ```typescript
-import { getGuardrailsService } from '@librechat/guardrails';
+import { getGuardrailsService } from '@ranger/guardrails';
 
 const guardrailsService = getGuardrailsService();
 
@@ -77,7 +77,7 @@ BEDROCK_GUARDRAILS_BLOCK_MESSAGE=custom-message  # Custom block message
 ### Programmatic Configuration
 
 ```typescript
-import { GuardrailsService } from '@librechat/guardrails';
+import { GuardrailsService } from '@ranger/guardrails';
 
 const service = new GuardrailsService({
   enabled: true,
@@ -242,7 +242,7 @@ if (guardrailsService.isEnabled()) {
 
 ```typescript
 // api/server/middleware/moderateText.js
-import { getGuardrailsService } from '@librechat/guardrails';
+import { getGuardrailsService } from '@ranger/guardrails';
 
 export async function moderateTextMiddleware(req, res, next) {
   const guardrailsService = getGuardrailsService();
@@ -284,7 +284,7 @@ export async function moderateTextMiddleware(req, res, next) {
 
 ```typescript
 // api/server/controllers/agents/client.js
-import { getGuardrailsService } from '@librechat/guardrails';
+import { getGuardrailsService } from '@ranger/guardrails';
 
 export async function handleAgentRequest(req, res) {
   const guardrailsService = getGuardrailsService();
@@ -572,7 +572,7 @@ const result = await client.send(command);
 
 **After:**
 ```typescript
-import { getGuardrailsService } from '@librechat/guardrails';
+import { getGuardrailsService } from '@ranger/guardrails';
 
 const result = await getGuardrailsService().handleInputModeration(text);
 if (result.blocked) {

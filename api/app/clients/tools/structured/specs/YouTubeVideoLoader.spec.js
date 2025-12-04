@@ -5,7 +5,7 @@ const {
 } = require('../YouTubeVideoLoader');
 
 // Mock the logger
-jest.mock('librechat-data-provider', () => ({
+jest.mock('ranger-data-provider', () => ({
   logger: {
     error: jest.fn(),
     warn: jest.fn(),

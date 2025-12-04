@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { UserIcon } from '@librechat/client';
-import { getEndpointField, EModelEndpoint } from 'librechat-data-provider';
-import type { TMessage, Assistant, Agent } from 'librechat-data-provider';
+import { UserIcon } from '@ranger/client';
+import { getEndpointField, EModelEndpoint } from 'ranger-data-provider';
+import type { TMessage, Assistant, Agent } from 'ranger-data-provider';
 import type { TMessageProps } from '~/common';
 import MessageEndpointIcon from '../Endpoints/MessageEndpointIcon';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';

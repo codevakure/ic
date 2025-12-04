@@ -6,7 +6,7 @@ import {
   Button,
   FileIcon,
   useToastContext,
-} from '@librechat/client';
+} from '@ranger/client';
 import {
   fileConfig as defaultFileConfig,
   checkOpenAIStorage,
@@ -15,7 +15,7 @@ import {
   isAssistantsEndpoint,
   getEndpointFileConfig,
   type TFile,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import { useFileMapContext, useChatContext } from '~/Providers';
 import { useGetFiles, useGetFileConfig } from '~/data-provider';
 import { useLocalize, useUpdateFiles } from '~/hooks';

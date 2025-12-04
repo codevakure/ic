@@ -1,6 +1,6 @@
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { sleep, SplitStreamHandler, CustomOpenAIClient: OpenAI } = require('@librechat/agents');
+const { sleep, SplitStreamHandler, CustomOpenAIClient: OpenAI } = require('illuma-agents');
 const {
   isEnabled,
   Tokenizer,
@@ -11,7 +11,7 @@ const {
   genAzureChatCompletion,
   getModelMaxOutputTokens,
   createStreamEventHandlers,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   Constants,
   ImageDetail,
@@ -24,7 +24,7 @@ const {
   getResponseSender,
   validateVisionModel,
   mapModelToAzureConfig,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { formatMessage, createContextHandlers } = require('./prompts');
 const { spendTokens } = require('~/models/spendTokens');
@@ -787,8 +787,8 @@ class OpenAIClient extends BaseClient {
 
       if (this.useOpenRouter) {
         opts.defaultHeaders = {
-          'HTTP-Referer': 'https://librechat.ai',
-          'X-Title': 'LibreChat',
+          'HTTP-Referer': 'https://ranger.tcbinternal.net',
+          'X-Title': 'Ranger',
         };
       }
 

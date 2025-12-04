@@ -14,7 +14,7 @@ jest.mock('~/db/models', () => ({
   },
 }));
 
-jest.mock('@librechat/agents', () => ({
+jest.mock('illuma-agents', () => ({
   GraphEvents: {
     CHAT_MODEL_START: 'on_chat_model_start',
     CHAT_MODEL_END: 'on_chat_model_end',
@@ -26,7 +26,7 @@ jest.mock('@librechat/agents', () => ({
 }));
 
 const { ExecutionTrace } = require('~/db/models');
-const { GraphEvents } = require('@librechat/agents');
+const { GraphEvents } = require('illuma-agents');
 const {
   ExecutionTraceCollector,
   truncateData,

@@ -14,7 +14,7 @@ import {
   Zap,
   ArrowUpRight,
 } from 'lucide-react';
-import { Button, Input, Spinner } from '@librechat/client';
+import { Button, Input, Spinner } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
 import { activeUsersApi } from '../services/adminApi';
 

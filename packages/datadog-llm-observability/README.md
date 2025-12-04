@@ -1,11 +1,11 @@
 # Datadog LLM Observability Package
 
-Standalone package for Datadog LLM Observability integration in LibreChat.
+Standalone package for Datadog LLM Observability integration in Ranger.
 
 ## Installation
 
 ```bash
-npm install @LibreChat/datadog-llm-observability
+npm install @Ranger/datadog-llm-observability
 ```
 
 ## Usage
@@ -13,12 +13,12 @@ npm install @LibreChat/datadog-llm-observability
 ### Initialize Tracer
 
 ```typescript
-import { initializeDatadog, isLLMObservabilityEnabled } from '@LibreChat/datadog-llm-observability';
+import { initializeDatadog, isLLMObservabilityEnabled } from '@Ranger/datadog-llm-observability';
 
 // Initialize at application startup
 initializeDatadog({
   enabled: process.env.DD_LLMOBS_ENABLED === 'true',
-  service: process.env.DD_SERVICE || 'LibreChat',
+  service: process.env.DD_SERVICE || 'Ranger',
   env: process.env.DD_ENV || 'development',
   apiKey: process.env.DD_API_KEY
 });
@@ -27,7 +27,7 @@ initializeDatadog({
 ### Trace LLM Calls
 
 ```typescript
-import { traceLLMCall, LLM_PROVIDERS, LLM_OPERATION_TYPES } from '@LibreChat/datadog-llm-observability';
+import { traceLLMCall, LLM_PROVIDERS, LLM_OPERATION_TYPES } from '@Ranger/datadog-llm-observability';
 
 const result = await traceLLMCall({
   provider: LLM_PROVIDERS.OPENAI,
@@ -48,7 +48,7 @@ const result = await traceLLMCall({
 ### Trace Conversation Workflows
 
 ```typescript
-import { traceConversationWorkflow } from '@LibreChat/datadog-llm-observability';
+import { traceConversationWorkflow } from '@Ranger/datadog-llm-observability';
 
 const result = await traceConversationWorkflow({
   conversationId: conv.id,
@@ -68,7 +68,7 @@ Required:
 - `DD_API_KEY` - Datadog API key
 
 Optional:
-- `DD_SERVICE` - Service name (default: 'LibreChat')
+- `DD_SERVICE` - Service name (default: 'Ranger')
 - `DD_ENV` - Environment (default: 'development')
 - `DD_VERSION` - Version
 - `DD_SITE` - Datadog site (default: 'datadoghq.com')

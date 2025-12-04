@@ -1,6 +1,6 @@
 import React from 'react';
-import { FileSources, FileContext } from 'librechat-data-provider';
-import type { TFile } from 'librechat-data-provider';
+import { FileSources, FileContext } from 'ranger-data-provider';
+import type { TFile } from 'ranger-data-provider';
 import { useDocumentTitle, useLocalize } from '~/hooks';
 import { useGetFiles } from '~/data-provider';
 import { DataTable, columns } from '~/components/Chat/Input/Files/Table';
@@ -16,7 +16,7 @@ const FilesPage: React.FC = () => {
   const localize = useLocalize();
 
   // Set page title
-  useDocumentTitle(`${localize('com_nav_my_files')} | LibreChat`);
+  useDocumentTitle(`${localize('com_nav_my_files')} | Ranger`);
 
   const { data: files = [] } = useGetFiles<TFile[]>({
     select: (files) =>

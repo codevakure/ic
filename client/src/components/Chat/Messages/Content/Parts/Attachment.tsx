@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback, useRef } from 'react';
-import { imageExtRegex, Tools } from 'librechat-data-provider';
-import type { TAttachment, TFile, TAttachmentMetadata } from 'librechat-data-provider';
+import { imageExtRegex, Tools } from 'ranger-data-provider';
+import type { TAttachment, TFile, TAttachmentMetadata } from 'ranger-data-provider';
 import { useCodeOutputDownload } from '~/data-provider';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
 import {

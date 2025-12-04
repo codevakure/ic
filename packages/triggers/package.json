@@ -1,7 +1,7 @@
 {
-  "name": "@librechat/triggers",
+  "name": "@ranger/triggers",
   "version": "1.0.0",
-  "description": "Extensible trigger system for LibreChat agents - Schedule, Webhook, Events",
+  "description": "Extensible trigger system for Ranger agents - Schedule, Webhook, Events",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -50,7 +50,7 @@
     "events",
     "agents",
     "automation",
-    "librechat"
+    "ranger"
   ],
   "author": "",
   "license": "MIT",

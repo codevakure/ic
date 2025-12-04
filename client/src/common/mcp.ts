@@ -2,7 +2,7 @@ import {
   AuthorizationTypeEnum,
   AuthTypeEnum,
   TokenExchangeMethodEnum,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 import { MCPForm } from '~/common/types';
 
 export const defaultMCPFormValues: MCPForm = {

@@ -8,7 +8,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
  * Get system health status
@@ -303,8 +303,8 @@ const getCacheStats = async () => {
     
     if (redisUri) {
       try {
-        // Use @librechat/api which properly exports ioredisClient
-        const { ioredisClient } = require('@librechat/api');
+        // Use @ranger/api which properly exports ioredisClient
+        const { ioredisClient } = require('@ranger/api');
         
         if (ioredisClient) {
           const status = ioredisClient.status || 'unknown';
@@ -362,8 +362,8 @@ const flushCache = async () => {
     
     if (redisUri) {
       try {
-        // Use @librechat/api which properly exports ioredisClient
-        const { ioredisClient } = require('@librechat/api');
+        // Use @ranger/api which properly exports ioredisClient
+        const { ioredisClient } = require('@ranger/api');
         
         if (ioredisClient) {
           const status = ioredisClient.status || 'unknown';
@@ -378,7 +378,7 @@ const flushCache = async () => {
             throw new Error(`Redis client not ready, status: ${status}`);
           }
         } else {
-          throw new Error('ioredisClient not available from @librechat/api');
+          throw new Error('ioredisClient not available from @ranger/api');
         }
       } catch (redisError) {
         logger.error('[Admin SystemService] Could not flush Redis:', redisError.message);

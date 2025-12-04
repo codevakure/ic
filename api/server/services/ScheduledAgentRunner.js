@@ -6,13 +6,13 @@
  */
 
 const { HumanMessage } = require('@langchain/core/messages');
-const { createRun, createSafeUser } = require('@librechat/api');
-const { formatAgentMessages, Callback } = require('@librechat/agents');
-const { EModelEndpoint, ContentTypes } = require('librechat-data-provider');
+const { createRun, createSafeUser } = require('@ranger/api');
+const { formatAgentMessages, Callback } = require('illuma-agents');
+const { EModelEndpoint, ContentTypes } = require('ranger-data-provider');
 const { initializeAgent } = require('~/server/services/Endpoints/agents/agent');
 const { loadAgentTools } = require('~/server/services/ToolService');
 const { getAgent } = require('~/models/Agent');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 /**
  * Execute an agent with a given prompt

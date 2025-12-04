@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Webhook Trigger Types
+ * @ranger/triggers - Webhook Trigger Types
  *
  * Types for HTTP webhook-based triggers.
  * Allows external systems to trigger agent executions via HTTP calls.

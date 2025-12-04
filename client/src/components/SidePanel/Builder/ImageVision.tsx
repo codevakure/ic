@@ -1,5 +1,5 @@
-import { Checkbox } from '@librechat/client';
-import { Capabilities } from 'librechat-data-provider';
+import { Checkbox } from '@ranger/client';
+import { Capabilities } from 'ranger-data-provider';
 import { useFormContext, Controller } from 'react-hook-form';
 import type { AssistantForm } from '~/common';
 import { useLocalize } from '~/hooks';

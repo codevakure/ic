@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const express = require('express');
-const { EnvVar } = require('@librechat/agents');
-const { logger } = require('@librechat/data-schemas');
+const { EnvVar } = require('illuma-agents');
+const { logger } = require('@ranger/data-schemas');
 const {
   Time,
   isUUID,
@@ -12,7 +12,7 @@ const {
   PermissionBits,
   checkOpenAIStorage,
   isAssistantsEndpoint,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const {
   filterFile,
   processFileUpload,

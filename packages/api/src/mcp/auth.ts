@@ -1,7 +1,7 @@
-import { logger } from '@librechat/data-schemas';
-import { Constants } from 'librechat-data-provider';
-import type { PluginAuthMethods } from '@librechat/data-schemas';
-import type { GenericTool } from '@librechat/agents';
+import { logger } from '@ranger/data-schemas';
+import { Constants } from 'ranger-data-provider';
+import type { PluginAuthMethods } from '@ranger/data-schemas';
+import type { GenericTool } from 'illuma-agents';
 import { getPluginAuthMap } from '~/agents/auth';
 
 export async function getUserMCPAuthMap({

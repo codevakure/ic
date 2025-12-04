@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Utility Exports
+ * @ranger/triggers - Utility Exports
  *
  * @packageDocumentation
  */

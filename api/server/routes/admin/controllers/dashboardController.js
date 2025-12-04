@@ -4,7 +4,7 @@
  * Handles all dashboard-related metrics and analytics endpoints.
  */
 
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const adminService = require('../services/adminService');
 
 /**

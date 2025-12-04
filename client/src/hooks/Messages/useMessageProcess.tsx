@@ -1,8 +1,8 @@
 import throttle from 'lodash/throttle';
 import { useRecoilValue } from 'recoil';
-import { Constants } from 'librechat-data-provider';
+import { Constants } from 'ranger-data-provider';
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import type { TMessage } from 'librechat-data-provider';
+import type { TMessage } from 'ranger-data-provider';
 import { getTextKey, TEXT_KEY_DIVIDER, logger } from '~/utils';
 import { useMessagesViewContext } from '~/Providers';
 import store from '~/store';

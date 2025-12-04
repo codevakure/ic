@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Blocks, MCPIcon } from '@librechat/client';
+import { Blocks, MCPIcon } from '@ranger/client';
 import { Settings2, ArrowRightToLine } from 'lucide-react';
 import {
   Permissions,
@@ -8,8 +8,8 @@ import {
   isParamEndpoint,
   isAgentsEndpoint,
   isAssistantsEndpoint,
-} from 'librechat-data-provider';
-import type { TInterfaceConfig, TEndpointsConfig } from 'librechat-data-provider';
+} from 'ranger-data-provider';
+import type { TInterfaceConfig, TEndpointsConfig } from 'ranger-data-provider';
 import type { NavLink } from '~/common';
 import AgentPanelSwitch from '~/components/SidePanel/Agents/AgentPanelSwitch';
 import PanelSwitch from '~/components/SidePanel/Builder/PanelSwitch';

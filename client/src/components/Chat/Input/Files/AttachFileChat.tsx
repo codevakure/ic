@@ -7,8 +7,8 @@ import {
   isAgentsEndpoint,
   getEndpointField,
   getEndpointFileConfig,
-} from 'librechat-data-provider';
-import type { TConversation } from 'librechat-data-provider';
+} from 'ranger-data-provider';
+import type { TConversation } from 'ranger-data-provider';
 import { useGetFileConfig, useGetEndpointsQuery } from '~/data-provider';
 import AttachFileMenu from './AttachFileMenu';
 import AttachFile from './AttachFile';

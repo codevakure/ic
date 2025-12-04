@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { EModelEndpoint, isAssistantsEndpoint, alternateName } from 'librechat-data-provider';
+import { EModelEndpoint, isAssistantsEndpoint, alternateName } from 'ranger-data-provider';
 import {
   Plugin,
   GPTIcon,
@@ -12,7 +12,7 @@ import {
   AnthropicIcon,
   AzureMinimalIcon,
   CustomMinimalIcon,
-} from '@librechat/client';
+} from '@ranger/client';
 import { FALLBACK_AGENT_ICON_URL } from '~/components/Endpoints/DefaultAgentIcon';
 import UnknownIcon from '~/hooks/Endpoint/UnknownIcon';
 import { IconProps } from '~/common';

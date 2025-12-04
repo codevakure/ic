@@ -1,7 +1,7 @@
 import { useRecoilValue } from 'recoil';
-import { Constants } from 'librechat-data-provider';
+import { Constants } from 'ranger-data-provider';
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { TMessage } from 'librechat-data-provider';
+import type { TMessage } from 'ranger-data-provider';
 import { useMessagesConversation, useMessagesSubmission } from '~/Providers';
 import useScrollToRef from '~/hooks/useScrollToRef';
 import store from '~/store';

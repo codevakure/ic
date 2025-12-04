@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RecoilRoot, MutableSnapshot } from 'recoil';
-import { Tools } from 'librechat-data-provider';
+import { Tools } from 'ranger-data-provider';
 import ToolCall from '../ToolCall';
 import store from '~/store';
 

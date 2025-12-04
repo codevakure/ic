@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
-import { TooltipAnchor } from '@librechat/client';
+import { TooltipAnchor } from '@ranger/client';
 import { cn } from '~/utils';
 
 interface StatsCardProps {

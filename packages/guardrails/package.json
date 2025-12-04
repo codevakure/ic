@@ -1,7 +1,7 @@
 {
-  "name": "@librechat/guardrails",
+  "name": "@ranger/guardrails",
   "version": "0.0.1",
-  "description": "AWS Bedrock Guardrails integration for LibreChat",
+  "description": "AWS Bedrock Guardrails integration for Ranger",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.es.js",
@@ -31,9 +31,9 @@
     "bedrock",
     "aws",
     "content-moderation",
-    "librechat"
+    "ranger"
   ],
-  "author": "LibreChat",
+  "author": "Ranger",
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.883.0"

@@ -1,11 +1,11 @@
-import { connectDb } from '@librechat/backend/db/connect';
+import { connectDb } from '@ranger/backend/db/connect';
 import {
   findUser,
   deleteConvos,
   deleteMessages,
   deleteAllUserSessions,
-} from '@librechat/backend/models';
-import { User, Balance, Transaction, AclEntry, Token, Group } from '@librechat/backend/db/models';
+} from '@ranger/backend/models';
+import { User, Balance, Transaction, AclEntry, Token, Group } from '@ranger/backend/db/models';
 
 type TUser = { email: string; password: string };
 

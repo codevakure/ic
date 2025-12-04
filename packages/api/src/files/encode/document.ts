@@ -1,6 +1,6 @@
-import { Providers } from '@librechat/agents';
-import { isOpenAILikeProvider, isDocumentSupportedProvider } from 'librechat-data-provider';
-import type { IMongoFile } from '@librechat/data-schemas';
+import { Providers } from 'illuma-agents';
+import { isOpenAILikeProvider, isDocumentSupportedProvider } from 'ranger-data-provider';
+import type { IMongoFile } from '@ranger/data-schemas';
 import type {
   AnthropicDocumentBlock,
   StrategyFunctions,

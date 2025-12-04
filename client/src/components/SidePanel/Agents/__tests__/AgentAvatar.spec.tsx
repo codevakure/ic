@@ -8,7 +8,7 @@ import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
 import type { AgentForm } from '~/common';
 import AgentAvatar from '../AgentAvatar';
 
-jest.mock('@librechat/client', () => ({
+jest.mock('@ranger/client', () => ({
   useToastContext: () => ({
     showToast: jest.fn(),
   }),

@@ -22,7 +22,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { Button, Spinner } from '@librechat/client';
+import { Button, Spinner } from '@ranger/client';
 import { tracesApi, usersApi, type LLMTrace, type LLMTracesResponse } from '../services/adminApi';
 
 // Drawer component for trace details

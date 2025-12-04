@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Trigger Registry
+ * @ranger/triggers - Trigger Registry
  *
  * Central registry for managing all trigger instances.
  * Provides lifecycle management, lookup, and batch operations.

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Settings2 } from 'lucide-react';
-import { TooltipAnchor } from '@librechat/client';
+import { TooltipAnchor } from '@ranger/client';
 import { Root, Anchor } from '@radix-ui/react-popover';
-import { isParamEndpoint, getEndpointField, tConvoUpdateSchema } from 'librechat-data-provider';
-import type { TPreset, TInterfaceConfig } from 'librechat-data-provider';
+import { isParamEndpoint, getEndpointField, tConvoUpdateSchema } from 'ranger-data-provider';
+import type { TPreset, TInterfaceConfig } from 'ranger-data-provider';
 import { EndpointSettings, SaveAsPresetDialog, AlternativeSettings } from '~/components/Endpoints';
 import { useSetIndexOptions, useLocalize } from '~/hooks';
 import { useGetEndpointsQuery } from '~/data-provider';

@@ -1,7 +1,7 @@
 import { memo, Suspense, useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
-import { DelayedRender } from '@librechat/client';
-import type { TMessage } from 'librechat-data-provider';
+import { DelayedRender } from '@ranger/client';
+import type { TMessage } from 'ranger-data-provider';
 import type { TMessageContentProps, TDisplayProps } from '~/common';
 import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import Error from '~/components/Messages/Content/Error';

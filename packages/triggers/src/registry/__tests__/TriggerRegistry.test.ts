@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Trigger Registry Tests
+ * @ranger/triggers - Trigger Registry Tests
  *
  * Tests for TriggerRegistry implementation.
  */

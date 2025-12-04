@@ -1,6 +1,6 @@
-import { logger } from '@librechat/data-schemas';
-import type { TokenMethods } from '@librechat/data-schemas';
-import type { TUser } from 'librechat-data-provider';
+import { logger } from '@ranger/data-schemas';
+import type { TokenMethods } from '@ranger/data-schemas';
+import type { TUser } from 'ranger-data-provider';
 import type { FlowStateManager } from '~/flow/manager';
 import type { MCPOAuthTokens } from '~/mcp/oauth';
 import type * as t from '~/mcp/types';
@@ -12,7 +12,7 @@ import { processMCPEnv } from '~/utils';
 jest.mock('~/mcp/connection');
 jest.mock('~/mcp/oauth');
 jest.mock('~/utils');
-jest.mock('@librechat/data-schemas', () => ({
+jest.mock('@ranger/data-schemas', () => ({
   logger: {
     info: jest.fn(),
     warn: jest.fn(),

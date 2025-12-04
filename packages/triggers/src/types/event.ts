@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Event Trigger Types
+ * @ranger/triggers - Event Trigger Types
  *
  * Types for internal event-based triggers.
  * Allows triggers to fire based on application events.

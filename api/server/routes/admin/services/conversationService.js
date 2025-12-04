@@ -4,7 +4,7 @@
  * Service for conversation management operations.
  */
 
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 const { Conversation, Message, User } = require('~/db/models');
 const { deleteMessages } = require('~/models');
 

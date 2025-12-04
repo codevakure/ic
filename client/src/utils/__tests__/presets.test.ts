@@ -1,6 +1,6 @@
-import { EModelEndpoint } from 'librechat-data-provider';
+import { EModelEndpoint } from 'ranger-data-provider';
 import { getPresetTitle, removeUnavailableTools } from '../presets';
-import type { TPreset, TPlugin } from 'librechat-data-provider';
+import type { TPreset, TPlugin } from 'ranger-data-provider';
 
 describe('presets utils', () => {
   describe('getPresetTitle', () => {

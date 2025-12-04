@@ -1,4 +1,4 @@
-import { EModelEndpoint, alternateName } from 'librechat-data-provider';
+import { EModelEndpoint, alternateName } from 'ranger-data-provider';
 import {
   AzureMinimalIcon,
   OpenAIMinimalIcon,
@@ -9,7 +9,7 @@ import {
   AnthropicIcon,
   BedrockIcon,
   Sparkles,
-} from '@librechat/client';
+} from '@ranger/client';
 import { FALLBACK_AGENT_ICON_URL } from '~/components/Endpoints/DefaultAgentIcon';
 import UnknownIcon from '~/hooks/Endpoint/UnknownIcon';
 import { IconProps } from '~/common';

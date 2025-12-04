@@ -13,15 +13,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   TooltipAnchor,
-} from '@librechat/client';
+} from '@ranger/client';
 import {
   Permissions,
   ResourceType,
   PermissionBits,
   PermissionTypes,
   Constants,
-} from 'librechat-data-provider';
-import type { TCreatePrompt } from 'librechat-data-provider';
+} from 'ranger-data-provider';
+import type { TCreatePrompt } from 'ranger-data-provider';
 import {
   useGetPrompts,
   useGetPromptGroup,

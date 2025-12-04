@@ -1,7 +1,7 @@
 /**
  * Core Intent Analyzer Module
  * 
- * Lightweight intent analysis for LibreChat:
+ * Lightweight intent analysis for Ranger:
  * 
  * 1. Upload Intent - Determine where to upload files
  *    - IMAGE → Image upload endpoint

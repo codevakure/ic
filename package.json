@@ -1,6 +1,6 @@
 {
-  "name": "LibreChat",
-  "version": "v0.8.1-rc2",
+  "name": "Ranger",
+  "version": "1.0.0",
   "description": "",
   "workspaces": [
     "api",
@@ -92,14 +92,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danny-avila/LibreChat.git"
+    "url": "git+https://github.com/TexasCapitalDevelopment/coretex.ai.technology.enterprise-chat.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/danny-avila/LibreChat/issues"
+    "url": ""
   },
-  "homepage": "https://librechat.ai/",
+  "homepage": "https://ranger.tcbinternal.net/",
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
     "@eslint/compat": "^1.2.6",

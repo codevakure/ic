@@ -1,5 +1,5 @@
 import React from 'react';
-import type t from 'librechat-data-provider';
+import type t from 'ranger-data-provider';
 import { FALLBACK_AGENT_ICON_URL } from '~/components/Endpoints/DefaultAgentIcon';
 
 /**

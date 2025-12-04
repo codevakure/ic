@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Label } from '@librechat/client';
-import type t from 'librechat-data-provider';
+import { Label } from '@ranger/client';
+import type t from 'ranger-data-provider';
 import { useLocalize, useAgentCategories, TranslationKeys } from '~/hooks';
 import { cn, renderAgentAvatar } from '~/utils';
 

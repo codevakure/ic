@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Type Exports
+ * @ranger/triggers - Type Exports
  *
  * Central export point for all trigger types.
  *

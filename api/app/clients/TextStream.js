@@ -1,5 +1,5 @@
 const { Readable } = require('stream');
-const { logger } = require('@librechat/data-schemas');
+const { logger } = require('@ranger/data-schemas');
 
 class TextStream extends Readable {
   constructor(text, options = {}) {

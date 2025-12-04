@@ -1,7 +1,7 @@
 /**
  * Intent Analyzer Service - Unified Tool Selection + Model Routing
  * 
- * Uses @librechat/intent-analyzer for:
+ * Uses @ranger/intent-analyzer for:
  * 1. autoToolSelection - Smart tool selection based on query intent
  * 2. modelRouting - 4-Tier automatic model routing based on complexity
  * 
@@ -16,11 +16,11 @@
  * - Deep analysis requests → Opus 4.5
  * - Text-only simple queries → Nova Micro allowed
  * 
- * Configuration is loaded from librechat.yaml under the `intentAnalyzer` key.
+ * Configuration is loaded from ranger.yaml under the `intentAnalyzer` key.
  */
 
-const { logger } = require('@librechat/data-schemas');
-const { EModelEndpoint } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { EModelEndpoint } = require('ranger-data-provider');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 // Lazy-loaded intent analyzer module
@@ -130,7 +130,7 @@ const DEFAULT_CONFIG = {
 async function getIntentAnalyzer() {
   if (!intentAnalyzer) {
     try {
-      intentAnalyzer = await import('@librechat/intent-analyzer');
+      intentAnalyzer = await import('@ranger/intent-analyzer');
     } catch (error) {
       logger.error('[IntentAnalyzer] Failed to load module:', error.message);
       throw error;

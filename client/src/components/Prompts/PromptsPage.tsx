@@ -15,9 +15,9 @@ import {
   Button,
   useToastContext,
   useMediaQuery,
-} from '@librechat/client';
-import { PermissionTypes, Permissions, PermissionBits, ResourceType } from 'librechat-data-provider';
-import type { TPromptGroup } from 'librechat-data-provider';
+} from '@ranger/client';
+import { PermissionTypes, Permissions, PermissionBits, ResourceType } from 'ranger-data-provider';
+import type { TPromptGroup } from 'ranger-data-provider';
 import { useDeletePromptGroup } from '~/data-provider';
 import CategoryIcon from '~/components/Prompts/Groups/CategoryIcon';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
@@ -248,7 +248,7 @@ const PromptsPageInner: React.FC = () => {
     return 'grid auto-rows-fr grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
   }, [isPanelPushed]);
 
-  useDocumentTitle(`${localize('com_ui_prompts')} | LibreChat`);
+  useDocumentTitle(`${localize('com_ui_prompts')} | Ranger`);
 
   // Handle URL param for deep linking
   useEffect(() => {

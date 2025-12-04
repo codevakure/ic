@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Search } from 'lucide-react';
-import { Spinner } from '@librechat/client';
+import { Spinner } from '@ranger/client';
 import { useConversationsInfiniteQuery } from '~/data-provider';
 import { useDocumentTitle, useLocalize, useAuthContext } from '~/hooks';
 import { PageContainer } from '~/components/Layout';
@@ -39,7 +39,7 @@ const ConversationHistoryPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  useDocumentTitle('Conversation History | LibreChat');
+  useDocumentTitle('Conversation History | Ranger');
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
     useConversationsInfiniteQuery(

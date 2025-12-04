@@ -1,7 +1,7 @@
 import { memo, useCallback, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, UserCheck, Settings, ChevronLeft, ChevronRight, Sun, Moon, Shield, DollarSign, Bot, Activity } from 'lucide-react';
-import { TooltipAnchor, ThemeContext } from '@librechat/client';
+import { TooltipAnchor, ThemeContext } from '@ranger/client';
 import { cn } from '~/utils';
 
 interface NavItem {

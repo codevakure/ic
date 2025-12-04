@@ -1,5 +1,5 @@
-import { Providers } from '@librechat/agents';
-import { mbToBytes, isOpenAILikeProvider } from 'librechat-data-provider';
+import { Providers } from 'illuma-agents';
+import { mbToBytes, isOpenAILikeProvider } from 'ranger-data-provider';
 
 export interface PDFValidationResult {
   isValid: boolean;

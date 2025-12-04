@@ -1,6 +1,6 @@
-# @librechat/triggers
+# @ranger/triggers
 
-Extensible trigger system for LibreChat agents. Supports scheduled (cron/interval), webhook, and event-based triggers.
+Extensible trigger system for Ranger agents. Supports scheduled (cron/interval), webhook, and event-based triggers.
 
 ## Features
 
@@ -14,9 +14,9 @@ Extensible trigger system for LibreChat agents. Supports scheduled (cron/interva
 ## Installation
 
 ```bash
-npm install @librechat/triggers
+npm install @ranger/triggers
 # or
-bun add @librechat/triggers
+bun add @ranger/triggers
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ bun add @librechat/triggers
 import {
   TriggerRegistry,
   SchedulePresets,
-} from '@librechat/triggers';
+} from '@ranger/triggers';
 
 // Create registry
 const registry = new TriggerRegistry();
@@ -97,7 +97,7 @@ Full cron expression support:
 Common schedules are available as presets:
 
 ```typescript
-import { SchedulePresets } from '@librechat/triggers';
+import { SchedulePresets } from '@ranger/triggers';
 
 SchedulePresets.EVERY_5_MINUTES
 SchedulePresets.EVERY_HOUR
@@ -188,7 +188,7 @@ import {
   isValidCronExpression,
   parseHumanInterval,
   formatSchedule,
-} from '@librechat/triggers';
+} from '@ranger/triggers';
 
 // Convert interval to cron
 intervalToCron({ mode: 'interval', value: 5, unit: 'minutes' });

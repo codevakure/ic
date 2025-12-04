@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
   Dialog,
   DialogTemplate,
-} from '@librechat/client';
+} from '@ranger/client';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { usersApi, type User, type UserListParams } from '../services/adminApi';
 import { cn } from '~/utils';

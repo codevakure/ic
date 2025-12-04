@@ -35,7 +35,7 @@ export interface IScheduleConfig {
 export interface IAgentSchedule extends Document {
   /** Reference to the Agent (string ID) */
   agentId: string;
-  /** Unique identifier for the trigger instance (used by @librechat/triggers) */
+  /** Unique identifier for the trigger instance (used by @ranger/triggers) */
   triggerId: string;
   /** Whether this schedule is active */
   enabled: boolean;

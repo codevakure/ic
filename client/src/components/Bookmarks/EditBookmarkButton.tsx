@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { TooltipAnchor, OGDialogTrigger, EditIcon, Button } from '@librechat/client';
-import type { TConversationTag } from 'librechat-data-provider';
+import { TooltipAnchor, OGDialogTrigger, EditIcon, Button } from '@ranger/client';
+import type { TConversationTag } from 'ranger-data-provider';
 import type { FC } from 'react';
 import BookmarkEditDialog from './BookmarkEditDialog';
 import { useLocalize } from '~/hooks';

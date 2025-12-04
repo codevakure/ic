@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { dataService } from 'librechat-data-provider';
+import { dataService } from 'ranger-data-provider';
 import type { UseQueryOptions, UseMutationOptions, UseMutationResult } from '@tanstack/react-query';
 import type {
   AgentSchedule,
@@ -13,7 +13,7 @@ import type {
   ScheduleExecutionListResponse,
   CreateScheduleParams,
   UpdateScheduleParams,
-} from 'librechat-data-provider';
+} from 'ranger-data-provider';
 
 /** Query key prefix for schedules */
 const SCHEDULE_KEYS = {

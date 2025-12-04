@@ -2,7 +2,7 @@
  * TriggerService - Agent Scheduling Service
  *
  * Manages scheduled triggers for agent automation.
- * Uses @librechat/triggers package for in-memory scheduling
+ * Uses @ranger/triggers package for in-memory scheduling
  * and MongoDB for persistence.
  *
  * NOTE FOR PRODUCTION:
@@ -12,8 +12,8 @@
  */
 
 const mongoose = require('mongoose');
-const { logger } = require('@librechat/data-schemas');
-const { TriggerRegistry, ScheduleTrigger, presets } = require('@librechat/triggers');
+const { logger } = require('@ranger/data-schemas');
+const { TriggerRegistry, ScheduleTrigger, presets } = require('@ranger/triggers');
 const { AgentSchedule, TriggerExecution } = require('~/db/models');
 const { ExecutionTraceCollector } = require('./ExecutionTraceCollector');
 

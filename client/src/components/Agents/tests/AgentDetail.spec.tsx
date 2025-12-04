@@ -6,8 +6,8 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RecoilRoot } from 'recoil';
 
-import type t from 'librechat-data-provider';
-import { Constants, EModelEndpoint } from 'librechat-data-provider';
+import type t from 'ranger-data-provider';
+import { Constants, EModelEndpoint } from 'ranger-data-provider';
 
 import AgentDetail from '../AgentDetail';
 
@@ -23,8 +23,8 @@ jest.mock('~/hooks', () => ({
   useDefaultConvo: jest.fn(),
 }));
 
-jest.mock('@librechat/client', () => ({
-  ...jest.requireActual('@librechat/client'),
+jest.mock('@ranger/client', () => ({
+  ...jest.requireActual('@ranger/client'),
   useToastContext: jest.fn(),
 }));
 
@@ -110,7 +110,7 @@ describe('AgentDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
-    const { useToastContext } = require('@librechat/client');
+    const { useToastContext } = require('@ranger/client');
     (useToastContext as jest.Mock).mockReturnValue({ showToast: mockShowToast });
     const { useLocalize, useDefaultConvo } = require('~/hooks');
     (useLocalize as jest.Mock).mockReturnValue(mockLocalize);

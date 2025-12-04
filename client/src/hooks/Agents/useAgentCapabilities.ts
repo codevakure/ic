@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { AgentCapabilities, defaultToolsAutoEnabled } from 'librechat-data-provider';
+import { AgentCapabilities, defaultToolsAutoEnabled } from 'ranger-data-provider';
 
 interface AgentCapabilitiesResult {
   toolsEnabled: boolean;

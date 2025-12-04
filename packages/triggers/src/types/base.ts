@@ -1,5 +1,5 @@
 /**
- * @librechat/triggers - Base Types
+ * @ranger/triggers - Base Types
  *
  * Core interfaces that all trigger implementations must follow.
  * Designed for extensibility - add new trigger types by extending these interfaces.

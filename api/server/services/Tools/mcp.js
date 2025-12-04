@@ -1,5 +1,5 @@
-const { logger } = require('@librechat/data-schemas');
-const { CacheKeys, Constants } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { CacheKeys, Constants } = require('ranger-data-provider');
 const { findToken, createToken, updateToken, deleteTokens } = require('~/models');
 const { getMCPManager, getFlowStateManager } = require('~/config');
 const { updateMCPServerTools } = require('~/server/services/Config');

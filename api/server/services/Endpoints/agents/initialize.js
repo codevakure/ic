@@ -1,16 +1,16 @@
-const { logger } = require('@librechat/data-schemas');
-const { createContentAggregator } = require('@librechat/agents');
+const { logger } = require('@ranger/data-schemas');
+const { createContentAggregator } = require('illuma-agents');
 const {
   validateAgentModel,
   getCustomEndpointConfig,
   createSequentialChainEdges,
-} = require('@librechat/api');
+} = require('@ranger/api');
 const {
   Constants,
   EModelEndpoint,
   isAgentsEndpoint,
   getResponseSender,
-} = require('librechat-data-provider');
+} = require('ranger-data-provider');
 const {
   createToolEndCallback,
   getDefaultHandlers,

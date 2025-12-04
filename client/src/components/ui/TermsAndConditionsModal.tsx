@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { OGDialog, DialogTemplate, useToastContext, Button } from '@librechat/client';
-import type { TTermsOfService } from 'librechat-data-provider';
+import { OGDialog, DialogTemplate, useToastContext, Button } from '@ranger/client';
+import type { TTermsOfService } from 'ranger-data-provider';
 import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
 import { useAcceptTermsMutation } from '~/data-provider';
 import { useLocalize } from '~/hooks';

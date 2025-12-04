@@ -1,6 +1,6 @@
-import { Providers } from '@librechat/agents';
-import { mbToBytes } from 'librechat-data-provider';
-import type { AppConfig, IMongoFile } from '@librechat/data-schemas';
+import { Providers } from 'illuma-agents';
+import { mbToBytes } from 'ranger-data-provider';
+import type { AppConfig, IMongoFile } from '@ranger/data-schemas';
 import type { ServerRequest } from '~/types';
 import { encodeAndFormatDocuments } from './document';
 

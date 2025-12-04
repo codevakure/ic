@@ -1,8 +1,8 @@
 const fs = require('fs');
 const LdapStrategy = require('passport-ldapauth');
-const { logger } = require('@librechat/data-schemas');
-const { SystemRoles, ErrorTypes } = require('librechat-data-provider');
-const { isEnabled, getBalanceConfig, isEmailDomainAllowed } = require('@librechat/api');
+const { logger } = require('@ranger/data-schemas');
+const { SystemRoles, ErrorTypes } = require('ranger-data-provider');
+const { isEnabled, getBalanceConfig, isEmailDomainAllowed } = require('@ranger/api');
 const { createUser, findUser, updateUser, countUsers } = require('~/models');
 const { getAppConfig } = require('~/server/services/Config');
 
