@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -25,6 +26,8 @@ import {
   Cpu,
   ArrowUpRight,
   ArrowDownRight,
+  X,
+  ChevronRight,
 } from 'lucide-react';
 import {
   Button,
@@ -135,6 +138,136 @@ interface Transaction {
   createdAt: string;
 }
 
+// Conversation Drawer Component
+interface ConversationDrawerProps {
+  conversation: UserConversation | null;
+  isOpen: boolean;
+  onClose: () => void;
+  userName?: string;
+}
+
+function ConversationDrawer({ conversation, isOpen, onClose, userName }: ConversationDrawerProps) {
+  if (!isOpen || !conversation) return null;
+
+  const formatDateTime = (dateString: string): string => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/60 transition-opacity backdrop-blur-sm"
+        style={{ zIndex: 9998 }}
+        onClick={onClose}
+      />
+      
+      {/* Drawer - Full screen on mobile, 50% on desktop */}
+      <div 
+        className="fixed right-0 top-0 h-screen w-full md:w-1/2 md:min-w-[500px] md:max-w-[800px] bg-[var(--surface-primary)] border-l border-[var(--border-light)] flex flex-col shadow-2xl"
+        style={{ zIndex: 9999 }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+            <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg bg-blue-500/20 flex-shrink-0">
+              <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">{conversation.title}</h2>
+              <p className="text-[10px] md:text-xs text-[var(--text-tertiary)]">
+                {conversation.messageCount} messages • {conversation.model?.split('/').pop() || conversation.endpoint}
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={onClose}
+            className="p-1.5 md:p-2 hover:bg-[var(--surface-tertiary)] rounded-lg transition-colors flex-shrink-0"
+          >
+            <X className="h-4 w-4 md:h-5 md:w-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        
+        {/* Stats Bar */}
+        <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]/50 overflow-x-auto">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--surface-tertiary)] rounded-md">
+            <User className="h-3 w-3 text-blue-400" />
+            <span className="text-[10px] md:text-xs text-[var(--text-secondary)]">{userName || 'User'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--surface-tertiary)] rounded-md">
+            <Cpu className="h-3 w-3 text-purple-400" />
+            <span className="text-[10px] md:text-xs text-[var(--text-secondary)] truncate max-w-[120px] md:max-w-none">{conversation.model?.split('/').pop() || conversation.endpoint}</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-[var(--surface-tertiary)] rounded-md">
+            <Clock className="h-3 w-3 text-green-400" />
+            <span className="text-[10px] md:text-xs text-[var(--text-secondary)]">{formatDateTime(conversation.updatedAt)}</span>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
+          {conversation.messages.map((msg, idx) => (
+            <div
+              key={msg.messageId || idx}
+              className={`flex ${msg.isCreatedByUser ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] md:max-w-[75%] rounded-xl p-3 md:p-4 ${
+                  msg.isCreatedByUser
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
+                }`}
+              >
+                {/* Message Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-[10px] md:text-xs font-medium ${
+                    msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
+                  }`}>
+                    {msg.sender}
+                  </span>
+                  {msg.tokenCount && (
+                    <span className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded ${
+                      msg.isCreatedByUser ? 'bg-blue-500/30 text-blue-200' : 'bg-[var(--surface-secondary)] text-[var(--text-tertiary)]'
+                    }`}>
+                      {msg.tokenCount} tokens
+                    </span>
+                  )}
+                </div>
+                
+                {/* Message Text */}
+                <p className="text-xs md:text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                
+                {/* Timestamp */}
+                <p className={`text-[10px] md:text-xs mt-2 ${
+                  msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
+                }`}>
+                  {formatDateTime(msg.createdAt)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 md:px-4 py-2 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 text-[10px] md:text-xs text-[var(--text-tertiary)]">
+            <span>Conversation ID: <code className="font-mono bg-[var(--surface-tertiary)] px-1.5 py-0.5 rounded text-[var(--text-secondary)]">{conversation.conversationId.slice(0, 12)}...</code></span>
+            <span>Created: {formatDateTime(conversation.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -179,7 +312,8 @@ export function UserDetailPage() {
   const [usageData, setUsageData] = useState<UserUsageResponse | null>(null);
   const [conversations, setConversations] = useState<UserConversation[]>([]);
   const [conversationsPagination, setConversationsPagination] = useState<{ page: number; total: number; hasNext: boolean }>({ page: 1, total: 0, hasNext: false });
-  const [expandedConversation, setExpandedConversation] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<UserConversation | null>(null);
+  const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'conversations' | 'sessions' | 'transactions' | 'usage'>('overview');
@@ -647,11 +781,12 @@ export function UserDetailPage() {
       )}
 
       {activeTab === 'conversations' && (
-        <div className="space-y-3 md:space-y-4">
-          <div className="flex items-center justify-between mb-2 md:mb-4">
-            <h3 className="text-base md:text-lg font-medium md:font-semibold text-[var(--text-primary)]">
+        <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
+          <div className="p-3 md:p-4 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
+            <h3 className="text-sm md:text-base font-medium text-[var(--text-primary)]">
               Conversations ({conversationsPagination.total})
             </h3>
+            <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] mt-0.5">Click on a conversation to view messages</p>
           </div>
           
           {conversations.length === 0 ? (
@@ -659,88 +794,34 @@ export function UserDetailPage() {
               No conversations found
             </div>
           ) : (
-            <div className="space-y-3 md:space-y-4">
+            <div className="divide-y divide-[var(--border-light)]">
               {conversations.map((conv) => (
-                <div
+                <button
                   key={conv.conversationId}
-                  className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden"
+                  onClick={() => {
+                    setSelectedConversation(conv);
+                    setConversationDrawerOpen(true);
+                  }}
+                  className="w-full p-3 md:p-4 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors text-left group"
                 >
-                  {/* Conversation Header */}
-                  <button
-                    onClick={() => setExpandedConversation(
-                      expandedConversation === conv.conversationId ? null : conv.conversationId
-                    )}
-                    className="w-full p-3 md:p-4 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                      <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 flex-shrink-0">
-                        <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-sm md:text-base text-[var(--text-primary)] truncate">{conv.title}</h4>
-                        <p className="text-xs md:text-sm text-[var(--text-secondary)] truncate">
-                          {conv.messageCount} msgs • {conv.model?.split('/').pop() || conv.endpoint}
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                    <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 flex-shrink-0">
+                      <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
                     </div>
-                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                      <span className="text-[10px] md:text-xs text-[var(--text-tertiary)] hidden sm:block">
-                        {formatDateTime(conv.updatedAt)}
-                      </span>
-                      <svg
-                        className={`h-4 w-4 md:h-5 md:w-5 text-[var(--text-secondary)] transition-transform ${
-                          expandedConversation === conv.conversationId ? 'rotate-180' : ''
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-xs md:text-sm text-[var(--text-primary)] truncate">{conv.title}</h4>
+                      <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] truncate">
+                        {conv.messageCount} messages • {conv.model?.split('/').pop() || conv.endpoint}
+                      </p>
                     </div>
-                  </button>
-                  
-                  {/* Expanded Messages */}
-                  {expandedConversation === conv.conversationId && (
-                    <div className="border-t border-[var(--border-light)] p-3 md:p-4 space-y-3 md:space-y-4 max-h-[400px] md:max-h-[500px] overflow-y-auto">
-                      {conv.messages.map((msg, idx) => (
-                        <div
-                          key={msg.messageId || idx}
-                          className={`flex ${msg.isCreatedByUser ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`max-w-[90%] md:max-w-[80%] rounded-lg p-2.5 md:p-3 ${
-                              msg.isCreatedByUser
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={`text-[10px] md:text-xs font-medium ${
-                                msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
-                              }`}>
-                                {msg.sender}
-                              </span>
-                              {msg.tokenCount && (
-                                <span className={`text-[10px] md:text-xs ${
-                                  msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
-                                }`}>
-                                  {msg.tokenCount} tokens
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs md:text-sm whitespace-pre-wrap">{msg.text}</p>
-                            <p className={`text-[10px] md:text-xs mt-1 ${
-                              msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
-                            }`}>
-                              {formatDateTime(msg.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  </div>
+                  <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                    <span className="text-[10px] md:text-xs text-[var(--text-tertiary)] hidden sm:block">
+                      {formatDateTime(conv.updatedAt)}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)] transition-colors" />
+                  </div>
+                </button>
               ))}
               
               {/* Load More */}
@@ -760,7 +841,7 @@ export function UserDetailPage() {
                       console.error('Error loading more conversations:', err);
                     }
                   }}
-                  className="w-full py-3 text-center text-blue-400 hover:text-blue-300 transition-colors"
+                  className="w-full py-3 text-center text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 >
                   Load more conversations...
                 </button>
@@ -1151,6 +1232,16 @@ export function UserDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Conversation Drawer */}
+      <ConversationDrawer
+        conversation={selectedConversation}
+        isOpen={conversationDrawerOpen}
+        onClose={() => {
+          setConversationDrawerOpen(false);
+          setSelectedConversation(null);
+        }}
+      />
     </div>
   );
 }
