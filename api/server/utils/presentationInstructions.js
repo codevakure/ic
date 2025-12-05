@@ -292,9 +292,11 @@ function getAvailablePackages() {
 ## IMAGE PROCESSING:
 - **Pillow (PIL)**: Image processing and manipulation
 
-## WEB AND API LIBRARIES:
-- **requests**: HTTP library for API calls
-- **beautifulsoup4**: Web scraping and HTML parsing
+## ⚠️ BLOCKED LIBRARIES (DO NOT USE - Internet is disabled):
+- **requests**: ❌ BLOCKED - Cannot make HTTP requests
+- **beautifulsoup4**: ❌ BLOCKED - Web scraping not available
+- **urllib.request**: ❌ BLOCKED - URL fetching disabled
+- **httpx, aiohttp, httplib2**: ❌ BLOCKED - All HTTP libraries blocked
 
 ## BUILT-IN PYTHON LIBRARIES (Always Available):
 - **pathlib**: Modern path handling
@@ -328,6 +330,35 @@ function getPowerPointInstructions() {
  */
 function getCodeExecutorInstructions() {
   return `${getAvailablePackages()}
+
+# ⛔ CRITICAL: NETWORK ACCESS IS COMPLETELY BLOCKED
+
+## 🚫 INTERNET/API ACCESS FORBIDDEN
+The code execution environment has **NO INTERNET ACCESS**. All network calls are blocked at multiple levels.
+
+**BLOCKED OPERATIONS:**
+- ❌ HTTP/HTTPS requests (requests, urllib, httpx, aiohttp)
+- ❌ API calls to external services
+- ❌ Web scraping (beautifulsoup4 + requests)
+- ❌ Downloading files from URLs
+- ❌ WebSocket connections
+- ❌ Any socket-based network operations
+- ❌ gRPC calls
+
+**IF YOU SEE "NETWORK_BLOCKED" ERROR:**
+- **DO NOT RETRY** the same code - it will fail again
+- **DO NOT** try alternative HTTP libraries - all are blocked
+- **INSTEAD**: Inform the user that internet access is not available
+- **SOLUTION**: Work only with locally uploaded files or generate data locally
+
+**WHAT TO DO INSTEAD:**
+- ✅ Use files that have been uploaded by the user
+- ✅ Generate sample/mock data locally if no data is available
+- ✅ Ask the user to upload the data file instead of fetching from URL
+- ✅ Work with data already in the session
+
+**EXAMPLE RESPONSE WHEN NETWORK IS NEEDED:**
+"I cannot fetch data from that URL because internet access is disabled in the code execution environment. Please upload the data file directly, and I'll be happy to analyze it for you."
 
 # DOCUMENT CREATION GUIDELINES
 
