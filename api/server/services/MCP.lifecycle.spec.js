@@ -11,9 +11,9 @@
  * 7. Status endpoint behavior
  */
 
-const { logger } = require('@librechat/data-schemas');
-const { MCPOAuthHandler } = require('@librechat/api');
-const { CacheKeys } = require('librechat-data-provider');
+const { logger } = require('@ranger/data-schemas');
+const { MCPOAuthHandler } = require('@ranger/api');
+const { CacheKeys } = require('ranger-data-provider');
 const {
   getMCPSetupData,
   checkOAuthFlowStatus,
@@ -21,7 +21,7 @@ const {
 } = require('./MCP');
 
 // Mock all dependencies - must match MCP.spec.js
-jest.mock('@librechat/data-schemas', () => ({
+jest.mock('@ranger/data-schemas', () => ({
   logger: {
     debug: jest.fn(),
     error: jest.fn(),
@@ -37,7 +37,7 @@ jest.mock('@langchain/core/tools', () => ({
   }),
 }));
 
-jest.mock('@librechat/agents', () => ({
+jest.mock('@ranger/agents', () => ({
   Providers: {
     VERTEXAI: 'vertexai',
     GOOGLE: 'google',
@@ -54,7 +54,7 @@ jest.mock('@librechat/agents', () => ({
   },
 }));
 
-jest.mock('@librechat/api', () => ({
+jest.mock('@ranger/api', () => ({
   MCPOAuthHandler: {
     generateFlowId: jest.fn((userId, serverName) => `${userId}:${serverName}`),
   },
@@ -66,7 +66,7 @@ jest.mock('@librechat/api', () => ({
   },
 }));
 
-jest.mock('librechat-data-provider', () => ({
+jest.mock('ranger-data-provider', () => ({
   CacheKeys: {
     FLOWS: 'flows',
   },
@@ -124,7 +124,7 @@ describe('MCP OAuth Lifecycle - End to End Tests', () => {
     mockGetAppConfig = require('./Config').getAppConfig;
     mockGetFlowStateManager = require('~/config').getFlowStateManager;
     mockGetLogStores = require('~/cache').getLogStores;
-    mockMcpServersRegistry = require('@librechat/api').mcpServersRegistry;
+    mockMcpServersRegistry = require('@ranger/api').mcpServersRegistry;
 
     // Default setup
     mockGetAppConfig.mockResolvedValue({

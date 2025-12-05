@@ -13,7 +13,7 @@ import { useEditArtifact, useGetStartupConfig } from '~/data-provider';
 import { useEditorContext, useArtifactsContext } from '~/Providers';
 import { sharedFiles, DEFAULT_BUNDLER_URL, TAILWIND_CDN } from '~/utils/artifacts';
 import { sandpackVscodeTheme, sandpackVscodeLightTheme } from '~/themes/codeHighlight';
-import { useTheme, isDark } from '@librechat/client';
+import { useTheme, isDark } from '@ranger/client';
 
 const createDebouncedMutation = (
   callback: (params: {
