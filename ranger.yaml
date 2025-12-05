@@ -371,14 +371,14 @@ webSearch:
 
 # MCP Servers Configuration
 # mcpServers: {}
-# mcpServers:
-#   ms365-mcp:
-#     title: "Microsoft 365"
-#     iconPath: "Microsoft365Icon"
-#     type: streamable-http
-#     url: "http://localhost:3001/sharepoint-mcp/mcp"
-#     timeout: 30000
-#     initTimeout: 15000
-#     chatMenu: true
-#     startup: false
-#     requiresOAuth: true
+mcpServers:
+  ms365-mcp:
+    title: "Microsoft 365"
+    iconPath: "Microsoft365Icon"
+    type: streamable-http
+    url: "http://localhost:3001/sharepoint-mcp/mcp"
+    timeout: 30000
+    initTimeout: 15000
+    chatMenu: true
+    startup: false
+    requiresOAuth: true

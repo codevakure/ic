@@ -25,7 +25,7 @@ export async function traceLLMCall(
   options: LLMTraceOptions,
   callback: () => Promise<any>
 ): Promise<any> {
-  console.log('[LLMObservability] DEBUG - traceLLMCall ENTRY with provider:', options.provider);
+  // DEBUG logs consolidated - see single summary log at end of span
   const tracer = getTracer();
   
   const {
@@ -43,7 +43,7 @@ export async function traceLLMCall(
 
   // If LLM observability is not available, execute callback directly
   if (!tracer || !tracer.llmobs) {
-    console.log('[LLMObservability] DEBUG - LLM Observability not available, executing without tracing. Tracer:', !!tracer, 'LLMObs:', !!(tracer && tracer.llmobs));
+    // LLM Observability not available, executing without tracing
     try {
       return await callback();
     } catch (error) {
@@ -176,10 +176,10 @@ export async function traceLLMCall(
             if (metadata.output_tokens !== undefined) llmSpan.setTag('trace.output_tokens', metadata.output_tokens);
             if (metadata.tokens !== undefined) llmSpan.setTag('trace.total_tokens', metadata.tokens);
           } catch (tagError) {
-            console.log('[LLMObservability] DEBUG - Failed to set tags directly on LLM span:', (tagError as any)?.message || 'Unknown error');
+            // Tag setting failed - non-critical, continuing
           }
         } else {
-          console.log('[LLMObservability] DEBUG - LLM span does not have setTag method');
+          // LLM span does not have setTag method - non-critical
         }
 
         let inputText = '';
@@ -348,8 +348,6 @@ export async function traceLLMCallWithUser(
         user
       }
     };
-    
-    console.log('[LLMObservability] DEBUG - About to call traceLLMCall with provider:', enhancedOptions.provider);
     
     return await traceLLMCall(enhancedOptions, callback);
   } catch (error) {
@@ -708,30 +706,23 @@ async function traceLLMCallWithCorrelation(
           }
         };
         
-        console.log('[LLMObservability] DEBUG - Creating workflow span with config:', {
-          spanName,
-          modelName: model || 'unknown',
-          modelProvider: provider === 'bedrock' ? 'amazon_bedrock' : provider.toUpperCase(),
-          userId: userId,
-          tagsCount: Object.keys(llmSpanConfig.tags).length
-        });
-        
-        console.log('[LLMObservability] DEBUG - Creating LLM Observability span...');
         return await tracer.llmobs.trace(llmSpanConfig, async (llmSpan: any) => {
-          console.log('[LLMObservability] DEBUG - Inside LLM span callback, llmSpan:', !!llmSpan);
           
           const startTime = Date.now();
           const result = await callback();
           const duration = Date.now() - startTime;
           
-          console.log('[LLMObservability] DEBUG - Callback completed, duration:', duration);
+          // Declare token/tool variables at callback scope level for logging
+          let inputTokenVal: number | undefined;
+          let outputTokenVal: number | undefined;
+          let tools_used_names: string = '';
+          
           wrapperSpan.setTag('llm.status', 'success');
           wrapperSpan.setTag('llm.duration_ms', duration);
           
           // Extract input/output for LLM annotation if available
           if (llmSpan && tracer.llmobs && tracer.llmobs.annotate) {
             try {
-              console.log('[LLMObservability] DEBUG - LLM span available for annotation');
               // Use the same feedback detection logic as the main traceLLMCall
               let inputText;
               const isFeedback = (metadata.feedback_rating != null && metadata.feedback_rating !== '') ||
@@ -744,20 +735,7 @@ async function traceLLMCallWithCorrelation(
               }
               const outputText = extractOutputText(result);
               
-              console.log('[LLMObservability] DEBUG - Extracted input/output:', {
-                inputLength: inputText?.length || 0,
-                outputLength: outputText?.length || 0
-              });
-              
-              // Debug: Log the raw result object structure
-              console.log('[LLMObservability] DEBUG - Raw result structure:', {
-                hasUsage: !!result?.usage,
-                hasPromptTokens: !!result?.promptTokens,
-                hasCompletionTokens: !!result?.completionTokens,
-                promptTokens: result?.promptTokens,
-                completionTokens: result?.completionTokens,
-                usage: result?.usage
-              });
+
 
               if (result && !result.usage && (result.promptTokens || result.completionTokens)) {
                 result.usage = {
@@ -768,8 +746,8 @@ async function traceLLMCallWithCorrelation(
               }
 
               // Extract token counts from result.usage (actual API usage from client)
-              const inputTokenVal = result?.usage?.prompt_tokens ?? result?.usage?.input_tokens ?? result?.promptTokens ?? metadata.promptTokens;
-              const outputTokenVal = result?.usage?.completion_tokens ?? result?.usage?.output_tokens ?? result?.completionTokens ?? metadata.completionTokens;
+              inputTokenVal = result?.usage?.prompt_tokens ?? result?.usage?.input_tokens ?? result?.promptTokens ?? metadata.promptTokens;
+              outputTokenVal = result?.usage?.completion_tokens ?? result?.usage?.output_tokens ?? result?.completionTokens ?? metadata.completionTokens;
               const totalTokenVal = result?.usage?.total_tokens ?? (inputTokenVal && outputTokenVal ? inputTokenVal + outputTokenVal : undefined);
               
               // Calculate cost based on Anthropic pricing if not provided
@@ -805,7 +783,7 @@ async function traceLLMCallWithCorrelation(
               const mcp_tools_used_count = result?.tool_usage?.mcp_tools_used_count || 0;
               const mcp_tools_used_names = result?.tool_usage?.mcp_tools_used_names || '';
               const tools_used_count = result?.tool_usage?.tools_used_count || 0;
-              const tools_used_names = result?.tool_usage?.tools_used_names || '';
+              tools_used_names = result?.tool_usage?.tools_used_names || '';
 
               // Build metadata without the 'user' object to keep it clean
               const cleanMetadata: Record<string, any> = {
@@ -900,54 +878,13 @@ async function traceLLMCallWithCorrelation(
                                        metadata.operation === 'title_generation' ||
                                        metadata.is_title_generation === true;
               
-              console.log('[LLMObservability] DEBUG - Title generation check:', {
-                model: model,
-                modelLower: modelLower,
-                isTitleGeneration: isTitleGeneration,
-                operation: metadata.operation,
-                is_title_generation: metadata.is_title_generation,
-                includesNova: modelLower.includes('nova')
-              });
-              
-              console.log('[LLMObservability] DEBUG - Tool availability and usage check:', {
-                // Tool AVAILABILITY (what tools CAN be used)
-                tool_web_search_available: metadata.tool_web_search_available,
-                tool_file_search_available: metadata.tool_file_search_available,
-                tool_code_execution_available: metadata.tool_code_execution_available,
-                // Tool USAGE (what tools were ACTUALLY used)
-                tool_web_search_used,
-                tool_file_search_used,
-                tool_code_execution_used,
-                mcp_tools_used,
-                mcp_tools_used_count,
-                mcp_tools_used_names,
-                tools_used_count,
-                tools_used_names,
-                // MCP server info
-                mcp_servers: metadata.mcp_servers,
-                mcp_servers_count: metadata.mcp_servers_count,
-                mcp_servers_available: metadata.mcp_servers_available,
-                mcp_ms365_enabled: metadata['mcp.ms365_enabled'],
-                isTitleGeneration,
-                hasTokens: inputTokenVal !== undefined || outputTokenVal !== undefined || totalTokenVal !== undefined
-              });
+
               
               // IMPORTANT: Only send metrics when tools are ACTUALLY USED (not just available)
               // This prevents token doubling for conversations where tools are enabled but not used
               const anyToolUsed = tool_web_search_used || tool_file_search_used || tool_code_execution_used || mcp_tools_used;
               
-              console.log('[LLMObservability] DEBUG - Tool usage determination:', {
-                anyToolUsed,
-                mcp_tools_used,
-                mcp_tools_used_names,
-                tool_web_search_used,
-                tool_file_search_used,
-                tool_code_execution_used,
-                tools_used_names,
-                tools_used_count,
-                isTitleGeneration,
-                willSendMetrics: !isTitleGeneration && anyToolUsed && (inputTokenVal !== undefined || outputTokenVal !== undefined || totalTokenVal !== undefined)
-              });
+
               
               // IMPORTANT: Only send metrics when tools are ACTUALLY USED (not just available)
               // This prevents token doubling from LangChain's automatic instrumentation
@@ -961,36 +898,10 @@ async function traceLLMCallWithCorrelation(
                 if (totalTokenVal !== undefined) annotationData.metrics.total_tokens = totalTokenVal;
                 //if (costVal !== undefined) annotationData.metrics.total_cost = costVal;
                 
-                console.log('[LLMObservability] ✅ Adding metrics to annotation (tools ACTUALLY USED):', {
-                  metrics: annotationData.metrics,
-                  usedTools: tools_used_names,
-                  toolCount: tools_used_count
-                });
-              } else if (isTitleGeneration) {
-                console.log('[LLMObservability] 🚫 Skipping metrics block for title generation (nova-lite)');
-              } else if (!anyToolUsed) {
-                console.log('[LLMObservability] 🚫 Skipping metrics block (no tools USED - prevents token doubling, LangChain child span has tokens)');
-              } else {
-                console.log('[LLMObservability] 🚫 Skipping metrics block (no token data available)');
               }
 
-              console.log('[LLMObservability] DEBUG - About to annotate LLM span with data:', {
-                hasInputData: !!annotationData.inputData,
-                inputDataLength: annotationData.inputData?.length || 0,
-                hasOutputData: !!annotationData.outputData,
-                outputDataLength: annotationData.outputData?.length || 0,
-                hasMetrics: !!annotationData.metrics,
-                metricsKeys: annotationData.metrics ? Object.keys(annotationData.metrics) : [],
-                metadataKeys: annotationData.metadata ? Object.keys(annotationData.metadata).length : 0,
-                tagsCount: annotationData.tags ? Object.keys(annotationData.tags).length : 0,
-                hasFeedbackTags: !!(metadata.feedback_tag || metadata.feedback_rating || metadata.feedback_text)
-              });
-
               try {
-
                 tracer.llmobs.annotate(llmSpan, annotationData);
-                
-                console.log('[LLMObservability] DEBUG - LLM span annotated successfully');
               } catch (innerAnnotateError: any) {
                 console.error('[LLMObservability] ERROR - annotate() call threw error:', {
                   error: innerAnnotateError.message,
@@ -1006,7 +917,8 @@ async function traceLLMCallWithCorrelation(
             }
           }
           
-          console.log('[LLMObservability] DEBUG - Returning result from traceLLMCallWithCorrelation');
+          // Single consolidated log for LLM Observability span completion
+          console.log('[LLMObservability]', JSON.stringify({ model: model || 'unknown', provider: provider === 'bedrock' ? 'amazon_bedrock' : provider, duration_ms: duration, user_id: userId, input_tokens: inputTokenVal, output_tokens: outputTokenVal, tools_used: tools_used_names || 'none' }));
           return result;
         });
         
@@ -1102,13 +1014,7 @@ export async function recordLLMFeedback(options: {
         ...userMetadata
       }
     }, async () => {
-      console.log('[LLMObservability] ✅ User feedback recorded as LLM span:', {
-        userId: options.userId,
-        conversationId: options.conversationId,
-        messageId: options.messageId,
-        rating: options.feedback.rating,
-        tag: options.feedback.tag
-      });
+      console.log('[LLMObservability] UserFeedback', JSON.stringify({ userId: options.userId, conversationId: options.conversationId, messageId: options.messageId, rating: options.feedback.rating, tag: options.feedback.tag }));
       
       return {};
     });
@@ -1211,12 +1117,7 @@ export async function recordGuardrailBlock(options: {
       return { blocked: true, violations: violationDetails };
     });
 
-    console.log('[LLMObservability] ✅ Guardrail block recorded as LLM span:', {
-      source: options.source,
-      violations: violationSummary,
-      userId: options.userId,
-      conversationId: options.conversationId
-    });
+    console.log('[LLMObservability] GuardrailBlock', JSON.stringify({ source: options.source, violations: violationSummary, userId: options.userId, conversationId: options.conversationId }));
   } catch (error: any) {
     console.error('[LLMObservability] ❌ Failed to record guardrail block:', {
       error: error.message,

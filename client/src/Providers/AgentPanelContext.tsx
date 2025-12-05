@@ -55,12 +55,19 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     const configuredServers = new Set(mcpServerNames);
     const serversMap = new Map<string, MCPServerInfo>();
 
+    /** Helper to get the display name for a server */
+    const getDisplayName = (serverName: string) => {
+      const config = startupConfig?.mcpServers?.[serverName];
+      return (config as { title?: string })?.title || serverName;
+    };
+
     if (mcpData?.servers) {
       for (const [serverName, serverData] of Object.entries(mcpData.servers)) {
+        const displayName = getDisplayName(serverName);
         const metadata = {
           name: serverName,
           pluginKey: serverName,
-          description: `${localize('com_ui_tool_collection_prefix')} ${serverName}`,
+          description: `${localize('com_ui_tool_collection_prefix')} ${displayName}`,
           icon: serverData.icon || '',
           authConfig: serverData.authConfig,
           authenticated: serverData.authenticated,
@@ -91,11 +98,12 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
       if (serversMap.has(mcpServerName)) {
         continue;
       }
+      const displayName = getDisplayName(mcpServerName);
       const metadata = {
         icon: '',
         name: mcpServerName,
         pluginKey: mcpServerName,
-        description: `${localize('com_ui_tool_collection_prefix')} ${mcpServerName}`,
+        description: `${localize('com_ui_tool_collection_prefix')} ${displayName}`,
       } as TPlugin;
 
       serversMap.set(mcpServerName, {
@@ -108,7 +116,7 @@ export function AgentPanelProvider({ children }: { children: React.ReactNode }) 
     }
 
     return serversMap;
-  }, [mcpData, localize, mcpServerNames, connectionStatus]);
+  }, [mcpData, localize, mcpServerNames, connectionStatus, startupConfig?.mcpServers]);
 
   const value: AgentPanelContextType = {
     mcp,

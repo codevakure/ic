@@ -311,17 +311,17 @@ export default function Artifacts() {
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin text-text-secondary" />
                   )}
                   {/* Tabs */}
-                  <Tabs.List className="mx-1 inline-flex h-7 rounded-full border border-border-medium bg-surface-tertiary">
+                  <Tabs.List className="mx-1 inline-flex h-7 rounded-full border border-border-medium bg-surface-secondary">
                     <Tabs.Trigger
                       value="preview"
                       disabled={isMutating}
-                      className="border-0.5 flex items-center gap-1 rounded-full border-transparent py-1 pl-2.5 pr-2.5 text-xs font-medium text-text-secondary data-[state=active]:border-border-light data-[state=active]:bg-surface-primary-alt data-[state=active]:text-text-primary"
+                      className="border-0.5 flex items-center gap-1 rounded-full border-transparent py-1 pl-2.5 pr-2.5 text-xs font-medium text-text-secondary data-[state=active]:border-border-light data-[state=active]:bg-surface-tertiary-alt data-[state=active]:text-text-primary"
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </Tabs.Trigger>
                     <Tabs.Trigger
                       value="code"
-                      className="border-0.5 flex items-center gap-1 rounded-full border-transparent py-1 pl-2.5 pr-2.5 text-xs font-medium text-text-secondary data-[state=active]:border-border-light data-[state=active]:bg-surface-primary-alt data-[state=active]:text-text-primary"
+                      className="border-0.5 flex items-center gap-1 rounded-full border-transparent py-1 pl-2.5 pr-2.5 text-xs font-medium text-text-secondary data-[state=active]:border-border-light data-[state=active]:bg-surface-tertiary-alt data-[state=active]:text-text-primary"
                     >
                       <Code className="h-3.5 w-3.5" />
                     </Tabs.Trigger>

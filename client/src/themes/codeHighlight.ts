@@ -27,12 +27,39 @@ export const vscodeTheme = {
   info: '#75beff'
 };
 
-// Sandpack theme object for artifact panels
+// Light theme colors for syntax highlighting
+export const vscodeLightTheme = {
+  background: '#efefef',     // matches --gray-98 (--surface-primary-alt light)
+  foreground: '#212121',     // matches --gray-800
+  
+  // Syntax colors (VS Code Light+ inspired)
+  keyword: '#0000ff',        // blue - keywords
+  string: '#a31515',         // dark red - strings
+  number: '#098658',         // green - numbers
+  comment: '#008000',        // green - comments
+  operator: '#000000',       // black - operators
+  function: '#795e26',       // brown - function names
+  variable: '#001080',       // dark blue - variables, properties
+  type: '#267f99',           // teal - types, interfaces
+  constant: '#0070c1',       // blue - constants
+  
+  // UI colors
+  selection: '#add6ff',
+  lineHighlight: '#f0f0f0',
+  border: '#e3e3e3',
+  
+  // Error states
+  error: '#d32f2f',
+  warning: '#e65100',
+  info: '#1976d2'
+};
+
+// Sandpack theme object for artifact panels - Dark mode
 export const sandpackVscodeTheme = {
   colors: {
-    surface1: '#0C0E10', // Use our theme background color instead of VS Code background
-    surface2: '#0C0E10', // Keep consistent with our theme
-    surface3: '#0C0E10', // Keep consistent with our theme
+    surface1: '#171717', // matches --gray-850 (--surface-primary-alt dark)
+    surface2: '#171717',
+    surface3: '#171717',
     clickable: vscodeTheme.foreground,
     base: vscodeTheme.foreground,
     disabled: '#6a6a6a',
@@ -52,6 +79,40 @@ export const sandpackVscodeTheme = {
     static: { color: vscodeTheme.constant },
     string: { color: vscodeTheme.string },
     number: { color: vscodeTheme.number },
+  },
+  font: {
+    body: 'Consolas, Monaco, "Courier New", monospace, Menlo, monospace',
+    mono: 'Consolas, Monaco, "Courier New", monospace, Menlo, monospace',
+    size: '13px',
+    lineHeight: '20px'
+  }
+};
+
+// Sandpack theme object for artifact panels - Light mode
+export const sandpackVscodeLightTheme = {
+  colors: {
+    surface1: '#efefef', // matches --gray-98 (--surface-primary-alt light)
+    surface2: '#efefef',
+    surface3: '#efefef',
+    clickable: vscodeLightTheme.foreground,
+    base: vscodeLightTheme.foreground,
+    disabled: '#999696',
+    hover: '#e3e3e3',
+    accent: vscodeLightTheme.keyword,
+    error: vscodeLightTheme.error,
+    errorSurface: '#ffebee',
+  },
+  syntax: {
+    plain: vscodeLightTheme.foreground,
+    comment: { color: vscodeLightTheme.comment, fontStyle: 'italic' as const },
+    keyword: { color: vscodeLightTheme.keyword },
+    tag: { color: vscodeLightTheme.keyword },
+    punctuation: { color: vscodeLightTheme.operator },
+    definition: { color: vscodeLightTheme.function },
+    property: { color: vscodeLightTheme.variable },
+    static: { color: vscodeLightTheme.constant },
+    string: { color: vscodeLightTheme.string },
+    number: { color: vscodeLightTheme.number },
   },
   font: {
     body: 'Consolas, Monaco, "Courier New", monospace, Menlo, monospace',

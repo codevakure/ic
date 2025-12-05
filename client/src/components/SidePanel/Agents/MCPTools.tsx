@@ -2,7 +2,7 @@ import React from 'react';
 import UninitializedMCPTool from './UninitializedMCPTool';
 import UnconfiguredMCPTool from './UnconfiguredMCPTool';
 import { useAgentPanelContext } from '~/Providers';
-import { useLocalize } from '~/hooks';
+import { useLocalize, useMCPServerManager } from '~/hooks';
 import MCPTool from './MCPTool';
 
 export default function MCPTools({
@@ -16,6 +16,7 @@ export default function MCPTools({
 }) {
   const localize = useLocalize();
   const { mcpServersMap } = useAgentPanelContext();
+  const { serverTitles } = useMCPServerManager();
 
   return (
     <div className="mb-4">
@@ -27,11 +28,13 @@ export default function MCPTools({
           {/* Render servers with selected tools */}
           {mcpServerNames?.map((mcpServerName) => {
             const serverInfo = mcpServersMap.get(mcpServerName);
+            const serverTitle = serverTitles[mcpServerName];
             if (!serverInfo?.isConfigured) {
               return (
                 <UnconfiguredMCPTool
                   key={`${mcpServerName}-${agentId}`}
                   serverName={mcpServerName}
+                  serverTitle={serverTitle}
                 />
               );
             }
@@ -41,7 +44,7 @@ export default function MCPTools({
 
             if (serverInfo.isConnected) {
               return (
-                <MCPTool key={`${serverInfo.serverName}-${agentId}`} serverInfo={serverInfo} />
+                <MCPTool key={`${serverInfo.serverName}-${agentId}`} serverInfo={serverInfo} serverTitle={serverTitle} />
               );
             }
 
@@ -49,6 +52,7 @@ export default function MCPTools({
               <UninitializedMCPTool
                 key={`${serverInfo.serverName}-${agentId}`}
                 serverInfo={serverInfo}
+                serverTitle={serverTitle}
               />
             );
           })}

@@ -84,6 +84,10 @@ const processCodeOutput = async ({
       updatedAt: formattedDate,
       source: appConfig.fileStrategy,
       context: FileContext.execute_code,
+      metadata: {
+        fileIdentifier: `${session_id}/${id}`,
+        tool_resource: EToolResources.execute_code,
+      },
     };
     createFile(file, true);
     /** Note: `messageId` & `toolCallId` are not part of file DB schema; message object records associated file ID */

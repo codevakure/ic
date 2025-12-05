@@ -10,6 +10,24 @@
   --gray-50: #f7f7f8;
   --gray-95: #fafafa;
   --gray-98: #efefef;
+  
+  /* VS Code Dark Modern theme variables for syntax highlighting */
+  --hljs-bg: #1e1e1e;
+  --hljs-color: #d4d4d4;
+  --hljs-keyword: #569cd6;
+  --hljs-string: #ce9178;
+  --hljs-number: #b5cea8;
+  --hljs-comment: #6a9955;
+  --hljs-operator: #d4d4d4;
+  --hljs-function: #dcdcaa;
+  --hljs-variable: #9cdcfe;
+  --hljs-type: #4ec9b0;
+  --hljs-constant: #4fc1ff;
+  --hljs-selection: #264f78;
+  --hljs-line-highlight: #2a2d2e;
+  --hljs-border: #454545;
+  --hljs-error: #f44747;
+  
   --gray-100: #ececec;
   --gray-200: #e3e3e3;
   --gray-300: #cdcdcd;
@@ -1317,7 +1335,6 @@ code[class*='language-'],
 pre[class*='language-'] {
   word-wrap: normal;
   background: none;
-  color: #fff;
   -webkit-hyphens: none;
   hyphens: none;
   font-size: 0.85rem;
@@ -1338,45 +1355,153 @@ pre[class*='language-'] {
   padding: 0.1em;
   white-space: normal;
 }
-.hljs-comment {
-  color: hsla(0, 0%, 100%, 0.5);
+
+/* VS Code Dark Modern theme syntax highlighting */
+.dark code.hljs,
+.dark code[class*='language-'],
+.dark pre[class*='language-'] {
+  color: #d4d4d4 !important; /* VS Code default foreground */
+  background: none !important; /* Let container handle background */
 }
-.hljs-meta {
-  color: hsla(0, 0%, 100%, 0.6);
+
+/* Comments */
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #6a9955 !important; /* VS Code comment green */
+  font-style: italic;
 }
-.hljs-built_in,
-.hljs-class .hljs-title {
-  color: #e9950c;
+
+/* Keywords, literals, control flow */
+.dark .hljs-keyword,
+.dark .hljs-literal,
+.dark .hljs-doctag,
+.dark .hljs-formula,
+.dark .hljs-name,
+.dark .hljs-tag {
+  color: var(--hljs-keyword) !important; /* VS Code keyword blue */
+  font-weight: normal;
 }
-.hljs-doctag,
-.hljs-formula,
-.hljs-keyword,
-.hljs-literal {
-  color: #2e95d3;
+
+/* Strings, regex, attributes */
+.dark .hljs-string,
+.dark .hljs-regexp,
+.dark .hljs-addition,
+.dark .hljs-attribute,
+.dark .hljs-meta-string {
+  color: var(--hljs-string) !important; /* VS Code string orange */
 }
-.hljs-addition,
-.hljs-attribute,
-.hljs-meta-string,
-.hljs-regexp,
-.hljs-string {
-  color: #00a67d;
+
+/* Functions, classes, titles */
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-function,
+.dark .hljs-built_in,
+.dark .hljs-class .hljs-title,
+.dark .hljs-title.class_ {
+  color: var(--hljs-function) !important; /* VS Code yellow for functions */
 }
-.hljs-attr,
-.hljs-number,
-.hljs-selector-attr,
-.hljs-selector-class,
-.hljs-selector-pseudo,
-.hljs-template-variable,
-.hljs-type,
-.hljs-variable {
-  color: #df3079;
+
+/* Variables, properties, types */
+.dark .hljs-variable,
+.dark .hljs-attr,
+.dark .hljs-type,
+.dark .hljs-template-variable,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-class,
+.dark .hljs-selector-pseudo,
+.dark .hljs-selector-id {
+  color: var(--hljs-variable) !important; /* VS Code light cyan */
 }
-.hljs-bullet,
-.hljs-link,
-.hljs-selector-id,
-.hljs-symbol,
-.hljs-title {
-  color: #f22c3d;
+
+/* Numbers */
+.dark .hljs-number {
+  color: var(--hljs-number) !important; /* VS Code light green for numbers */
+}
+
+/* Meta, params, symbols */
+.dark .hljs-meta,
+.dark .hljs-params {
+  color: #d4d4d4 !important; /* Default color */
+}
+
+.dark .hljs-bullet,
+.dark .hljs-link,
+.dark .hljs-symbol {
+  color: #dcdcaa !important; /* VS Code yellow */
+}
+
+/* Text styling */
+.dark .hljs-emphasis {
+  font-style: italic;
+}
+.dark .hljs-strong {
+  font-weight: bold;
+}
+
+/* Light theme syntax highlighting */
+.light code.hljs,
+.light code[class*='language-'],
+.light pre[class*='language-'] {
+  color: #1f2937;
+}
+.light .hljs-comment,
+.light .hljs-quote {
+  color: #6b7280;
+  font-style: italic;
+}
+.light .hljs-meta {
+  color: #4b5563;
+}
+.light .hljs-built_in,
+.light .hljs-class .hljs-title,
+.light .hljs-title.class_ {
+  color: #d97706;
+}
+.light .hljs-doctag,
+.light .hljs-formula,
+.light .hljs-keyword,
+.light .hljs-literal {
+  color: #2563eb;
+  font-weight: 500;
+}
+.light .hljs-addition,
+.light .hljs-attribute,
+.light .hljs-meta-string,
+.light .hljs-regexp,
+.light .hljs-string {
+  color: #059669;
+}
+.light .hljs-attr,
+.light .hljs-number,
+.light .hljs-selector-attr,
+.light .hljs-selector-class,
+.light .hljs-selector-pseudo,
+.light .hljs-template-variable,
+.light .hljs-type,
+.light .hljs-variable {
+  color: #7c3aed;
+}
+.light .hljs-bullet,
+.light .hljs-link,
+.light .hljs-selector-id,
+.light .hljs-symbol,
+.light .hljs-title,
+.light .hljs-section {
+  color: #ea580c;
+}
+.light .hljs-name,
+.light .hljs-tag {
+  color: #2563eb;
+}
+.light .hljs-function,
+.light .hljs-title.function_ {
+  color: #9333ea;
+}
+.light .hljs-emphasis {
+  font-style: italic;
+}
+.light .hljs-strong {
+  font-weight: bold;
 }
 
 [role='button'],
@@ -3046,4 +3171,20 @@ html {
 
 .sharepoint-picker-bg{
   background-color: #F5F5F5;
+}
+
+/* ================================
+   Sandpack Customizations
+   Hide default cube loading overlay - using custom branded loader instead
+   ================================ */
+.sp-cube-wrapper,
+.sp-cube,
+.sp-loading .sp-cube-wrapper,
+.sp-overlay.sp-loading .sp-cube-wrapper,
+div[class*="sp-cube"],
+.sp-preview-container .sp-loading,
+.sp-overlay.sp-loading {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }

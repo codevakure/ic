@@ -6,6 +6,7 @@ export enum DocumentType {
   EXCEL = 'excel',
   POWERPOINT = 'powerpoint',
   PDF = 'pdf',
+  CSV = 'csv',
   UNKNOWN = 'unknown',
 }
 

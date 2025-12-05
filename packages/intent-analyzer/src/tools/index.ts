@@ -81,17 +81,27 @@ const INTENT_PATTERNS = {
   [ToolType.CODE_INTERPRETER]: [
     /\b(calculate|compute|run|execute|code|script|analyze data|chart|graph|plot)\b/i,
     /\b(python|javascript|typescript|sql)\b/i,
-    /\b(spreadsheet|excel|csv|dataframe)\b/i,
     /\b(math|equation|formula|statistics)\b/i,
+    // Data processing files - these typically need code execution
+    /\b(spreadsheet|csv|dataframe|xlsx|xls)\b/i,
+    // Excel with data processing intent
+    /\b(process|analyze|parse|read|load|import)\s+(the\s+|this\s+|my\s+)?(excel|csv|spreadsheet|data)\b/i,
+    /\b(excel|csv|spreadsheet)\s+(data|file)?\s*(analysis|processing|calculation)\b/i,
     // Document generation patterns - PDF, Word, PowerPoint, Excel
-    /\b(generate|create|make|build|produce)\s+(a\s+)?(pdf|word|powerpoint|ppt|pptx|excel|xlsx|document|presentation|slide|report)\b/i,
-    /\b(pdf|word|powerpoint|ppt|pptx|excel|xlsx)\s+(document|file|report|presentation)\b/i,
-    /\b(export|save|convert)\s+(to|as)\s+(pdf|word|powerpoint|ppt|excel|xlsx)\b/i,
+    // Must have generation intent verb + file type (with optional adjectives in between)
+    /\b(generate|create|make|build|produce)\s+(.+\s+)?(pdf|word|powerpoint|ppt|pptx|excel|xlsx|docx|document|presentation|slide|slides|report)\b/i,
+    // Export/save/convert actions (clear generation intent)
+    /\b(export|save|convert)\s+(to|as|it\s+to|it\s+as|this\s+to|this\s+as)?\s*(pdf|word|powerpoint|ppt|pptx|excel|xlsx|docx)\b/i,
+    // Downloadable/exportable + file type (clear generation intent)
+    /\b(downloadable|exportable)\s+(pdf|word|powerpoint|ppt|pptx|excel|xlsx|docx|document|presentation|file|report)\b/i,
+    // "download as [format]" pattern (generation intent)
+    /\bdownload\s+(it\s+|this\s+)?as\s+(a\s+)?(pdf|word|powerpoint|ppt|pptx|excel|xlsx|docx)\b/i,
   ],
   [ToolType.FILE_SEARCH]: [
-    /\b(search|find|look up|what does .* say|according to|in the (document|file|pdf))\b/i,
-    /\b(summarize|extract|quote|reference)\b/i,
-    /\b(document|pdf|file|attachment)\b/i,
+    /\b(search|find|look up|what does .* say|according to|in the (document|file|pdf|ppt|pptx|word))\b/i,
+    /\b(summarize|extract|quote|reference|explain|describe)\s+(the\s+|this\s+|my\s+|attached\s+)?(document|pdf|ppt|pptx|file|attachment|word|docx)\b/i,
+    /\b(document|pdf|ppt|pptx|file|attachment|word)\b.*\b(says?|mentions?|contains?|about)\b/i,
+    /\b(attached|uploaded)\s+(document|file|pdf|ppt|pptx|word)\b/i,
   ],
   [ToolType.IMAGE_GENERATION]: [
     /\b(generate|create|draw|make|design) .*(image|picture|illustration|art|logo|icon)\b/i,

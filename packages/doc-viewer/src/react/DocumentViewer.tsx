@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Word from '../Word';
 import Excel from '../Excel';
 import { PDF } from '../pdf/PDF';
+import { CSVViewer } from '../viewers/CSVViewer';
 import { createOfficeViewer } from '../createOfficeViewer';
 import { OfficeViewer } from '../OfficeViewer';
 
@@ -14,7 +15,7 @@ export interface DocumentViewerProps {
   /**
    * Document type - auto-detected if not provided
    */
-  type?: 'docx' | 'xlsx' | 'pptx' | 'pdf' | 'auto';
+  type?: 'docx' | 'xlsx' | 'pptx' | 'pdf' | 'csv' | 'auto';
   
   /**
    * Optional filename for better type detection
@@ -89,8 +90,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         // Create viewer based on type
         let viewer: OfficeViewer | null = null;
         let pdfViewer: PDF | null = null;
+        let csvViewer: CSVViewer | null = null;
         
         if (type === 'auto') {
+          // Check for CSV based on filename
+          if (fileName?.toLowerCase().endsWith('.csv')) {
+            csvViewer = new CSVViewer(containerRef.current, options);
+            await csvViewer.renderFile(arrayBuffer);
+            setLoading(false);
+            onLoad?.();
+            return;
+          }
           viewer = await createOfficeViewer(arrayBuffer, options, fileName);
         } else if (type === 'docx') {
           viewer = new Word(arrayBuffer, options);
@@ -100,6 +110,13 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           // PDF uses different interface
           pdfViewer = new PDF(arrayBuffer, options);
           await pdfViewer.render(containerRef.current);
+          setLoading(false);
+          onLoad?.();
+          return;
+        } else if (type === 'csv') {
+          // CSV viewer
+          csvViewer = new CSVViewer(containerRef.current, options);
+          await csvViewer.renderFile(arrayBuffer);
           setLoading(false);
           onLoad?.();
           return;

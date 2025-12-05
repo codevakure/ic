@@ -405,10 +405,35 @@ div[role="tabpanel"][id*="preview"] span[style*="white"],
   color: #000000 !important;
 }
 
-/* Artifact preview background - light gray */
+/* Hide Sandpack's default cube loading overlay - using custom branded loader instead */
+.sp-cube-wrapper,
+.sp-cube,
+.sp-loading .sp-cube-wrapper,
+.sp-overlay.sp-loading .sp-cube-wrapper,
+div[class*="sp-cube"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Artifact preview background - uses theme variable for light/dark mode */
 div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] {
   scrollbar-gutter: stable !important;
-  background-color: rgba(243, 243, 243, 0.955) !important;
+  background-color: var(--surface-primary-alt) !important;
+}
+
+/* Sandpack preview container backgrounds - consistent with artifact preview */
+.sp-wrapper,
+.sp-preview,
+.sp-preview-container {
+  background-color: var(--surface-primary-alt) !important;
+}
+
+/* Sandpack preview iframe container */
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-wrapper,
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-preview,
+div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"] .sp-preview-container {
+  background-color: var(--surface-primary-alt) !important;
 }
 
 /* Artifact preview scrollbar styling */
@@ -417,7 +442,7 @@ div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-la
 }
 
 div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"]::-webkit-scrollbar-thumb {
-  background-color: rgba(56, 56, 56) !important;
+  background-color: var(--gray-400) !important;
   border-radius: 6px !important;
   border: 2px solid transparent !important;
   background-clip: padding-box !important;
@@ -425,6 +450,11 @@ div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-la
 
 div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"]::-webkit-scrollbar-track {
   background-color: transparent !important;
+}
+
+/* Dark mode scrollbar - lighter thumb for visibility */
+.dark div[role="tabpanel"][data-state="active"][data-orientation="horizontal"][aria-labelledby^="radix-"][id^="radix-"][id$="-content-preview"]::-webkit-scrollbar-thumb {
+  background-color: var(--gray-500) !important;
 }
 
 .cm-content:focus {

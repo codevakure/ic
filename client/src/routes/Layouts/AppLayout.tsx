@@ -122,12 +122,13 @@ export default function AppLayout() {
   
   const artifacts = useRecoilValue(store.artifactsState);
   const artifactsVisibility = useRecoilValue(store.artifactsVisibility);
+  const setArtifactsVisible = useSetRecoilState(store.artifactsVisibility);
   const setSourcesPanelState = useSetRecoilState(store.sourcesPanelState);
 
   const setFilesToDelete = useSetFilesToDelete();
 
   /**
-   * Auto-close sources panel on route navigation.
+   * Auto-close sources panel and artifacts panel on route navigation.
    * 
    * This ensures that when users navigate between different pages
    * (e.g., from chat to bookmarks, or between conversations),
@@ -140,9 +141,11 @@ export default function AppLayout() {
         ...prev,
         isOpen: false,
       }));
+      // Close artifacts panel on navigation (like file preview/citation panel)
+      setArtifactsVisible(false);
       previousPathRef.current = location.pathname;
     }
-  }, [location.pathname, setSourcesPanelState]);
+  }, [location.pathname, setSourcesPanelState, setArtifactsVisible]);
 
   const { mutateAsync } = useDeleteFilesMutation({
     onSuccess: () => {

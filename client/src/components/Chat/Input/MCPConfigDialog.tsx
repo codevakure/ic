@@ -13,6 +13,7 @@ interface MCPConfigDialogProps {
   isSubmitting?: boolean;
   onRevoke?: () => void;
   serverName: string;
+  serverTitle?: string;
 }
 
 export default function MCPConfigDialog({
@@ -24,6 +25,7 @@ export default function MCPConfigDialog({
   isSubmitting = false,
   onRevoke,
   serverName,
+  serverTitle,
 }: MCPConfigDialogProps) {
   const localize = useLocalize();
   const {
@@ -51,7 +53,8 @@ export default function MCPConfigDialog({
     }
   };
 
-  const dialogTitle = localize('com_ui_configure_mcp_variables_for', { 0: serverName });
+  const displayTitle = serverTitle || serverName;
+  const dialogTitle = localize('com_ui_configure_mcp_variables_for', { 0: displayTitle });
 
   return (
     <OGDialog open={isOpen} onOpenChange={onOpenChange}>

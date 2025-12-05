@@ -175,12 +175,10 @@ export class MCPConnectionFactory {
               config?.oauth,
             );
 
-          // Create the flow state so the OAuth callback can find it
-          // We spawn this in the background without waiting for it
-          this.flowManager!.createFlow(flowId, 'mcp_oauth', flowMetadata).catch(() => {
-            // The OAuth callback will resolve this flow, so we expect it to timeout here
-            // which is fine - we just need the flow state to exist
-          });
+          // Create the flow state FIRST so OAuth callback can find it
+          // This must complete before we send the auth URL to the user
+          await this.flowManager!.initializeFlow(flowId, 'mcp_oauth', flowMetadata);
+          logger.debug(`${this.logPrefix} Flow state initialized for ${flowId}`);
 
           if (this.oauthStart) {
             logger.info(`${this.logPrefix} OAuth flow started, issuing authorization URL`);
@@ -272,12 +270,42 @@ export class MCPConnectionFactory {
         if (this.useOAuth && this.isOAuthError(error)) {
           // Only handle OAuth if this is a user connection (has oauthStart handler)
           if (this.oauthStart && !oauthHandled) {
-            const errorWithFlag = error as (Error & { isOAuthError?: boolean }) | undefined;
-            if (errorWithFlag?.isOAuthError) {
-              oauthHandled = true;
-              logger.error(`${this.logPrefix} Handling OAuth`);
-              await this.handleOAuthRequired();
+            oauthHandled = true;
+            logger.info(`${this.logPrefix} OAuth error detected, initiating OAuth flow`);
+            logger.debug(`${this.logPrefix} returnOnOAuth=${this.returnOnOAuth}, useOAuth=${this.useOAuth}`);
+
+            // If returnOnOAuth is true, just initiate OAuth and return immediately
+            // This allows the caller to handle the OAuth URL without waiting
+            if (this.returnOnOAuth) {
+              const serverUrl = (this.serverConfig as t.SSEOptions | t.StreamableHTTPOptions).url;
+              try {
+                const { authorizationUrl, flowId, flowMetadata } =
+                  await MCPOAuthHandler.initiateOAuthFlow(
+                    this.serverName,
+                    serverUrl,
+                    this.userId!,
+                    this.serverConfig.oauth_headers ?? {},
+                    this.serverConfig.oauth,
+                  );
+
+                // Create the flow state FIRST so OAuth callback can find it
+                // This must complete before we send the auth URL to the user
+                await this.flowManager!.initializeFlow(flowId, 'mcp_oauth', flowMetadata);
+                logger.debug(`${this.logPrefix} Flow state initialized for ${flowId}`);
+
+                if (this.oauthStart) {
+                  logger.info(`${this.logPrefix} OAuth flow started, issuing authorization URL`);
+                  await this.oauthStart(authorizationUrl);
+                }
+              } catch (oauthError) {
+                logger.error(`${this.logPrefix} Failed to initiate OAuth flow`, oauthError);
+              }
+              // Throw immediately with clear message for returnOnOAuth case
+              throw new Error('OAuth flow initiated - return early');
             }
+
+            // Normal blocking OAuth flow
+            await this.handleOAuthRequired();
           }
           // Don't retry on OAuth errors - just throw
           logger.error(`${this.logPrefix} OAuth required, stopping connection attempts`);
@@ -299,15 +327,21 @@ export class MCPConnectionFactory {
       return false;
     }
 
-    // Check for SSE error with 401 status
+    // Check for error message patterns indicating auth failure
     if ('message' in error && typeof error.message === 'string') {
-      return error.message.includes('401') || error.message.includes('Non-200 status code (401)');
+      const msg = error.message.toLowerCase();
+      return (
+        msg.includes('401') ||
+        msg.includes('unauthorized') ||
+        msg.includes('missing or invalid bearer') ||
+        msg.includes('non-200 status code (401)')
+      );
     }
 
     // Check for error code
     if ('code' in error) {
       const code = (error as { code?: number }).code;
-      return code === 401 || code === 403;
+      return code === 401 || code === 403 || code === -32001; // -32001 is JSON-RPC unauthorized
     }
 
     return false;

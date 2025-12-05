@@ -78,6 +78,7 @@ const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> 
             />,
             'push',
             actions,
+            40, // 40% width for attachment preview
           );
         };
 
@@ -92,6 +93,8 @@ const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> 
             onSetHeaderActions={handleSetHeaderActions}
           />,
           'push',
+          undefined,
+          40, // 40% width for attachment preview
         );
       } catch (error) {
         console.error('[DocPreview] Failed to load file:', error);
@@ -137,7 +140,7 @@ const FileAttachment = memo(({ attachment }: { attachment: Partial<TAttachment> 
         onClick={handleClick}
         overrideType={extension}
         containerClassName="max-w-fit"
-        buttonClassName="bg-surface-secondary hover:cursor-pointer hover:bg-surface-hover active:bg-surface-secondary focus:bg-surface-hover hover:border-border-heavy active:border-border-heavy"
+        buttonClassName="hover:cursor-pointer"
       />
     </div>
   );

@@ -476,7 +476,9 @@ async function checkOAuthFlowStatus(userId, serverName) {
       return { hasActiveFlow: false, hasFailedFlow: false };
     }
 
-    const flowAge = Date.now() - flowState.createdAt;
+    // Ensure createdAt is valid, default to 0 (treat as expired) if missing
+    const createdAt = flowState.createdAt || 0;
+    const flowAge = Date.now() - createdAt;
     const flowTTL = flowState.ttl || 180000; // Default 3 minutes
 
     if (flowState.status === 'FAILED' || flowAge > flowTTL) {
@@ -584,14 +586,21 @@ async function getServerConnectionStatus(userId, serverName, oauthServers, token
 
     // Token exists - check expiration
     const now = new Date();
-    const expiresAt = token.expiresAt ? new Date(token.expiresAt) : null;
+    let expiresAt = token.expiresAt ? new Date(token.expiresAt) : null;
+    
+    // Handle invalid dates (NaN check)
+    if (expiresAt && isNaN(expiresAt.getTime())) {
+      logger.warn(`${logPrefix} Invalid expiresAt date value: ${token.expiresAt}, treating as no expiry`);
+      expiresAt = null; // Treat invalid date as no expiry
+    }
+    
     const isExpired = expiresAt && expiresAt < now;
     const hasRefreshToken = !!token.refreshToken;
 
     logger.debug(`${logPrefix} Token state`, {
       hasAccessToken: !!token.accessToken,
       hasRefreshToken,
-      expiresAt: expiresAt?.toISOString(),
+      expiresAt: expiresAt?.toISOString() || null,
       isExpired,
     });
 

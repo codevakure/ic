@@ -258,6 +258,31 @@ export class FlowStateManager<T = unknown> {
   }
 
   /**
+   * Initializes a flow state without waiting for completion.
+   * Use this when you need to create the flow state first, then trigger an external
+   * process (like OAuth) that will complete the flow via completeFlow().
+   */
+  async initializeFlow(flowId: string, type: string, metadata: FlowMetadata = {}): Promise<void> {
+    const flowKey = this.getFlowKey(flowId, type);
+
+    const existingState = (await this.keyv.get(flowKey)) as FlowState<T> | undefined;
+    if (existingState) {
+      logger.debug(`[${flowKey}] Flow already exists, skipping initialization`);
+      return;
+    }
+
+    const initialState: FlowState = {
+      type,
+      status: 'PENDING',
+      metadata,
+      createdAt: Date.now(),
+    };
+
+    logger.debug(`[${flowKey}] Initializing flow state`);
+    await this.keyv.set(flowKey, initialState, this.ttl);
+  }
+
+  /**
    * Creates a new flow and waits for its completion, only executing the handler if no existing flow is found
    * @param flowId - The ID of the flow
    * @param type - The type of flow

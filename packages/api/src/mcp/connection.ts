@@ -605,6 +605,15 @@ export class MCPConnection extends EventEmitter {
 
   private setupTransportErrorHandlers(transport: Transport): void {
     transport.onerror = (error) => {
+      // Check if this is a normal SSE stream closure (expected behavior in stateless MCP)
+      const errorString = String(error);
+      const errorMessage = (error as Error)?.message || errorString;
+      const isNormalClosure =
+        errorString.includes('terminated') ||
+        errorString.includes('AbortError') ||
+        errorMessage.includes('terminated') ||
+        errorMessage.includes('AbortError');
+
       if (error && typeof error === 'object' && 'code' in error) {
         const errorCode = (error as unknown as { code?: number }).code;
 
@@ -624,9 +633,15 @@ export class MCPConnection extends EventEmitter {
         }
       }
 
-      logger.error(`${this.getLogPrefix()} Transport error:`, error);
+      // Only log actual errors, not normal SSE closures
+      if (!isNormalClosure) {
+        logger.error(`${this.getLogPrefix()} Transport error:`, error);
+      }
 
-      this.emit('connectionChange', 'error');
+      // Don't emit error state for normal SSE closures - this prevents auto-reconnect
+      if (!isNormalClosure) {
+        this.emit('connectionChange', 'error');
+      }
     };
   }
 

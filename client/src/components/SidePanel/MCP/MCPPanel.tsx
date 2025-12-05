@@ -51,6 +51,7 @@ function MCPPanelContent() {
     }
     return Object.entries(startupConfig.mcpServers).map(([serverName, config]) => ({
       serverName,
+      title: (config as { title?: string }).title || serverName,
       iconPath: null,
       config: {
         ...config,
@@ -194,10 +195,10 @@ function MCPPanelContent() {
                   variant="outline"
                   className="flex-1 justify-start dark:hover:bg-gray-700"
                   onClick={() => handleServerClickToEdit(server.serverName)}
-                  aria-label={localize('com_ui_edit') + ' ' + server.serverName}
+                  aria-label={localize('com_ui_edit') + ' ' + server.title}
                 >
                   <div className="flex items-center gap-2">
-                    <span>{server.serverName}</span>
+                    <span>{server.title}</span>
                     {serverStatus && (
                       <span
                         className={`rounded-xl px-2 py-0.5 text-xs ${

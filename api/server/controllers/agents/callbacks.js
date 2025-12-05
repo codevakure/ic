@@ -497,6 +497,8 @@ function createToolEndCallback({ req, res, artifactPromises }) {
       );
     }
   };
+
+  return toolEndCallback;
 }
 
 module.exports = {
