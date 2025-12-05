@@ -4,7 +4,12 @@ import { Label, OGDialog, TrashIcon, OGDialogTrigger, OGDialogTemplate } from '@
 import { useLocalize, useRemoveMCPTool } from '~/hooks';
 import { cn } from '~/utils';
 
-export default function UnconfiguredMCPTool({ serverName }: { serverName?: string }) {
+interface UnconfiguredMCPToolProps {
+  serverName?: string;
+  serverTitle?: string;
+}
+
+export default function UnconfiguredMCPTool({ serverName, serverTitle }: UnconfiguredMCPToolProps) {
   const localize = useLocalize();
   const { removeTool } = useRemoveMCPTool();
 
@@ -14,6 +19,8 @@ export default function UnconfiguredMCPTool({ serverName }: { serverName?: strin
   if (!serverName) {
     return null;
   }
+
+  const displayName = serverTitle || serverName;
 
   return (
     <OGDialog>
@@ -38,7 +45,7 @@ export default function UnconfiguredMCPTool({ serverName }: { serverName?: strin
           <div
             className="grow select-none overflow-hidden truncate break-all px-2 py-1.5"
           >
-            {serverName}
+            {displayName}
             <span className="ml-2 text-xs text-text-secondary">
               {' - '}
               {localize('com_ui_unavailable')}
@@ -53,7 +60,7 @@ export default function UnconfiguredMCPTool({ serverName }: { serverName?: strin
               'flex h-7 w-7 items-center justify-center rounded transition-all duration-200 hover:bg-surface-active-alt focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
               isHovering || isFocused ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
-            aria-label={`Delete ${serverName}`}
+            aria-label={`Delete ${displayName}`}
             tabIndex={0}
             onFocus={() => setIsFocused(true)}
           >

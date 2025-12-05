@@ -31,7 +31,7 @@ function MCPToolSelectDialog({
 }) {
   const localize = useLocalize();
   const queryClient = useQueryClient();
-  const { initializeServer } = useMCPServerManager();
+  const { initializeServer, getDisplayName } = useMCPServerManager();
   const { getValues, setValue } = useFormContext<AgentForm>();
   const { removeTool } = useRemoveMCPTool({ showToast: false });
   const { mcpServersMap, startupConfig } = useAgentPanelContext();
@@ -294,7 +294,7 @@ function MCPToolSelectDialog({
             <div className="p-4 sm:p-6 sm:pt-4">
               <div className="mb-4">
                 <p className="text-sm text-text-secondary">
-                  {localize('com_ui_mcp_configure_server_description', { 0: configuringServer })}
+                  {localize('com_ui_mcp_configure_server_description', { 0: getDisplayName(configuringServer) })}
                 </p>
               </div>
               <CustomUserVarsSection
@@ -340,7 +340,7 @@ function MCPToolSelectDialog({
                       tool_id: serverInfo.serverName,
                       metadata: {
                         ...serverInfo.metadata,
-                        description: `${localize('com_ui_tool_collection_prefix')} ${serverInfo.serverName}`,
+                        description: `${localize('com_ui_tool_collection_prefix')} ${getDisplayName(serverInfo.serverName)}`,
                       },
                     };
 

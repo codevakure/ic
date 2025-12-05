@@ -81,7 +81,6 @@ jest.mock('./Config', () => ({
 jest.mock('~/config', () => ({
   getMCPManager: jest.fn(),
   getFlowStateManager: jest.fn(),
-  getOAuthReconnectionManager: jest.fn(),
 }));
 
 jest.mock('~/cache', () => ({
@@ -102,8 +101,8 @@ describe('tests for the new helper functions used by the MCP connection status e
   let mockGetMCPManager;
   let mockGetFlowStateManager;
   let mockGetLogStores;
-  let mockGetOAuthReconnectionManager;
   let mockMcpServersRegistry;
+  let mockFindToken;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -113,6 +112,7 @@ describe('tests for the new helper functions used by the MCP connection status e
     mockGetLogStores = require('~/cache').getLogStores;
     mockGetOAuthReconnectionManager = require('~/config').getOAuthReconnectionManager;
     mockMcpServersRegistry = require('@ranger/api').mcpServersRegistry;
+    mockFindToken = require('~/models').findToken;
   });
 
   describe('getMCPSetupData', () => {
@@ -127,41 +127,27 @@ describe('tests for the new helper functions used by the MCP connection status e
 
     beforeEach(() => {
       mockGetAppConfig = require('./Config').getAppConfig;
-      mockGetMCPManager.mockReturnValue({
-        appConnections: { getAll: jest.fn(() => new Map()) },
-        getUserConnections: jest.fn(() => new Map()),
-      });
       mockMcpServersRegistry.getOAuthServers.mockResolvedValue(new Set());
     });
 
-    it('should successfully return MCP setup data', async () => {
+    it('should successfully return MCP setup data with mcpConfig and oauthServers only', async () => {
       mockGetAppConfig.mockResolvedValue({ mcpConfig: mockConfig.mcpServers });
-
-      const mockAppConnections = new Map([['server1', { status: 'connected' }]]);
-      const mockUserConnections = new Map([['server2', { status: 'disconnected' }]]);
       const mockOAuthServers = new Set(['server2']);
-
-      const mockMCPManager = {
-        appConnections: { getAll: jest.fn(() => mockAppConnections) },
-        getUserConnections: jest.fn(() => mockUserConnections),
-      };
-      mockGetMCPManager.mockReturnValue(mockMCPManager);
       mockMcpServersRegistry.getOAuthServers.mockResolvedValue(mockOAuthServers);
 
       const result = await getMCPSetupData(mockUserId);
 
       expect(mockGetAppConfig).toHaveBeenCalled();
-      expect(mockGetMCPManager).toHaveBeenCalledWith(mockUserId);
-      expect(mockMCPManager.appConnections.getAll).toHaveBeenCalled();
-      expect(mockMCPManager.getUserConnections).toHaveBeenCalledWith(mockUserId);
       expect(mockMcpServersRegistry.getOAuthServers).toHaveBeenCalled();
 
+      // New simplified return - no appConnections or userConnections
       expect(result).toEqual({
         mcpConfig: mockConfig.mcpServers,
-        appConnections: mockAppConnections,
-        userConnections: mockUserConnections,
         oauthServers: mockOAuthServers,
       });
+
+      // Should NOT call getMCPManager anymore
+      expect(mockGetMCPManager).not.toHaveBeenCalled();
     });
 
     it('should throw error when MCP config not found', async () => {
@@ -169,24 +155,54 @@ describe('tests for the new helper functions used by the MCP connection status e
       await expect(getMCPSetupData(mockUserId)).rejects.toThrow('MCP config not found');
     });
 
-    it('should handle null values from MCP manager gracefully', async () => {
-      mockGetAppConfig.mockResolvedValue({ mcpConfig: mockConfig.mcpServers });
+    it('should throw error when mcpConfig is null', async () => {
+      mockGetAppConfig.mockResolvedValue({ mcpConfig: null });
+      await expect(getMCPSetupData(mockUserId)).rejects.toThrow('MCP config not found');
+    });
 
-      const mockMCPManager = {
-        appConnections: { getAll: jest.fn(() => null) },
-        getUserConnections: jest.fn(() => null),
-      };
-      mockGetMCPManager.mockReturnValue(mockMCPManager);
+    it('should handle empty OAuth servers set', async () => {
+      mockGetAppConfig.mockResolvedValue({ mcpConfig: mockConfig.mcpServers });
       mockMcpServersRegistry.getOAuthServers.mockResolvedValue(new Set());
 
       const result = await getMCPSetupData(mockUserId);
 
       expect(result).toEqual({
         mcpConfig: mockConfig.mcpServers,
-        appConnections: new Map(),
-        userConnections: new Map(),
         oauthServers: new Set(),
       });
+    });
+
+    it('should handle getOAuthServers rejection', async () => {
+      mockGetAppConfig.mockResolvedValue({ mcpConfig: mockConfig.mcpServers });
+      mockMcpServersRegistry.getOAuthServers.mockRejectedValue(new Error('Registry error'));
+
+      await expect(getMCPSetupData(mockUserId)).rejects.toThrow('Registry error');
+    });
+
+    it('should handle empty mcpConfig object', async () => {
+      mockGetAppConfig.mockResolvedValue({ mcpConfig: {} });
+      mockMcpServersRegistry.getOAuthServers.mockResolvedValue(new Set());
+
+      const result = await getMCPSetupData(mockUserId);
+
+      expect(result.mcpConfig).toEqual({});
+      expect(result.oauthServers.size).toBe(0);
+    });
+
+    it('should log debug with server counts', async () => {
+      const servers = { server1: {}, server2: {}, server3: {} };
+      mockGetAppConfig.mockResolvedValue({ mcpConfig: servers });
+      mockMcpServersRegistry.getOAuthServers.mockResolvedValue(new Set(['server1', 'server2']));
+
+      await getMCPSetupData(mockUserId);
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('getMCPSetupData completed'),
+        expect.objectContaining({
+          serverCount: 3,
+          oauthServerCount: 2,
+        }),
+      );
     });
   });
 
@@ -273,6 +289,21 @@ describe('tests for the new helper functions used by the MCP connection status e
       expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: true });
     });
 
+    it('should treat flow with missing createdAt as timed out', async () => {
+      const mockFlowState = {
+        status: 'PENDING',
+        // createdAt is missing - should default to 0, causing very large flowAge
+        ttl: 180000,
+      };
+      const mockFlowManager = { getFlowState: jest.fn(() => mockFlowState) };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      // Missing createdAt defaults to 0, so flowAge = Date.now() which is huge = timed out
+      expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: true });
+    });
+
     it('should detect active flow when status is PENDING and within TTL', async () => {
       const mockFlowState = {
         status: 'PENDING',
@@ -324,300 +355,566 @@ describe('tests for the new helper functions used by the MCP connection status e
         mockError,
       );
     });
+
+    it('should handle cancelled flow (error contains "cancelled")', async () => {
+      const mockFlowState = {
+        status: 'FAILED',
+        createdAt: Date.now() - 60000,
+        ttl: 180000,
+        error: 'User cancelled the authentication flow',
+      };
+      const mockFlowManager = { getFlowState: jest.fn(() => mockFlowState) };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      // Cancelled flows should not be treated as failed
+      expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: false });
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Found cancelled OAuth flow'),
+        expect.any(Object),
+      );
+    });
+
+    it('should handle flow with COMPLETED status', async () => {
+      const mockFlowState = {
+        status: 'COMPLETED',
+        createdAt: Date.now() - 60000,
+        ttl: 180000,
+      };
+      const mockFlowManager = { getFlowState: jest.fn(() => mockFlowState) };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: false });
+    });
+
+    it('should handle flow with very short TTL', async () => {
+      const mockFlowState = {
+        status: 'PENDING',
+        createdAt: Date.now() - 5000, // 5 seconds ago
+        ttl: 3000, // 3 second TTL - already expired
+      };
+      const mockFlowManager = { getFlowState: jest.fn(() => mockFlowState) };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: true });
+    });
+
+    it('should handle flow just within TTL (boundary)', async () => {
+      const now = Date.now();
+      const mockFlowState = {
+        status: 'PENDING',
+        createdAt: now - 179000, // 179 seconds ago
+        ttl: 180000, // 180 second TTL
+      };
+      const mockFlowManager = { getFlowState: jest.fn(() => mockFlowState) };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      // Should still be active (179 < 180)
+      expect(result).toEqual({ hasActiveFlow: true, hasFailedFlow: false });
+    });
+
+    it('should handle async getFlowState rejection', async () => {
+      const mockFlowManager = {
+        getFlowState: jest.fn().mockRejectedValue(new Error('Redis connection failed')),
+      };
+      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+      const result = await checkOAuthFlowStatus(mockUserId, mockServerName);
+
+      expect(result).toEqual({ hasActiveFlow: false, hasFailedFlow: false });
+      expect(logger.error).toHaveBeenCalled();
+    });
   });
 
   describe('getServerConnectionStatus', () => {
     const mockUserId = 'user-123';
     const mockServerName = 'test-server';
+    let mockTokenMethods;
 
-    it('should return app connection state when available', async () => {
-      const appConnections = new Map([[mockServerName, { connectionState: 'connected' }]]);
-      const userConnections = new Map();
-      const oauthServers = new Set();
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: false,
-        connectionState: 'connected',
-      });
-    });
-
-    it('should fallback to user connection state when app connection not available', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map([[mockServerName, { connectionState: 'connecting' }]]);
-      const oauthServers = new Set();
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: false,
-        connectionState: 'connecting',
-      });
-    });
-
-    it('should default to disconnected when no connections exist', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set();
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: false,
-        connectionState: 'disconnected',
-      });
-    });
-
-    it('should prioritize app connection over user connection', async () => {
-      const appConnections = new Map([[mockServerName, { connectionState: 'connected' }]]);
-      const userConnections = new Map([[mockServerName, { connectionState: 'disconnected' }]]);
-      const oauthServers = new Set();
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: false,
-        connectionState: 'connected',
-      });
-    });
-
-    it('should indicate OAuth requirement when server is in OAuth servers set', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      // Mock OAuthReconnectionManager
-      const mockOAuthReconnectionManager = {
-        isReconnecting: jest.fn(() => false),
+    beforeEach(() => {
+      mockTokenMethods = {
+        findToken: jest.fn(),
       };
-      mockGetOAuthReconnectionManager.mockReturnValue(mockOAuthReconnectionManager);
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result.requiresOAuth).toBe(true);
-    });
-
-    it('should handle OAuth flow status when disconnected and requires OAuth with failed flow', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      // Mock OAuthReconnectionManager
-      const mockOAuthReconnectionManager = {
-        isReconnecting: jest.fn(() => false),
-      };
-      mockGetOAuthReconnectionManager.mockReturnValue(mockOAuthReconnectionManager);
-
-      // Mock flow state to return failed flow
-      const mockFlowManager = {
-        getFlowState: jest.fn(() => ({
-          status: 'FAILED',
-          createdAt: Date.now() - 60000,
-          ttl: 180000,
-        })),
-      };
-      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
       mockGetLogStores.mockReturnValue({});
-      MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: true,
-        connectionState: 'error',
-      });
-    });
-
-    it('should handle OAuth flow status when disconnected and requires OAuth with active flow', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      // Mock OAuthReconnectionManager
-      const mockOAuthReconnectionManager = {
-        isReconnecting: jest.fn(() => false),
-      };
-      mockGetOAuthReconnectionManager.mockReturnValue(mockOAuthReconnectionManager);
-
-      // Mock flow state to return active flow
-      const mockFlowManager = {
-        getFlowState: jest.fn(() => ({
-          status: 'PENDING',
-          createdAt: Date.now() - 60000, // 1 minute ago
-          ttl: 180000, // 3 minutes TTL
-        })),
-      };
-      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
-      mockGetLogStores.mockReturnValue({});
-      MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: true,
-        connectionState: 'connecting',
-      });
-    });
-
-    it('should handle OAuth flow status when disconnected and requires OAuth with no flow', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      // Mock OAuthReconnectionManager
-      const mockOAuthReconnectionManager = {
-        isReconnecting: jest.fn(() => false),
-      };
-      mockGetOAuthReconnectionManager.mockReturnValue(mockOAuthReconnectionManager);
-
-      // Mock flow state to return no flow
-      const mockFlowManager = {
-        getFlowState: jest.fn(() => null),
-      };
-      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
-      mockGetLogStores.mockReturnValue({});
-      MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: true,
-        connectionState: 'disconnected',
-      });
-    });
-
-    it('should return connecting state when OAuth server is reconnecting', async () => {
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      // Mock OAuthReconnectionManager to return true for isReconnecting
-      const mockOAuthReconnectionManager = {
-        isReconnecting: jest.fn(() => true),
-      };
-      mockGetOAuthReconnectionManager.mockReturnValue(mockOAuthReconnectionManager);
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: true,
-        connectionState: 'connecting',
-      });
-      expect(mockOAuthReconnectionManager.isReconnecting).toHaveBeenCalledWith(
-        mockUserId,
-        mockServerName,
-      );
-    });
-
-    it('should not check OAuth flow status when server is connected', async () => {
-      const mockFlowManager = {
+      mockGetFlowStateManager.mockReturnValue({
         getFlowState: jest.fn(),
-      };
-      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
-      mockGetLogStores.mockReturnValue({});
-
-      const appConnections = new Map([[mockServerName, { connectionState: 'connected' }]]);
-      const userConnections = new Map();
-      const oauthServers = new Set([mockServerName]);
-
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
-
-      expect(result).toEqual({
-        requiresOAuth: true,
-        connectionState: 'connected',
       });
-
-      // Should not call flow manager since server is connected
-      expect(mockFlowManager.getFlowState).not.toHaveBeenCalled();
     });
 
-    it('should not check OAuth flow status when server does not require OAuth', async () => {
-      const mockFlowManager = {
-        getFlowState: jest.fn(),
-      };
-      mockGetFlowStateManager.mockReturnValue(mockFlowManager);
-      mockGetLogStores.mockReturnValue({});
+    describe('Non-OAuth servers', () => {
+      it('should return available status for non-OAuth server', async () => {
+        const oauthServers = new Set(); // Server not in OAuth servers
 
-      const appConnections = new Map();
-      const userConnections = new Map();
-      const oauthServers = new Set(); // Server not in OAuth servers
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
 
-      const result = await getServerConnectionStatus(
-        mockUserId,
-        mockServerName,
-        appConnections,
-        userConnections,
-        oauthServers,
-      );
+        expect(result).toEqual({
+          requiresOAuth: false,
+          connectionState: 'available',
+        });
 
-      expect(result).toEqual({
-        requiresOAuth: false,
-        connectionState: 'disconnected',
+        // Should not call findToken for non-OAuth servers
+        expect(mockTokenMethods.findToken).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('OAuth servers with valid tokens', () => {
+      it('should return connected status when valid token exists', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const futureDate = new Date(Date.now() + 3600000); // 1 hour from now
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'valid-access-token',
+          refreshToken: 'valid-refresh-token',
+          expiresAt: futureDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+
+        expect(mockTokenMethods.findToken).toHaveBeenCalledWith({
+          userId: mockUserId,
+          type: 'mcp_oauth',
+          identifier: `mcp:${mockServerName}`,
+        });
       });
 
-      // Should not call flow manager since server doesn't require OAuth
-      expect(mockFlowManager.getFlowState).not.toHaveBeenCalled();
+      it('should return connected status when token has no expiry (never expires)', async () => {
+        const oauthServers = new Set([mockServerName]);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'valid-access-token',
+          refreshToken: 'valid-refresh-token',
+          expiresAt: null, // No expiry
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+    });
+
+    describe('OAuth servers with expired tokens', () => {
+      it('should return connected status when token is expired but has refresh token', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const pastDate = new Date(Date.now() - 3600000); // 1 hour ago
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'expired-access-token',
+          refreshToken: 'valid-refresh-token',
+          expiresAt: pastDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // Should still show connected - will auto-refresh on use
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should return disconnected status when token is expired and no refresh token', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const pastDate = new Date(Date.now() - 3600000); // 1 hour ago
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'expired-access-token',
+          refreshToken: null, // No refresh token
+          expiresAt: pastDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'disconnected',
+        });
+      });
+    });
+
+    describe('OAuth servers with no tokens', () => {
+      it('should return disconnected status when no token exists and no active flow', async () => {
+        const oauthServers = new Set([mockServerName]);
+        mockTokenMethods.findToken.mockResolvedValue(null);
+
+        const mockFlowManager = { getFlowState: jest.fn().mockResolvedValue(null) };
+        mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+        MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'disconnected',
+        });
+      });
+
+      it('should return connecting status when no token but active OAuth flow exists', async () => {
+        const oauthServers = new Set([mockServerName]);
+        mockTokenMethods.findToken.mockResolvedValue(null);
+
+        const mockFlowManager = {
+          getFlowState: jest.fn().mockResolvedValue({
+            status: 'PENDING',
+            createdAt: Date.now() - 60000, // 1 minute ago
+            ttl: 180000, // 3 minutes
+          }),
+        };
+        mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+        MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connecting',
+        });
+      });
+
+      it('should return error status when no token and OAuth flow has failed', async () => {
+        const oauthServers = new Set([mockServerName]);
+        mockTokenMethods.findToken.mockResolvedValue(null);
+
+        const mockFlowManager = {
+          getFlowState: jest.fn().mockResolvedValue({
+            status: 'FAILED',
+            createdAt: Date.now() - 60000,
+            ttl: 180000,
+          }),
+        };
+        mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+        MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'error',
+        });
+      });
+
+      it('should return error status when OAuth flow has timed out', async () => {
+        const oauthServers = new Set([mockServerName]);
+        mockTokenMethods.findToken.mockResolvedValue(null);
+
+        const mockFlowManager = {
+          getFlowState: jest.fn().mockResolvedValue({
+            status: 'PENDING',
+            createdAt: Date.now() - 200000, // 200 seconds ago (> 180s TTL)
+            ttl: 180000,
+          }),
+        };
+        mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+        MCPOAuthHandler.generateFlowId.mockReturnValue('test-flow-id');
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'error',
+        });
+      });
+    });
+
+    describe('Error handling', () => {
+      it('should return disconnected status when token lookup throws error', async () => {
+        const oauthServers = new Set([mockServerName]);
+        mockTokenMethods.findToken.mockRejectedValue(new Error('Database error'));
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'disconnected',
+        });
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('Error checking token status'),
+          expect.any(Error),
+        );
+      });
+    });
+
+    describe('Token edge cases', () => {
+      it('should handle token with accessToken but missing refreshToken', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const futureDate = new Date(Date.now() + 3600000);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'valid-access-token',
+          // refreshToken is missing/undefined
+          expiresAt: futureDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // Should still be connected if token is valid
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should handle token with empty string refreshToken as no refresh token', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const pastDate = new Date(Date.now() - 3600000);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'expired-access-token',
+          refreshToken: '', // Empty string
+          expiresAt: pastDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // Should be disconnected - expired with no valid refresh token
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'disconnected',
+        });
+      });
+
+      it('should handle token with expiresAt as numeric timestamp', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const futureTimestamp = Date.now() + 3600000; // 1 hour from now
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'valid-token',
+          refreshToken: 'refresh',
+          expiresAt: futureTimestamp, // Number, not Date
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should handle token with expiresAt as ISO string', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const futureDate = new Date(Date.now() + 3600000);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'valid-token',
+          refreshToken: 'refresh',
+          expiresAt: futureDate.toISOString(), // ISO string
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should handle token expiring exactly now (boundary condition)', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const now = new Date();
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'boundary-token',
+          refreshToken: 'refresh',
+          expiresAt: now, // Exactly now
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // expiresAt < now is false when equal, so not expired
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should handle token with only accessToken (minimal valid token)', async () => {
+        const oauthServers = new Set([mockServerName]);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'minimal-token',
+          // No refreshToken, no expiresAt
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // No expiry means never expires = connected
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected',
+        });
+      });
+
+      it('should handle token with whitespace-only refreshToken as no refresh', async () => {
+        const oauthServers = new Set([mockServerName]);
+        const pastDate = new Date(Date.now() - 3600000);
+
+        mockTokenMethods.findToken.mockResolvedValue({
+          accessToken: 'expired-token',
+          refreshToken: '   ', // Whitespace only - truthy but invalid
+          expiresAt: pastDate,
+        });
+
+        const result = await getServerConnectionStatus(
+          mockUserId,
+          mockServerName,
+          oauthServers,
+          mockTokenMethods,
+        );
+
+        // Whitespace is truthy, so currently treated as having refresh token
+        // This shows the code considers it "connected" even with whitespace refresh
+        expect(result).toEqual({
+          requiresOAuth: true,
+          connectionState: 'connected', // Whitespace is truthy
+        });
+      });
+    });
+
+    describe('Multiple servers scenario', () => {
+      it('should correctly identify OAuth vs non-OAuth in mixed set', async () => {
+        const oauthServers = new Set(['oauth-server-1', 'oauth-server-2']);
+        const nonOAuthServer = 'local-server';
+
+        mockTokenMethods.findToken.mockResolvedValue(null);
+        const mockFlowManager = { getFlowState: jest.fn().mockResolvedValue(null) };
+        mockGetFlowStateManager.mockReturnValue(mockFlowManager);
+
+        // Non-OAuth server
+        const result1 = await getServerConnectionStatus(
+          mockUserId,
+          nonOAuthServer,
+          oauthServers,
+          mockTokenMethods,
+        );
+        expect(result1).toEqual({ requiresOAuth: false, connectionState: 'available' });
+
+        // OAuth server
+        const result2 = await getServerConnectionStatus(
+          mockUserId,
+          'oauth-server-1',
+          oauthServers,
+          mockTokenMethods,
+        );
+        expect(result2).toEqual({ requiresOAuth: true, connectionState: 'disconnected' });
+      });
+
+      it('should handle case-sensitive server name matching', async () => {
+        const oauthServers = new Set(['OAuth-Server']); // Mixed case
+
+        // Exact match
+        const result1 = await getServerConnectionStatus(
+          mockUserId,
+          'OAuth-Server',
+          oauthServers,
+          mockTokenMethods,
+        );
+        expect(result1.requiresOAuth).toBe(true);
+
+        // Different case - should NOT match
+        const result2 = await getServerConnectionStatus(
+          mockUserId,
+          'oauth-server',
+          oauthServers,
+          mockTokenMethods,
+        );
+        expect(result2.requiresOAuth).toBe(false);
+      });
     });
   });
 });

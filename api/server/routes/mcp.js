@@ -170,18 +170,6 @@ router.get('/:serverName/oauth/callback', async (req, res) => {
         logger.error('[MCP OAuth] Failed to store OAuth tokens after callback', error);
         throw error;
       }
-
-      /**
-       * Clear any cached `mcp_get_tokens` flow result so subsequent lookups
-       * re-fetch the freshly stored credentials instead of returning stale nulls.
-       */
-      if (typeof flowManager?.deleteFlow === 'function') {
-        try {
-          await flowManager.deleteFlow(flowId, 'mcp_get_tokens');
-        } catch (error) {
-          logger.warn('[MCP OAuth] Failed to clear cached token flow state', error);
-        }
-      }
     }
 
     try {

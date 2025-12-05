@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Button } from '@ranger/client';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { Button, Microsoft365Icon } from '@ranger/client';
 import { TriangleAlert } from 'lucide-react';
 import { useRecoilValue } from 'recoil';
 import { useAtomValue } from 'jotai';
@@ -7,12 +7,18 @@ import { actionDelimiter, actionDomainSeparator, Constants } from 'ranger-data-p
 import type { TAttachment } from 'ranger-data-provider';
 import { hideCompletedToolCallsAtom } from '~/store/hideCompletedToolCalls';
 import { useLocalize, useProgress } from '~/hooks';
+import { useGetStartupConfig } from '~/data-provider';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
 import ProgressText from './ProgressText';
 import { toTitleCase } from '~/utils/titleCase';
 import { logger, cn } from '~/utils';
 import store from '~/store';
+
+// Map of available icons for MCP servers
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Microsoft365Icon,
+};
 
 export default function ToolCall({
   initialProgress = 0.1,
@@ -37,6 +43,7 @@ export default function ToolCall({
   const localize = useLocalize();
   const showToolCallDetails = useRecoilValue(store.showToolCallDetails);
   const hideCompletedToolCalls = useAtomValue(hideCompletedToolCallsAtom);
+  const { data: startupConfig } = useGetStartupConfig();
   const [showInfo, setShowInfo] = useState(false); // Default to collapsed
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(0);
@@ -64,6 +71,24 @@ export default function ToolCall({
       isMCPToolCall: false,
     };
   }, [name]);
+
+  // Get server title and icon from MCP config for better login button display
+  const { serverTitle, serverIcon } = useMemo(() => {
+    if (!domain || !startupConfig?.mcpServers) {
+      return { serverTitle: null, serverIcon: null };
+    }
+    
+    const serverConfig = startupConfig.mcpServers[domain];
+    if (!serverConfig) {
+      return { serverTitle: null, serverIcon: null };
+    }
+    
+    const title = (serverConfig as { title?: string }).title || null;
+    const iconPath = (serverConfig as { iconPath?: string }).iconPath;
+    const IconComponent = iconPath ? iconMap[iconPath] : null;
+    
+    return { serverTitle: title, serverIcon: IconComponent };
+  }, [domain, startupConfig?.mcpServers]);
 
   const error =
     typeof output === 'string' && output.toLowerCase().includes('error processing tool');
@@ -261,12 +286,13 @@ export default function ToolCall({
         <div className="flex w-full flex-col gap-2.5">
           <div className="mb-1 mt-2">
             <Button
-              className="font-mediu inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm"
+              className="font-medium inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm"
               variant="default"
               rel="noopener noreferrer"
               onClick={() => window.open(auth, '_blank', 'noopener,noreferrer')}
             >
-              {localize('com_ui_sign_in_to_domain', { 0: authDomain })}
+              {serverIcon && React.createElement(serverIcon, { className: "h-4 w-4" })}
+              {serverTitle ? `Login to ${serverTitle}` : localize('com_ui_sign_in_to_domain', { 0: authDomain })}
             </Button>
           </div>
           <p className="flex items-center text-xs text-text-warning">

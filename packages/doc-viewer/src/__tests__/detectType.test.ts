@@ -19,6 +19,10 @@ describe('detectType', () => {
       expect(detectFromExtension('document.pdf')).toBe(DocumentType.PDF);
     });
 
+    it('should detect CSV', () => {
+      expect(detectFromExtension('data.csv')).toBe(DocumentType.CSV);
+    });
+
     it('should return UNKNOWN for unsupported extensions', () => {
       expect(detectFromExtension('file.txt')).toBe(DocumentType.UNKNOWN);
     });
@@ -37,6 +41,11 @@ describe('detectType', () => {
 
     it('should detect PDF from MIME type', () => {
       expect(detectFromMimeType('application/pdf')).toBe(DocumentType.PDF);
+    });
+
+    it('should detect CSV from MIME type', () => {
+      expect(detectFromMimeType('text/csv')).toBe(DocumentType.CSV);
+      expect(detectFromMimeType('application/csv')).toBe(DocumentType.CSV);
     });
   });
 

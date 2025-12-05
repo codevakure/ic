@@ -59,10 +59,10 @@ function buildClassificationPrompt(
   // Simple tool list
   const toolList = availableTools.map(t => {
     switch(t) {
-      case Tool.WEB_SEARCH: return 'web_search: search internet for current info, news, prices';
-      case Tool.CODE_INTERPRETER: return 'execute_code: run Python for calculations, data analysis';
-      case Tool.FILE_SEARCH: return 'file_search: search uploaded documents';
-      case Tool.ARTIFACTS: return 'artifacts: create UI components, dashboards';
+      case Tool.WEB_SEARCH: return 'web_search: look up current info from the internet (news, prices, weather, facts)';
+      case Tool.CODE_INTERPRETER: return 'execute_code: do math, work with numbers/data, create downloadable files (presentations, reports, spreadsheets)';
+      case Tool.FILE_SEARCH: return 'file_search: read and answer questions about uploaded files';
+      case Tool.ARTIFACTS: return 'artifacts: build interactive visuals like charts, dashboards, or mini-apps';
       default: return t;
     }
   }).join('\n');
@@ -97,16 +97,16 @@ TIERS:
 - expert: deep research, architecture
 
 RULES:
-1. "search web", "check online", "latest news/prices" → web_search
-2. "analyze data", "calculate", "run code" → execute_code
-3. "in the document", "from the file" → file_search
-4. "create dashboard", "build UI" → artifacts
-5. If user asks to "check web" or "search online" → web_search
-6. If tools selected → tier must be "moderate" or higher
-7. CRITICAL: Short responses (numbers, "yes", "more", etc.) are FOLLOW-UPS to the previous question
-   - Look at CONVERSATION CONTEXT to understand what user wants
-   - Example: if previous was about weather and user says "75247" → they want weather for that zipcode → web_search
-   - Example: if previous used web_search and user says "more details" → continue with web_search
+1. Looking up something online, news, weather, prices → web_search
+2. Math, calculations, working with data, making a file to download (presentation, report, spreadsheet) → execute_code
+3. Questions about an uploaded file ("what does it say", "summarize this") → file_search
+4. Building something visual or interactive → artifacts
+5. If user asks to "check the web" or "search online" → web_search
+6. If any tool is used → tier must be "moderate" or higher
+7. CRITICAL: Short replies like numbers, "yes", "more" are FOLLOW-UPS
+   - Look at CONVERSATION CONTEXT to understand what they really want
+   - Example: previous question was about weather, user says "75247" → they want weather for that zip → web_search
+   - Example: previous used web_search, user says "more details" → continue with web_search
 
 JSON response only:
 {"tools":[],"modelTier":"moderate","reasoning":"brief"}`;

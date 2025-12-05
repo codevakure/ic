@@ -24,6 +24,11 @@ const MIME_TYPE_MAP: Record<string, DocumentType> = {
   
   // PDF
   'application/pdf': DocumentType.PDF,
+  
+  // CSV
+  'text/csv': DocumentType.CSV,
+  'application/csv': DocumentType.CSV,
+  'text/comma-separated-values': DocumentType.CSV,
 };
 
 /**
@@ -52,6 +57,9 @@ const EXTENSION_MAP: Record<string, DocumentType> = {
   
   // PDF
   'pdf': DocumentType.PDF,
+  
+  // CSV
+  'csv': DocumentType.CSV,
 };
 
 /**

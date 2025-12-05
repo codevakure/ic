@@ -5,6 +5,8 @@ import { getConfigDefaults, PermissionTypes, Permissions } from 'ranger-data-pro
 import type { ContextType } from '~/common';
 import ModelSelector from './Menus/Endpoints/ModelSelector';
 import { PresetsMenu, HeaderNewChat, OpenSidebar, FilesButton } from './Menus';
+// TODO: [Work/Web Toggle] - Uncomment when ready to implement Work/Web mode switching
+// import WorkWebToggle from './WorkWebToggle';
 import { useGetStartupConfig } from '~/data-provider';
 import ExportAndShareMenu from './ExportAndShareMenu';
 import BookmarkMenu from './Menus/BookmarkMenu';
@@ -84,6 +86,33 @@ export default function Header() {
             )}
           </div>
         </div>
+
+        {/*
+          * ============================================================================
+          * TODO: [Work/Web Toggle] - FUTURE FEATURE
+          * ============================================================================
+          * This toggle is designed to switch between "Web" mode (general web search)
+          * and "Work" mode (Microsoft 365/enterprise integrations like Outlook, SharePoint).
+          * 
+          * When implementing:
+          * 1. Uncomment the import: import WorkWebToggle from './WorkWebToggle';
+          * 2. Uncomment the JSX below
+          * 3. Wire up the searchMode state in useMCPServerManager.ts to filter
+          *    ms365-mcp based on the toggle state
+          * 4. Filter ephemeralAgent.mcp in useChatFunctions.ts based on searchMode
+          * 
+          * Component location: ./WorkWebToggle.tsx
+          * State atom: store/misc.ts -> searchMode (persisted to localStorage)
+          * ============================================================================
+          */}
+        {/* Work/Web Toggle - Positioned absolutely, centered horizontally
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center">
+          <div className="pointer-events-auto">
+            <WorkWebToggle />
+          </div>
+        </div>
+        */}
+
         {!isSmallScreen && (
           <div className="flex items-center gap-1">
             <FilesButton />

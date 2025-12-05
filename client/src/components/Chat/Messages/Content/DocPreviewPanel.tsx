@@ -1,11 +1,81 @@
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Maximize2, X, Loader2 } from 'lucide-react';
-import { renderDocx, Excel, renderPptx, PDF } from '@ranger/doc-viewer';
+import { renderDocx, Excel, renderPptx, PDF, CSVViewer } from '@ranger/doc-viewer';
 import '@ranger/doc-viewer/styles';
 import { cn } from '~/utils';
 
-export type PreviewableFileType = 'pdf' | 'docx' | 'xlsx' | 'pptx';
+// Custom styles for document preview
+const docPreviewStyles = `
+  /* PPTX slide navigation mode styles */
+  .pptx-preview-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background-color: #525659;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-slide-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-navigation button {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-navigation button:hover {
+    background: #ffffff;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-navigation button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .pptx-preview-wrapper .pptx-preview-navigation .slide-counter {
+    color: #ffffff;
+    font-size: 14px;
+  }
+
+  /* DOCX - override default gray background to match PDF viewer */
+  .doc-viewer .docx-wrapper,
+  .docx-wrapper {
+    background: none !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  
+  .docx-wrapper > section.docx {
+    box-shadow: none !important;
+    margin-bottom: 20px !important;
+  }
+
+`;
+
+export type PreviewableFileType = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'csv';
 
 interface DocPreviewPanelProps {
   /** File type to preview */
@@ -29,7 +99,7 @@ interface DocPreviewPanelProps {
  */
 export function isPreviewableFile(filename: string): boolean {
   const ext = filename.split('.').pop()?.toLowerCase();
-  return ['pdf', 'docx', 'xlsx', 'pptx'].includes(ext ?? '');
+  return ['pdf', 'docx', 'xlsx', 'pptx', 'csv'].includes(ext ?? '');
 }
 
 /**
@@ -37,7 +107,7 @@ export function isPreviewableFile(filename: string): boolean {
  */
 export function getFileType(filename: string): PreviewableFileType | null {
   const ext = filename.split('.').pop()?.toLowerCase();
-  if (['pdf', 'docx', 'xlsx', 'pptx'].includes(ext ?? '')) {
+  if (['pdf', 'docx', 'xlsx', 'pptx', 'csv'].includes(ext ?? '')) {
     return ext as PreviewableFileType;
   }
   return null;
@@ -52,16 +122,31 @@ const DocPreviewContent = function DocPreviewContent({
   buffer,
   initialPage,
   highlightText,
+  isCompact = false,
+  onPptxReady,
 }: {
   fileType: PreviewableFileType;
   buffer: ArrayBuffer;
   initialPage?: number;
   highlightText?: string;
+  isCompact?: boolean;
+  onPptxReady?: (previewer: { next: () => void; prev: () => void }) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Inject custom styles on mount
+  useEffect(() => {
+    const styleId = 'doc-preview-custom-styles';
+    if (!document.getElementById(styleId)) {
+      const styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      styleElement.textContent = docPreviewStyles;
+      document.head.appendChild(styleElement);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,11 +166,12 @@ const DocPreviewContent = function DocPreviewContent({
 
       try {
         if (fileType === 'docx') {
+          // Render with native docx-preview styling
           await renderDocx(buffer, container, undefined, {
-            className: 'docx-preview-wrapper',
+            className: 'docx',
             inWrapper: true,
-            ignoreWidth: true,
-            ignoreHeight: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
             ignoreFonts: false,
             breakPages: true,
             ignoreLastRenderedPageBreak: true,
@@ -98,28 +184,30 @@ const DocPreviewContent = function DocPreviewContent({
             renderEndnotes: true,
           });
 
-          // Apply light mode styles and fit to container
-          if (!cancelled && container) {
+          // Apply zoom scaling in compact mode to fit container width
+          if (!cancelled && container && isCompact) {
             const wrapper = container.querySelector('.docx-wrapper') as HTMLElement;
             if (wrapper) {
-              wrapper.style.backgroundColor = '#ffffff';
-              wrapper.style.color = '#000000';
-              wrapper.style.maxWidth = '100%';
-              wrapper.style.height = 'auto';
+              setTimeout(() => {
+                const containerWidth = container.clientWidth - 40; // Account for padding
+                const section = wrapper.querySelector('section.docx') as HTMLElement;
+                if (section && containerWidth > 0) {
+                  const docWidth = section.offsetWidth || 816;
+                  const zoomLevel = Math.min(1, containerWidth / docWidth);
+                  (wrapper.style as any).zoom = zoomLevel.toString();
+                }
+              }, 100);
             }
           }
         } else if (fileType === 'xlsx') {
-          // Set up container for Excel viewer
-          container.style.width = '100%';
-          container.style.height = '100%';
-          container.style.position = 'relative';
-          container.style.overflow = 'hidden';
-          container.style.backgroundColor = '#ffffff';
-
-          // Get actual container height for Excel
-          const containerHeight = container.clientHeight || container.parentElement?.clientHeight || 600;
+          
+          // Get the parent container dimensions for Excel
+          const parentElement = container.parentElement;
+          const containerWidth = parentElement?.clientWidth || container.clientWidth || 800;
+          const containerHeight = parentElement?.clientHeight || container.clientHeight || 600;
 
           viewer = new Excel(buffer, 'file.xlsx', {
+            width: containerWidth,
             height: containerHeight,
             showFormulaBar: false,
             showSheetTabBar: true,
@@ -130,49 +218,54 @@ const DocPreviewContent = function DocPreviewContent({
             editable: false,
           });
 
+          viewerRef.current = viewer;
           await viewer.loadExcel();
 
           if (!cancelled) {
             await viewer.render(container);
-            
-            // Ensure proper sizing after render
-            const excelRoot = container.querySelector('.ov-excel-root') as HTMLElement;
-            if (excelRoot) {
-              excelRoot.style.width = '100%';
-              excelRoot.style.height = '100%';
-            }
           }
         } else if (fileType === 'pptx') {
           container.style.width = '100%';
           container.style.height = '100%';
           container.style.display = 'flex';
+          container.style.flexDirection = 'column';
           container.style.justifyContent = 'center';
           container.style.alignItems = 'center';
-          container.style.backgroundColor = '#f5f5f5';
-          container.style.overflow = 'auto';
+          container.style.backgroundColor = '#525659';
+          container.style.overflow = 'hidden';
 
-          // Calculate dimensions to fit container while maintaining aspect ratio
+          // Calculate dimensions to fit container while maintaining 16:9 aspect ratio
           const containerWidth = container.clientWidth || 800;
           const containerHeight = container.clientHeight || 600;
           
           // Standard PowerPoint aspect ratio is 16:9
           const aspectRatio = 16 / 9;
-          let slideWidth = containerWidth * 0.9; // 90% of container width
+          let slideWidth = containerWidth * 0.95; // 95% of container width
           let slideHeight = slideWidth / aspectRatio;
           
-          // If height exceeds container, scale by height instead
-          if (slideHeight > containerHeight * 0.9) {
-            slideHeight = containerHeight * 0.9;
+          // If height exceeds container (accounting for navigation controls), scale by height instead
+          const maxHeight = containerHeight * 0.85; // Leave space for navigation
+          if (slideHeight > maxHeight) {
+            slideHeight = maxHeight;
             slideWidth = slideHeight * aspectRatio;
           }
 
           const pptxPreviewer = renderPptx(container, {
             width: Math.floor(slideWidth),
             height: Math.floor(slideHeight),
+            mode: 'slide', // Use slide navigation mode instead of scroll
           });
 
           if (!cancelled) {
             await pptxPreviewer.preview(buffer);
+            
+            // Expose navigation methods for keyboard controls
+            if (onPptxReady) {
+              onPptxReady({
+                next: () => pptxPreviewer.renderNextSlide(),
+                prev: () => pptxPreviewer.renderPreSlide(),
+              });
+            }
           }
         } else if (fileType === 'pdf') {
           // Set up PDF.js worker
@@ -217,6 +310,22 @@ const DocPreviewContent = function DocPreviewContent({
               }
             }, 100);
           }
+        } else if (fileType === 'csv') {
+          // Render CSV as a table
+          container.style.width = '100%';
+          container.style.height = '100%';
+          container.style.overflow = 'auto';
+          container.style.backgroundColor = '#ffffff';
+
+          viewer = new CSVViewer(container, {
+            hasHeader: true,
+            showGridlines: true,
+            showRowNumbers: true,
+            delimiter: ',',
+          });
+
+          viewerRef.current = viewer;
+          await viewer.renderFile(buffer);
         }
 
         if (!cancelled) {
@@ -248,17 +357,17 @@ const DocPreviewContent = function DocPreviewContent({
       }
       viewerRef.current = null;
     };
-  }, [fileType, buffer, initialPage, highlightText]);
+  }, [fileType, buffer, initialPage, highlightText, isCompact]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" style={{ position: 'relative' }}>
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface-primary">
+        <div className="absolute inset-0 flex items-center justify-center bg-surface-primary z-10">
           <Loader2 className="h-8 w-8 animate-spin text-text-secondary" />
         </div>
       )}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface-primary">
+        <div className="absolute inset-0 flex items-center justify-center bg-surface-primary z-10">
           <div className="text-center text-red-500">
             <p className="text-sm font-medium">Failed to load document</p>
             <p className="mt-1 text-xs">{error}</p>
@@ -268,7 +377,8 @@ const DocPreviewContent = function DocPreviewContent({
       <div
         ref={containerRef}
         className={cn(
-          'doc-viewer h-full w-full overflow-auto',
+          'doc-viewer h-full w-full',
+          fileType !== 'pptx' && 'overflow-auto',
           isLoading && 'invisible',
         )}
         style={{ minHeight: '400px' }}
@@ -301,6 +411,7 @@ const FullscreenModal = memo(function FullscreenModal({
   highlightText?: string;
 }) {
   const [isVisible, setIsVisible] = useState(false);
+  const pptxNavRef = useRef<{ next: () => void; prev: () => void } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -319,11 +430,25 @@ const FullscreenModal = memo(function FullscreenModal({
       if (e.key === 'Escape') {
         onClose();
       }
+      // Arrow key navigation for PPTX
+      if (fileType === 'pptx' && pptxNavRef.current) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          pptxNavRef.current.next();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          pptxNavRef.current.prev();
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, fileType]);
+
+  const handlePptxReady = useCallback((nav: { next: () => void; prev: () => void }) => {
+    pptxNavRef.current = nav;
+  }, []);
 
   if (!isOpen) return null;
 
@@ -339,7 +464,14 @@ const FullscreenModal = memo(function FullscreenModal({
         aria-modal="true"
         aria-label={`Full screen preview of ${filename}`}
       >
-        <DocPreviewContent fileType={fileType} buffer={buffer} initialPage={initialPage} highlightText={highlightText} />
+        <DocPreviewContent 
+          fileType={fileType} 
+          buffer={buffer} 
+          initialPage={initialPage} 
+          highlightText={highlightText} 
+          isCompact={false}
+          onPptxReady={fileType === 'pptx' ? handlePptxReady : undefined}
+        />
       </div>
 
       {/* Overlay Close button - top right */}
@@ -477,7 +609,7 @@ export const DocPreviewPanel = memo(function DocPreviewPanel({
     <div className="flex h-full flex-col">
       {/* Preview Content */}
       <div className="flex-1 overflow-hidden">
-        <DocPreviewContent key={`${fileType}-${buffer.byteLength}`} fileType={fileType} buffer={buffer} initialPage={initialPage} highlightText={highlightText} />
+        <DocPreviewContent key={`${fileType}-${buffer.byteLength}`} fileType={fileType} buffer={buffer} initialPage={initialPage} highlightText={highlightText} isCompact={true} />
       </div>
 
       {/* Fullscreen Modal */}

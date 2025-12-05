@@ -8,6 +8,7 @@ let localize: ReturnType<typeof useLocalize>;
 
 interface StatusIconProps {
   serverName: string;
+  displayName: string;
   onConfigClick: (e: React.MouseEvent) => void;
 }
 
@@ -18,6 +19,7 @@ interface InitializingStatusProps extends StatusIconProps {
 
 interface MCPServerStatusIconProps {
   serverName: string;
+  serverTitle?: string;
   serverStatus?: MCPServerStatus;
   tool?: TPlugin;
   onConfigClick: (e: React.MouseEvent) => void;
@@ -32,6 +34,7 @@ interface MCPServerStatusIconProps {
  */
 export default function MCPServerStatusIcon({
   serverName,
+  serverTitle,
   serverStatus,
   tool,
   onConfigClick,
@@ -41,10 +44,13 @@ export default function MCPServerStatusIcon({
   hasCustomUserVars = false,
 }: MCPServerStatusIconProps) {
   localize = useLocalize();
+  const displayName = serverTitle || serverName;
+  
   if (isInitializing) {
     return (
       <InitializingStatusIcon
         serverName={serverName}
+        displayName={displayName}
         onConfigClick={onConfigClick}
         onCancel={onCancel}
         canCancel={canCancel}
@@ -59,18 +65,18 @@ export default function MCPServerStatusIcon({
   const { connectionState, requiresOAuth } = serverStatus;
 
   if (connectionState === 'connecting') {
-    return <ConnectingStatusIcon serverName={serverName} onConfigClick={onConfigClick} />;
+    return <ConnectingStatusIcon serverName={serverName} displayName={displayName} onConfigClick={onConfigClick} />;
   }
 
   if (connectionState === 'disconnected') {
     if (requiresOAuth) {
-      return <DisconnectedOAuthStatusIcon serverName={serverName} onConfigClick={onConfigClick} />;
+      return <DisconnectedOAuthStatusIcon serverName={serverName} displayName={displayName} onConfigClick={onConfigClick} />;
     }
-    return <DisconnectedStatusIcon serverName={serverName} onConfigClick={onConfigClick} />;
+    return <DisconnectedStatusIcon serverName={serverName} displayName={displayName} onConfigClick={onConfigClick} />;
   }
 
   if (connectionState === 'error') {
-    return <ErrorStatusIcon serverName={serverName} onConfigClick={onConfigClick} />;
+    return <ErrorStatusIcon serverName={serverName} displayName={displayName} onConfigClick={onConfigClick} />;
   }
 
   if (connectionState === 'connected') {
@@ -80,6 +86,7 @@ export default function MCPServerStatusIcon({
       return (
         <AuthenticatedStatusIcon
           serverName={serverName}
+          displayName={displayName}
           onConfigClick={onConfigClick}
           isAuthenticated={isAuthenticated}
         />
@@ -91,7 +98,7 @@ export default function MCPServerStatusIcon({
   return null;
 }
 
-function InitializingStatusIcon({ serverName, onCancel, canCancel }: InitializingStatusProps) {
+function InitializingStatusIcon({ displayName, onCancel, canCancel }: InitializingStatusProps) {
   if (canCancel) {
     return (
       <button
@@ -113,56 +120,56 @@ function InitializingStatusIcon({ serverName, onCancel, canCancel }: Initializin
     <div className="flex h-6 w-6 items-center justify-center rounded p-1">
       <Spinner
         className="h-4 w-4"
-        aria-label={localize('com_nav_mcp_status_connecting', { 0: serverName })}
+        aria-label={localize('com_nav_mcp_status_connecting', { 0: displayName })}
       />
     </div>
   );
 }
 
-function ConnectingStatusIcon({ serverName }: StatusIconProps) {
+function ConnectingStatusIcon({ displayName }: StatusIconProps) {
   return (
     <div className="flex h-6 w-6 items-center justify-center rounded p-1">
       <Spinner
         className="h-4 w-4"
-        aria-label={localize('com_nav_mcp_status_connecting', { 0: serverName })}
+        aria-label={localize('com_nav_mcp_status_connecting', { 0: displayName })}
       />
     </div>
   );
 }
 
-function DisconnectedOAuthStatusIcon({ serverName, onConfigClick }: StatusIconProps) {
+function DisconnectedOAuthStatusIcon({ displayName, onConfigClick }: StatusIconProps) {
   return (
     <button
       type="button"
       onClick={onConfigClick}
       className="flex h-6 w-6 items-center justify-center rounded p-1 hover:bg-surface-secondary"
-      aria-label={localize('com_nav_mcp_configure_server', { 0: serverName })}
+      aria-label={localize('com_nav_mcp_configure_server', { 0: displayName })}
     >
       <KeyRound className="h-4 w-4 text-amber-500" />
     </button>
   );
 }
 
-function DisconnectedStatusIcon({ serverName, onConfigClick }: StatusIconProps) {
+function DisconnectedStatusIcon({ displayName, onConfigClick }: StatusIconProps) {
   return (
     <button
       type="button"
       onClick={onConfigClick}
       className="flex h-6 w-6 items-center justify-center rounded p-1 hover:bg-surface-secondary"
-      aria-label={localize('com_nav_mcp_configure_server', { 0: serverName })}
+      aria-label={localize('com_nav_mcp_configure_server', { 0: displayName })}
     >
       <PlugZap className="h-4 w-4 text-orange-500" />
     </button>
   );
 }
 
-function ErrorStatusIcon({ serverName, onConfigClick }: StatusIconProps) {
+function ErrorStatusIcon({ displayName, onConfigClick }: StatusIconProps) {
   return (
     <button
       type="button"
       onClick={onConfigClick}
       className="flex h-6 w-6 items-center justify-center rounded p-1 hover:bg-surface-secondary"
-      aria-label={localize('com_nav_mcp_configure_server', { 0: serverName })}
+      aria-label={localize('com_nav_mcp_configure_server', { 0: displayName })}
     >
       <AlertTriangle className="h-4 w-4 text-red-500" />
     </button>
@@ -174,7 +181,7 @@ interface AuthenticatedStatusProps extends StatusIconProps {
 }
 
 function AuthenticatedStatusIcon({
-  serverName,
+  displayName,
   onConfigClick,
   isAuthenticated,
 }: AuthenticatedStatusProps) {
@@ -183,7 +190,7 @@ function AuthenticatedStatusIcon({
       type="button"
       onClick={onConfigClick}
       className="flex h-6 w-6 items-center justify-center rounded p-1 hover:bg-surface-secondary"
-      aria-label={localize('com_nav_mcp_configure_server', { 0: serverName })}
+      aria-label={localize('com_nav_mcp_configure_server', { 0: displayName })}
     >
       <SettingsIcon className={`h-4 w-4 ${isAuthenticated ? 'text-green-500' : 'text-gray-400'}`} />
     </button>

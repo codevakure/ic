@@ -22,7 +22,12 @@ import MCPServerStatusIcon from '~/components/MCP/MCPServerStatusIcon';
 import MCPConfigDialog from '~/components/MCP/MCPConfigDialog';
 import { cn } from '~/utils';
 
-export default function MCPTool({ serverInfo }: { serverInfo?: MCPServerInfo }) {
+interface MCPToolProps {
+  serverInfo?: MCPServerInfo;
+  serverTitle?: string;
+}
+
+export default function MCPTool({ serverInfo, serverTitle }: MCPToolProps) {
   const localize = useLocalize();
   const { removeTool } = useRemoveMCPTool();
   const { getValues, setValue } = useFormContext<AgentForm>();
@@ -38,6 +43,7 @@ export default function MCPTool({ serverInfo }: { serverInfo?: MCPServerInfo }) 
   }
 
   const currentServerName = serverInfo.serverName;
+  const displayName = serverTitle || currentServerName;
 
   const getSelectedTools = () => {
     if (!serverInfo?.tools) return [];
@@ -113,7 +119,7 @@ export default function MCPTool({ serverInfo }: { serverInfo?: MCPServerInfo }) 
                 <div
                   className="grow overflow-hidden truncate break-all px-2 py-1.5"
                 >
-                  {currentServerName}
+                  {displayName}
                 </div>
                 <div className="flex items-center">
                   <div className="relative flex items-center">
@@ -203,7 +209,7 @@ export default function MCPTool({ serverInfo }: { serverInfo?: MCPServerInfo }) 
                                 'hover:bg-surface-active-alt focus:translate-x-0 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
                               )}
                               onClick={(e) => e.stopPropagation()}
-                              aria-label={`Delete ${currentServerName}`}
+                              aria-label={`Delete ${displayName}`}
                               tabIndex={0}
                               onFocus={() => setIsFocused(true)}
                             >

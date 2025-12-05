@@ -36,9 +36,8 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, className = '' })
         'cursor-pointer transition-all duration-200 hover:border-border-medium hover:shadow-md',
         'bg-surface-tertiary hover:bg-surface-hover',
         'p-4',
-        // Minimum height to accommodate 2 lines of description text
-        // Use min-h instead of fixed h to allow natural growth when support contact is present
-        'min-h-[140px]',
+        // Fixed height for consistent card sizing in grid layout
+        'h-[180px]',
         className,
       )}
       onClick={onClick}
@@ -56,21 +55,21 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, className = '' })
         }
       }}
     >
-      {/* Card layout - flex column with fixed spacing */}
+      {/* Card layout - flex column with fixed positions */}
       <div className="flex h-full flex-col">
-        {/* Top row: Avatar + Name */}
+        {/* Top section: Avatar + Name */}
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0">{renderAgentAvatar(agent, { size: 'sm' })}</div>
-          <Label className="line-clamp-1 flex-1 overflow-hidden text-ellipsis text-base font-semibold text-text-primary">
+          <Label className="line-clamp-1 min-w-0 flex-1 truncate text-base font-semibold text-text-primary">
             {agent.name}
           </Label>
         </div>
 
-        {/* Description - fixed height with ellipsis, supports single or multi-line */}
-        <div className="mt-2 flex-1 overflow-hidden">
+        {/* Middle section: Description - max 2 lines with margins */}
+        <div className="mt-4 h-[44px] overflow-hidden">
           <p
             id={`agent-${agent.id}-description`}
-            className="line-clamp-2 overflow-hidden text-ellipsis text-sm leading-relaxed text-text-secondary"
+            className="line-clamp-2 text-sm leading-[22px] text-text-secondary"
             title={agent.description ?? ''}
             {...(agent.description ? { 'aria-label': `Description: ${agent.description}` } : {})}
           >
@@ -78,17 +77,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, className = '' })
           </p>
         </div>
 
-        {/* Support Contact / Author - display between description and category */}
-        {(agent.support_contact?.name || agent.support_contact?.email || agent.authorName) && (
-          <div className="mt-1 overflow-hidden text-ellipsis text-xs text-text-tertiary">
-            <span className="line-clamp-1">
-              {agent.support_contact?.name || agent.support_contact?.email || agent.authorName}
-            </span>
-          </div>
-        )}
+        {/* Spacer to push category to bottom */}
+        <div className="flex-1" />
 
-        {/* Category badge - always at bottom */}
-        <div className="mt-auto flex-shrink-0 pt-2">
+        {/* Bottom section: Category badge with top margin */}
+        <div className="mt-4 h-5">
           {agent.category && categoryLabel ? (
             <span className="inline-flex items-center rounded-md bg-blue-600/10 px-2 py-0.5 text-xs font-medium text-blue-500">
               {categoryLabel}

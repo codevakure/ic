@@ -91,6 +91,13 @@ const sourcesPanelState = atom<SourcesPanelState>({
   },
 });
 
+/**
+ * Search mode toggle: 'work' for enterprise/internal search, 'web' for web search
+ */
+export type SearchMode = 'work' | 'web';
+
+const searchMode = atomWithLocalStorage<SearchMode>('searchMode', 'work');
+
 export default {
   hideBannerHint,
   messageAttachmentsMap,
@@ -99,4 +106,5 @@ export default {
   isEditingBadges,
   chatBadges,
   sourcesPanelState,
+  searchMode,
 };
