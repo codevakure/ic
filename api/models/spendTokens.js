@@ -78,11 +78,7 @@ const spendStructuredTokens = async (txData, tokenUsage) => {
   logger.debug(
     `[spendStructuredTokens] conversationId: ${txData.conversationId}${
       txData?.context ? ` | Context: ${txData?.context}` : ''
-    } | Token usage: `,
-    {
-      promptTokens,
-      completionTokens,
-    },
+    } | Token usage: input=${promptTokens?.input}, write=${promptTokens?.write}, read=${promptTokens?.read}, completion=${completionTokens}`,
   );
   let prompt, completion;
   try {

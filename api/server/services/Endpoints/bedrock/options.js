@@ -88,6 +88,14 @@ const getOptions = async ({ req, overrideModel, endpointOption }) => {
     llmConfig.endpointHost = BEDROCK_REVERSE_PROXY;
   }
 
+  // Enable prompt caching for Claude models
+  // This enables caching for system messages, tools, and conversation history
+  const modelId = (llmConfig.model ?? '').toLowerCase();
+  const isClaudeModel = modelId.includes('claude') || modelId.includes('anthropic');
+  if (isClaudeModel) {
+    llmConfig.promptCache = true;
+  }
+
   return {
     /** @type {BedrockClientOptions} */
     llmConfig,

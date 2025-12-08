@@ -140,6 +140,8 @@ export default function useSSE(
         userMessage = {
           ...userMessage,
           ...data.message,
+          // Preserve client-side metadata (e.g., isUIAction) and overrideParentMessageId
+          metadata: userMessage.metadata,
           overrideParentMessageId: userMessage.overrideParentMessageId,
         };
 

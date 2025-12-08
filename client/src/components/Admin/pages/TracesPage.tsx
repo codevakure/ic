@@ -1,20 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from 'react-markdown';
 import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
+  Bot,
   Brain,
   ChevronDown,
   ChevronRight,
   Clock,
   Cpu,
   DollarSign,
+  Filter,
+  Info,
   MessageCircle,
   RefreshCw,
   Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   Sparkles,
   User,
   Users,
@@ -42,7 +50,7 @@ interface UserOption {
 interface TreeNode {
   id: string;
   label: string;
-  type: 'trace' | 'thinking' | 'tool' | 'request' | 'response';
+  type: 'trace' | 'thinking' | 'tool' | 'request' | 'response' | 'guardrails';
   icon: React.ReactNode;
   color: string;
   children?: TreeNode[];
@@ -127,6 +135,30 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
       color: 'text-green-400',
       data: trace.output,
     });
+
+    // Add guardrails if present
+    if (trace.guardrails?.invoked) {
+      const guardrailIcon = trace.guardrails.input?.outcome === 'blocked' || trace.guardrails.output?.outcome === 'blocked'
+        ? <ShieldX className="h-3.5 w-3.5" />
+        : trace.guardrails.output?.outcome === 'anonymized'
+          ? <ShieldAlert className="h-3.5 w-3.5" />
+          : <ShieldCheck className="h-3.5 w-3.5" />;
+      
+      const guardrailColor = trace.guardrails.input?.outcome === 'blocked' || trace.guardrails.output?.outcome === 'blocked'
+        ? 'text-red-400'
+        : trace.guardrails.output?.outcome === 'anonymized'
+          ? 'text-blue-400'
+          : 'text-green-400';
+
+      traceNode.children?.push({
+        id: 'guardrails',
+        label: 'Guardrails',
+        type: 'guardrails' as TreeNode['type'],
+        icon: guardrailIcon,
+        color: guardrailColor,
+        data: trace.guardrails,
+      });
+    }
 
     return traceNode;
   };
@@ -376,6 +408,170 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
           </div>
         );
 
+      case 'guardrails':
+        const guardrails = selectedNodeData.data as typeof trace.guardrails;
+        if (!guardrails) return null;
+        
+        const getOutcomeColor = (outcome: string) => {
+          switch (outcome) {
+            case 'blocked': return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-500/20';
+            case 'anonymized': return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/20';
+            case 'intervened': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-500/20';
+            case 'passed': return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-500/20';
+            default: return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-500/20';
+          }
+        };
+
+        const getOutcomeIcon = (outcome: string) => {
+          switch (outcome) {
+            case 'blocked': return <ShieldX className="h-4 w-4" />;
+            case 'anonymized': return <ShieldAlert className="h-4 w-4" />;
+            case 'intervened': return <Shield className="h-4 w-4" />;
+            case 'passed': return <ShieldCheck className="h-4 w-4" />;
+            default: return <Shield className="h-4 w-4" />;
+          }
+        };
+
+        return (
+          <div className="space-y-4 md:space-y-6">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded bg-blue-500/20">
+                <Shield className="h-3 w-3 md:h-4 md:w-4 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-medium text-[var(--text-primary)] text-xs md:text-sm">Guardrails Details</h3>
+                <p className="text-[10px] md:text-xs text-[var(--text-tertiary)]">Content moderation results</p>
+              </div>
+            </div>
+
+            {/* Input Guardrails */}
+            {guardrails.input && (
+              <div>
+                <h4 className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Input Moderation</h4>
+                <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${getOutcomeColor(guardrails.input.outcome)}`}>
+                        {getOutcomeIcon(guardrails.input.outcome)}
+                        {guardrails.input.outcome.toUpperCase()}
+                      </span>
+                      {!guardrails.input.actionApplied && guardrails.input.outcome !== 'passed' && (
+                        <span className="text-[10px] text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-500/10 px-2 py-0.5 rounded">
+                          Action Disabled
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[var(--text-tertiary)]">{guardrails.input.reason}</span>
+                  </div>
+                  {guardrails.input.violations && guardrails.input.violations.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mb-1">Violations:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {guardrails.input.violations.map((v: any, i: number) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded">
+                            {v.type}: {v.category} {v.action && `(${v.action})`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Original Content */}
+                  {guardrails.input.originalContent && (
+                    <div>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mb-1">Original Content:</p>
+                      <pre className="text-[10px] md:text-xs bg-[var(--surface-tertiary)] p-2 rounded overflow-auto max-h-32 whitespace-pre-wrap break-words text-[var(--text-primary)]">
+                        {guardrails.input.originalContent}
+                      </pre>
+                    </div>
+                  )}
+                  {/* Raw AWS Response (Assessments) */}
+                  {guardrails.input.assessments && guardrails.input.assessments.length > 0 && (
+                    <details className="group">
+                      <summary className="text-[10px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)]">
+                        Raw AWS Response (click to expand)
+                      </summary>
+                      <pre className="text-[10px] bg-[var(--surface-tertiary)] p-2 rounded overflow-auto max-h-64 mt-1 whitespace-pre-wrap text-[var(--text-secondary)]">
+                        {JSON.stringify(guardrails.input.assessments, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Output Guardrails */}
+            {guardrails.output && (
+              <div>
+                <h4 className="text-[10px] md:text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Output Moderation</h4>
+                <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${getOutcomeColor(guardrails.output.outcome)}`}>
+                        {getOutcomeIcon(guardrails.output.outcome)}
+                        {guardrails.output.outcome.toUpperCase()}
+                      </span>
+                      {!guardrails.output.actionApplied && guardrails.output.outcome !== 'passed' && (
+                        <span className="text-[10px] text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-500/10 px-2 py-0.5 rounded">
+                          Action Disabled
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[var(--text-tertiary)]">{guardrails.output.reason}</span>
+                  </div>
+                  {guardrails.output.violations && guardrails.output.violations.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mb-1">Violations:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {guardrails.output.violations.map((v: any, i: number) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded">
+                            {v.type}: {v.category} {v.action && `(${v.action})`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Original Content */}
+                  {guardrails.output.originalContent && (
+                    <div>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mb-1">Original Content:</p>
+                      <pre className="text-[10px] md:text-xs bg-[var(--surface-tertiary)] p-2 rounded overflow-auto max-h-32 whitespace-pre-wrap break-words text-[var(--text-primary)]">
+                        {guardrails.output.originalContent}
+                      </pre>
+                    </div>
+                  )}
+                  {/* Modified Content (if anonymized) */}
+                  {guardrails.output.modifiedContent && guardrails.output.modifiedContent !== guardrails.output.originalContent && (
+                    <div>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mb-1">Modified Content:</p>
+                      <pre className="text-[10px] md:text-xs bg-[var(--surface-tertiary)] p-2 rounded overflow-auto max-h-32 whitespace-pre-wrap break-words text-yellow-700 dark:text-yellow-400">
+                        {guardrails.output.modifiedContent}
+                      </pre>
+                    </div>
+                  )}
+                  {/* Raw AWS Response (Assessments) */}
+                  {guardrails.output.assessments && guardrails.output.assessments.length > 0 && (
+                    <details className="group">
+                      <summary className="text-[10px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)]">
+                        Raw AWS Response (click to expand)
+                      </summary>
+                      <pre className="text-[10px] bg-[var(--surface-tertiary)] p-2 rounded overflow-auto max-h-64 mt-1 whitespace-pre-wrap text-[var(--text-secondary)]">
+                        {JSON.stringify(guardrails.output.assessments, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* No guardrails data */}
+            {!guardrails.input && !guardrails.output && (
+              <div className="text-center text-[var(--text-tertiary)] py-4">
+                Guardrails invoked but no detailed data available
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -396,20 +592,24 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
         className="fixed right-0 top-0 h-screen w-full md:w-1/2 md:min-w-[600px] md:max-w-[900px] bg-[var(--surface-primary)] border-l border-[var(--border-light)] flex flex-col shadow-2xl"
         style={{ zIndex: 9999 }}
       >
-        {/* Header Row 1 - Title and Close */}
+        {/* Header Row 1 - Conversation Title and Close */}
         <div className="flex items-center justify-between px-3 md:px-4 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-blue-500/20">
+          <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+            <div className="flex h-7 w-7 md:h-8 md:w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/20">
               <Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-400" />
             </div>
-            <div>
-              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)]">Trace Details</h2>
-              <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] font-mono truncate max-w-[180px] md:max-w-none">{trace.messageId}</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">
+                {trace.conversationTitle || 'Untitled Conversation'}
+                <span className="text-[var(--text-tertiary)] font-normal ml-2">
+                  ({new Date(trace.createdAt).toLocaleString()})
+                </span>
+              </h2>
             </div>
           </div>
           
           {/* Duration badge */}
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full">
               <Clock className="h-3 w-3 md:h-3.5 md:w-3.5 text-purple-400" />
               <span className="text-xs md:text-sm font-medium text-purple-400">{formatDuration(trace.trace.duration)}</span>
@@ -457,8 +657,18 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
             <span className="text-[10px] md:text-xs font-medium text-green-500">{formatCost(trace.trace.totalCost)}</span>
           </div>
           
+          {/* Cache Badge - only show if caching is active */}
+          {trace.trace.caching?.enabled && (
+            <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 bg-purple-500/10 border border-purple-500/20 rounded-md" title={`Cache: ${trace.trace.caching.readTokens?.toLocaleString() || 0} read, ${trace.trace.caching.writeTokens?.toLocaleString() || 0} write | Savings: $${trace.trace.caching.estimatedSavings?.toFixed(4) || '0.0000'}`}>
+              <Zap className="h-3 w-3 md:h-3.5 md:w-3.5 text-purple-400" />
+              <span className="text-[10px] md:text-xs font-medium text-purple-400">
+                {trace.trace.caching.hitRatio > 0 ? `${trace.trace.caching.hitRatio}% cached` : 'Cached'}
+              </span>
+            </div>
+          )}
+          
           {/* Token bar - fills remaining space, hidden on mobile */}
-          <div className="hidden md:flex flex-1 min-w-[80px] h-1.5 bg-[var(--surface-tertiary)] rounded-full overflow-hidden ml-2">
+          <div className="hidden md:flex flex-1 min-w-[80px] h-1.5 bg-[var(--surface-tertiary)] rounded-full overflow-hidden ml-2" title={`Input: ${trace.trace.inputTokens?.toLocaleString() || 0} | Output: ${trace.trace.outputTokens?.toLocaleString() || 0}${trace.trace.caching?.enabled ? ` | Cache Write: ${trace.trace.caching.writeTokens?.toLocaleString() || 0} | Cache Read: ${trace.trace.caching.readTokens?.toLocaleString() || 0}` : ''}`}>
             <div
               className="h-full bg-blue-500"
               style={{ width: `${trace.trace.totalTokens > 0 ? (trace.trace.inputTokens / trace.trace.totalTokens) * 100 : 0}%` }}
@@ -467,6 +677,21 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
               className="h-full bg-green-500"
               style={{ width: `${trace.trace.totalTokens > 0 ? (trace.trace.outputTokens / trace.trace.totalTokens) * 100 : 0}%` }}
             />
+            {/* Cache tokens in purple */}
+            {trace.trace.caching?.enabled && (
+              <>
+                <div
+                  className="h-full bg-purple-600"
+                  style={{ width: `${trace.trace.totalTokens > 0 ? ((trace.trace.caching.writeTokens || 0) / trace.trace.totalTokens) * 100 : 0}%` }}
+                  title={`Cache Write: ${trace.trace.caching.writeTokens?.toLocaleString() || 0}`}
+                />
+                <div
+                  className="h-full bg-purple-400"
+                  style={{ width: `${trace.trace.totalTokens > 0 ? ((trace.trace.caching.readTokens || 0) / trace.trace.totalTokens) * 100 : 0}%` }}
+                  title={`Cache Read: ${trace.trace.caching.readTokens?.toLocaleString() || 0}`}
+                />
+              </>
+            )}
           </div>
         </div>
 
@@ -482,22 +707,154 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
               {renderTreeNode(tree)}
             </div>
             
-            {/* Metadata in left sidebar bottom - hidden on mobile, shown inline */}
-            <div className="hidden md:block p-2 md:p-3 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/70">
+            {/* Token & Cost Breakdown - hidden on mobile */}
+            <div className="hidden md:block p-2 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/70">
               <div className="space-y-2">
+                {/* Token Breakdown */}
                 <div>
-                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Conversation</span>
-                  <p className="text-xs md:text-sm text-[var(--text-primary)] truncate" title={trace.conversationTitle}>
-                    {trace.conversationTitle}
-                  </p>
+                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Token Breakdown</span>
+                  <div className="mt-1 space-y-0.5 text-xs">
+                    <div className="flex justify-between items-center group">
+                      <span className="text-blue-400 flex items-center gap-1">
+                        Input
+                        <span className="relative">
+                          <Info className="h-3 w-3 text-blue-400/60 cursor-help" />
+                          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '200px' }}>
+                            {trace.trace?.tokenBreakdown ? (
+                              <span className="flex flex-col gap-0.5">
+                                <span className="font-semibold text-white mb-1 text-[11px]">📊 Context Breakdown</span>
+                                {trace.trace.tokenBreakdown.instructions != null && trace.trace.tokenBreakdown.instructions > 0 && (
+                                  <span className="flex justify-between"><span>📝 Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.instructions.toLocaleString()}</span></span>
+                                )}
+                                {trace.trace.tokenBreakdown.artifacts != null && trace.trace.tokenBreakdown.artifacts > 0 && (
+                                  <span className="flex justify-between"><span>🎨 Artifacts</span><span className="text-white">{trace.trace.tokenBreakdown.artifacts.toLocaleString()}</span></span>
+                                )}
+                                {/* Per-tool breakdown */}
+                                {trace.trace.tokenBreakdown.toolsDetail && trace.trace.tokenBreakdown.toolsDetail.length > 0 && (
+                                  <>
+                                    {/* Separate core tools from MCP tools */}
+                                    {(() => {
+                                      const coreTools = trace.trace.tokenBreakdown.toolsDetail.filter((t: { name: string }) => !t.name.includes('_mcp_'));
+                                      const mcpTools = trace.trace.tokenBreakdown.toolsDetail.filter((t: { name: string }) => t.name.includes('_mcp_'));
+                                      return (
+                                        <>
+                                          {coreTools.length > 0 && (
+                                            <>
+                                              <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px]">🔧 Core Tools ({coreTools.length})</span>
+                                              {coreTools.map((tool: { name: string; tokens: number }, idx: number) => (
+                                                <span key={idx} className="flex justify-between pl-2"><span className="text-gray-300">• {tool.name}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
+                                              ))}
+                                            </>
+                                          )}
+                                          {mcpTools.length > 0 && (
+                                            <>
+                                              <span className="font-medium text-cyan-400 mt-1.5 mb-0.5 text-[10px]">🔌 MCP Tools ({mcpTools.length})</span>
+                                              {mcpTools.map((tool: { name: string; tokens: number }, idx: number) => (
+                                                <span key={idx} className="flex justify-between pl-2"><span className="text-cyan-300">• {tool.name.replace('_mcp_', ' → ')}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
+                                              ))}
+                                            </>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </>
+                                )}
+                                {/* Per-tool context breakdown */}
+                                {trace.trace.tokenBreakdown.toolContextDetail && trace.trace.tokenBreakdown.toolContextDetail.length > 0 && (
+                                  <>
+                                    <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px]">📋 Tool Instructions</span>
+                                    {trace.trace.tokenBreakdown.toolContextDetail.map((ctx, idx) => (
+                                      <span key={idx} className="flex justify-between pl-2"><span className="text-gray-300">• {ctx.name}</span><span className="text-white">{ctx.tokens.toLocaleString()}</span></span>
+                                    ))}
+                                  </>
+                                )}
+                                <span className="border-t border-gray-600 pt-1.5 mt-1.5 flex flex-col gap-0.5">
+                                  <span className="flex justify-between font-medium"><span className="text-gray-300">Tracked</span><span className="text-white">{(trace.trace.tokenBreakdown.total || 0).toLocaleString()}</span></span>
+                                  <span className="flex justify-between text-gray-400"><span>Other (system, history, formatting)</span><span>{((trace.trace?.inputTokens || 0) - (trace.trace.tokenBreakdown.total || 0)).toLocaleString()}</span></span>
+                                  <span className="text-[9px] text-gray-500 pl-2 flex flex-col gap-0">
+                                    <span>• System prompt (persona, instructions)</span>
+                                    <span>• Conversation history</span>
+                                    <span>• User message & formatting</span>
+                                  </span>
+                                  <span className="flex justify-between font-semibold text-blue-400"><span>Total Input</span><span>{(trace.trace?.inputTokens || 0).toLocaleString()}</span></span>
+                                </span>
+                              </span>
+                            ) : (
+                              <span>Tokens sent to the model</span>
+                            )}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="text-[var(--text-secondary)]">{(trace.trace?.inputTokens || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-400">Output</span>
+                      <span className="text-[var(--text-secondary)]">{(trace.trace?.outputTokens || 0).toLocaleString()}</span>
+                    </div>
+                    {trace.trace?.caching?.enabled && (
+                      <>
+                        <div className="flex justify-between items-center group">
+                          <span className="text-purple-400 flex items-center gap-1">
+                            Cache Write
+                            <span className="relative">
+                              <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
+                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[var(--surface-tertiary)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-[10px] text-[var(--text-secondary)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                Tokens written to cache for reuse in future requests
+                              </span>
+                            </span>
+                          </span>
+                          <span className="text-[var(--text-secondary)]">{(trace.trace.caching.writeTokens || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center group">
+                          <span className="text-purple-400 flex items-center gap-1">
+                            Cache Read
+                            <span className="relative">
+                              <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
+                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[var(--surface-tertiary)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-[10px] text-[var(--text-secondary)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                                Tokens served from cache (not re-processed)
+                              </span>
+                            </span>
+                          </span>
+                          <span className="text-[var(--text-secondary)]">{(trace.trace.caching.readTokens || 0).toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
+                      <span className="text-[var(--text-primary)]">Total</span>
+                      <span className="text-[var(--text-primary)]">{(trace.trace?.totalTokens || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">User</span>
-                  <p className="text-xs md:text-sm text-[var(--text-primary)]">{trace.user?.name || 'Unknown'}</p>
-                </div>
-                <div>
-                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Timestamp</span>
-                  <p className="text-xs md:text-sm text-[var(--text-primary)]">{new Date(trace.createdAt).toLocaleString()}</p>
+                
+                {/* Cost Breakdown */}
+                <div className="pt-2 mt-2 border-t border-[var(--border-light)]">
+                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Cost Breakdown</span>
+                  <div className="mt-1 space-y-0.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-blue-400">Input</span>
+                      <span className="text-[var(--text-secondary)]">${(trace.trace?.inputCost || 0).toFixed(6)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-400">Output</span>
+                      <span className="text-[var(--text-secondary)]">${(trace.trace?.outputCost || 0).toFixed(6)}</span>
+                    </div>
+                    {trace.trace?.caching?.enabled && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-purple-400">Cache Write</span>
+                          <span className="text-[var(--text-secondary)]">${(trace.trace.caching.writeCost || 0).toFixed(6)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-purple-400">Cache Read</span>
+                          <span className="text-[var(--text-secondary)]">${(trace.trace.caching.readCost || 0).toFixed(6)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
+                      <span className="text-green-400">Total Cost</span>
+                      <span className="text-green-400">${(trace.trace?.totalCost || 0).toFixed(6)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -509,21 +866,23 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
             <div className="flex-1 overflow-y-auto p-3 md:p-5">
               {renderContent()}
             </div>
+          </div>
+        </div>
 
-            {/* Footer with model ID */}
-            <div className="px-3 md:px-4 py-1.5 md:py-2 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-0 text-[10px] md:text-xs">
-                <div className="flex items-center gap-1 md:gap-2">
-                  <span className="text-[var(--text-tertiary)]">Model ID:</span>
-                  <code className="text-[9px] md:text-[10px] text-[var(--text-secondary)] font-mono bg-[var(--surface-tertiary)] px-1.5 md:px-2 py-0.5 rounded truncate max-w-[200px] md:max-w-none">
-                    {trace.trace.model}
-                  </code>
-                </div>
-                <div className="flex items-center gap-1 md:gap-2">
-                  <span className="text-[var(--text-tertiary)]">Endpoint:</span>
-                  <span className="text-[var(--text-secondary)]">{trace.trace.endpoint}</span>
-                </div>
-              </div>
+        {/* Full-width Footer */}
+        <div className="px-2 py-1 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
+          <div className="flex items-center gap-3 text-[10px]">
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--text-tertiary)]">Trace ID:</span>
+              <code className="text-[9px] text-[var(--text-secondary)] font-mono truncate max-w-[200px]">{trace.messageId}</code>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--text-tertiary)]">User:</span>
+              <span className="text-[var(--text-secondary)]">{trace.user?.name || trace.user?.email || 'Unknown'}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--text-tertiary)]">Model:</span>
+              <code className="text-[9px] text-[var(--text-secondary)] font-mono">{trace.trace.model}</code>
             </div>
           </div>
         </div>
@@ -535,6 +894,7 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
 
 // Main TracesPage component
 export function TracesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<LLMTracesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -544,12 +904,29 @@ export function TracesPage() {
   // User list for filter
   const [users, setUsers] = useState<UserOption[]>([]);
   
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [conversationIdFilter, setConversationIdFilter] = useState<string>('');
-  const [page, setPage] = useState(1);
+  // Filters - initialize from URL params
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [selectedModel, setSelectedModel] = useState<string>(searchParams.get('model') || '');
+  const [selectedUserId, setSelectedUserId] = useState<string>(searchParams.get('userId') || '');
+  const [conversationIdFilter, setConversationIdFilter] = useState<string>(searchParams.get('conversationId') || '');
+  const [selectedAgent, setSelectedAgent] = useState<string>(searchParams.get('agent') || '');
+  const [guardrailsFilter, setGuardrailsFilter] = useState<string>(searchParams.get('guardrails') || '');
+  const [toolNameFilter, setToolNameFilter] = useState<string>(searchParams.get('toolName') || '');
+  const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10));
+
+  // Update URL params when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedModel) params.set('model', selectedModel);
+    if (selectedUserId) params.set('userId', selectedUserId);
+    if (conversationIdFilter) params.set('conversationId', conversationIdFilter);
+    if (selectedAgent) params.set('agent', selectedAgent);
+    if (guardrailsFilter) params.set('guardrails', guardrailsFilter);
+    if (toolNameFilter) params.set('toolName', toolNameFilter);
+    if (page > 1) params.set('page', String(page));
+    setSearchParams(params, { replace: true });
+  }, [searchQuery, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, page, setSearchParams]);
 
   // Fetch users for filter dropdown
   useEffect(() => {
@@ -579,6 +956,9 @@ export function TracesPage() {
         model: selectedModel || undefined,
         userId: selectedUserId || undefined,
         conversationId: conversationIdFilter || undefined,
+        agent: selectedAgent || undefined,
+        guardrails: guardrailsFilter || undefined,
+        toolName: toolNameFilter || undefined,
       });
       setData(response);
       setError(null);
@@ -588,7 +968,7 @@ export function TracesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedModel, selectedUserId, conversationIdFilter]);
+  }, [page, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter]);
 
   useEffect(() => {
     fetchData();
@@ -619,18 +999,45 @@ export function TracesPage() {
     return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
   };
 
-  // Filter traces by search query (local filter on top of server filters)
+  // Filter traces by search query and guardrails (local filter on top of server filters)
   const filteredTraces = (data?.traces || []).filter(trace => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      (trace.input?.text || '').toLowerCase().includes(query) ||
-      (trace.output?.text || '').toLowerCase().includes(query) ||
-      (trace.conversationTitle || '').toLowerCase().includes(query) ||
-      trace.user?.name?.toLowerCase().includes(query) ||
-      trace.user?.email?.toLowerCase().includes(query) ||
-      trace.conversationId?.toLowerCase().includes(query)
-    );
+    // Search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = (
+        (trace.input?.text || '').toLowerCase().includes(query) ||
+        (trace.output?.text || '').toLowerCase().includes(query) ||
+        (trace.conversationTitle || '').toLowerCase().includes(query) ||
+        trace.user?.name?.toLowerCase().includes(query) ||
+        trace.user?.email?.toLowerCase().includes(query) ||
+        trace.conversationId?.toLowerCase().includes(query)
+      );
+      if (!matchesSearch) return false;
+    }
+    
+    // Guardrails filter (local since not in API yet)
+    if (guardrailsFilter) {
+      const hasGuardrails = trace.guardrails?.invoked;
+      const wasBlocked = trace.guardrails?.input?.outcome === 'blocked' || trace.guardrails?.output?.outcome === 'blocked';
+      const wasAnonymized = trace.guardrails?.output?.outcome === 'anonymized';
+      
+      switch (guardrailsFilter) {
+        case 'invoked':
+          if (!hasGuardrails) return false;
+          break;
+        case 'blocked':
+          if (!wasBlocked) return false;
+          break;
+        case 'anonymized':
+          if (!wasAnonymized) return false;
+          break;
+        case 'passed':
+          if (!hasGuardrails || wasBlocked || wasAnonymized) return false;
+          break;
+      }
+    }
+    
+    return true;
   });
 
   const clearFilters = () => {
@@ -638,21 +1045,24 @@ export function TracesPage() {
     setSelectedModel('');
     setSelectedUserId('');
     setConversationIdFilter('');
+    setSelectedAgent('');
+    setGuardrailsFilter('');
+    setToolNameFilter('');
     setPage(1);
   };
 
-  const hasActiveFilters = selectedModel || selectedUserId || conversationIdFilter || searchQuery;
+  const hasActiveFilters = selectedModel || selectedUserId || conversationIdFilter || searchQuery || selectedAgent || guardrailsFilter || toolNameFilter;
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 md:p-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Activity className="h-7 w-7 text-blue-500" />
+          <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Activity className="h-6 w-6 text-blue-500" />
             LLM Observability
           </h1>
-          <p className="text-[var(--text-secondary)] mt-1">
+          <p className="text-sm text-[var(--text-secondary)]">
             Monitor all LLM traces with input/output pairs, token usage, and costs
           </p>
         </div>
@@ -669,52 +1079,52 @@ export function TracesPage() {
 
       {/* Summary Stats */}
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/20">
-                <Activity className="h-5 w-5 text-blue-400" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20">
+                <Activity className="h-4 w-4 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{(data.summary?.totalTraces || 0).toLocaleString()}</p>
-                <p className="text-sm text-[var(--text-secondary)]">Total Traces</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{(data.summary?.totalTraces || 0).toLocaleString()}</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total Traces</p>
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20">
-                <Cpu className="h-5 w-5 text-purple-400" />
+          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20">
+                <Cpu className="h-4 w-4 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{(data.filters?.models || []).length}</p>
-                <p className="text-sm text-[var(--text-secondary)]">Models Used</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">{(data.filters?.models || []).length}</p>
+                <p className="text-xs text-[var(--text-secondary)]">Models Used</p>
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/20">
-                <Zap className="h-5 w-5 text-yellow-400" />
+          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/20">
+                <Zap className="h-4 w-4 text-yellow-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[var(--text-primary)]">
+                <p className="text-lg font-bold text-[var(--text-primary)]">
                   {filteredTraces.reduce((sum, t) => sum + (t.trace?.totalTokens || 0), 0).toLocaleString()}
                 </p>
-                <p className="text-sm text-[var(--text-secondary)]">Tokens (This Page)</p>
+                <p className="text-xs text-[var(--text-secondary)]">Tokens (This Page)</p>
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/20">
-                <DollarSign className="h-5 w-5 text-green-400" />
+          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/20">
+                <DollarSign className="h-4 w-4 text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-[var(--text-primary)]">
+                <p className="text-lg font-bold text-[var(--text-primary)]">
                   ${filteredTraces.reduce((sum, t) => sum + (t.trace?.totalCost || 0), 0).toFixed(4)}
                 </p>
-                <p className="text-sm text-[var(--text-secondary)]">Cost (This Page)</p>
+                <p className="text-xs text-[var(--text-secondary)]">Cost (This Page)</p>
               </div>
             </div>
           </div>
@@ -722,9 +1132,9 @@ export function TracesPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row gap-4">
+      <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
             {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)]" />
@@ -768,8 +1178,9 @@ export function TracesPage() {
             </div>
           </div>
           
-          {/* Conversation ID Filter */}
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          {/* Second row of filters */}
+          <div className="flex flex-col md:flex-row gap-3">
+            {/* Conversation ID Filter */}
             <div className="flex items-center gap-2 flex-1">
               <MessageCircle className="h-4 w-4 text-[var(--text-tertiary)]" />
               <input
@@ -777,8 +1188,36 @@ export function TracesPage() {
                 placeholder="Filter by Conversation ID..."
                 value={conversationIdFilter}
                 onChange={(e) => { setConversationIdFilter(e.target.value); setPage(1); }}
-                className="flex-1 max-w-md px-3 py-2 bg-[var(--surface-secondary)] border border-[var(--border-light)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                className="flex-1 max-w-xs px-3 py-2 bg-[var(--surface-secondary)] border border-[var(--border-light)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
               />
+            </div>
+            
+            {/* Agent Filter */}
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                placeholder="Agent ID..."
+                value={selectedAgent}
+                onChange={(e) => { setSelectedAgent(e.target.value); setPage(1); }}
+                className="px-3 py-2 bg-[var(--surface-secondary)] border border-[var(--border-light)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm min-w-[140px]"
+              />
+            </div>
+            
+            {/* Guardrails Filter */}
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <select
+                value={guardrailsFilter}
+                onChange={(e) => { setGuardrailsFilter(e.target.value); setPage(1); }}
+                className="px-3 py-2 bg-[var(--surface-secondary)] border border-[var(--border-light)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)] min-w-[140px]"
+              >
+                <option value="">All Guardrails</option>
+                <option value="invoked">Guardrails Invoked</option>
+                <option value="blocked">Blocked</option>
+                <option value="anonymized">Anonymized</option>
+                <option value="passed">Passed</option>
+              </select>
             </div>
             
             {hasActiveFilters && (
@@ -789,7 +1228,7 @@ export function TracesPage() {
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               >
                 <X className="h-4 w-4 mr-1" />
-                Clear Filters
+                Clear
               </Button>
             )}
           </div>
@@ -806,10 +1245,10 @@ export function TracesPage() {
       ) : (
         <>
           {/* Traces Table - Horizontally scrollable on mobile */}
-          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
+          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] overflow-hidden">
             <div className="overflow-x-auto">
               {/* Table Header */}
-              <div className="px-4 py-3 border-b border-[var(--border-light)] bg-[var(--surface-secondary)] min-w-[900px]">
+              <div className="px-3 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)] min-w-[900px]">
                 <div className="grid grid-cols-12 gap-4 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
                   <span className="col-span-2">User</span>
                   <span className="col-span-2">Conversation</span>
@@ -832,7 +1271,7 @@ export function TracesPage() {
                   filteredTraces.map((trace) => (
                     <div
                       key={trace.id}
-                      className="px-4 py-3 grid grid-cols-12 gap-4 items-center hover:bg-[var(--surface-secondary)] cursor-pointer transition-colors"
+                      className="px-3 py-2 grid grid-cols-12 gap-3 items-center hover:bg-[var(--surface-secondary)] cursor-pointer transition-colors"
                       onClick={() => openDrawer(trace)}
                     >
                     {/* User */}
@@ -896,6 +1335,12 @@ export function TracesPage() {
                         <span className="text-blue-400">{(trace.trace?.inputTokens || 0).toLocaleString()}</span>
                         {' / '}
                         <span className="text-green-400">{(trace.trace?.outputTokens || 0).toLocaleString()}</span>
+                        {/* Show cache indicator if caching active */}
+                        {trace.trace?.caching?.enabled && (
+                          <span className="text-purple-400 ml-1" title={`Cache: ${trace.trace.caching.readTokens?.toLocaleString() || 0} read, ${trace.trace.caching.writeTokens?.toLocaleString() || 0} write`}>
+                            ⚡{trace.trace.caching.hitRatio > 0 ? `${trace.trace.caching.hitRatio}%` : ''}
+                          </span>
+                        )}
                       </p>
                     </div>
 
@@ -912,6 +1357,61 @@ export function TracesPage() {
                     {/* Flags */}
                     <div className="col-span-1">
                       <div className="flex flex-wrap gap-1">
+                        {/* Guardrails flags */}
+                        {trace.guardrails?.invoked && (
+                          <>
+                            {/* Input blocked */}
+                            {trace.guardrails.input?.outcome === 'blocked' && (
+                              <span 
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${
+                                  trace.guardrails.input.actionApplied 
+                                    ? 'bg-red-500/20 text-red-400' 
+                                    : 'bg-yellow-500/20 text-yellow-400'
+                                }`}
+                                title={`Input ${trace.guardrails.input.actionApplied ? 'Blocked' : 'Would Block'}: ${trace.guardrails.input.violations?.map(v => v.category).join(', ') || 'Policy violation'}`}
+                              >
+                                <ShieldX className="h-3 w-3" />
+                                <span>IN</span>
+                              </span>
+                            )}
+                            {/* Output blocked */}
+                            {trace.guardrails.output?.outcome === 'blocked' && (
+                              <span 
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${
+                                  trace.guardrails.output.actionApplied 
+                                    ? 'bg-red-500/20 text-red-400' 
+                                    : 'bg-yellow-500/20 text-yellow-400'
+                                }`}
+                                title={`Output ${trace.guardrails.output.actionApplied ? 'Blocked' : 'Would Block'}: ${trace.guardrails.output.violations?.map(v => v.category).join(', ') || 'Policy violation'}`}
+                              >
+                                <ShieldX className="h-3 w-3" />
+                                <span>OUT</span>
+                              </span>
+                            )}
+                            {/* Output anonymized */}
+                            {trace.guardrails.output?.outcome === 'anonymized' && (
+                              <span 
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${
+                                  trace.guardrails.output.actionApplied 
+                                    ? 'bg-blue-500/20 text-blue-400' 
+                                    : 'bg-yellow-500/20 text-yellow-400'
+                                }`}
+                                title={`PII ${trace.guardrails.output.actionApplied ? 'Anonymized' : 'Would Anonymize'}: ${trace.guardrails.output.violations?.map(v => v.category).join(', ') || 'Sensitive data'}`}
+                              >
+                                <ShieldAlert className="h-3 w-3" />
+                              </span>
+                            )}
+                            {/* Intervened */}
+                            {(trace.guardrails.input?.outcome === 'intervened' || trace.guardrails.output?.outcome === 'intervened') && (
+                              <span 
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs"
+                                title="Guardrail Intervened"
+                              >
+                                <Shield className="h-3 w-3" />
+                              </span>
+                            )}
+                          </>
+                        )}
                         {trace.trace?.thinking && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs" title="Extended Thinking">
                             <Brain className="h-3 w-3" />
@@ -923,7 +1423,7 @@ export function TracesPage() {
                             <span>{trace.trace.toolCalls.length}</span>
                           </span>
                         )}
-                        {!trace.trace?.thinking && (!trace.trace?.toolCalls || trace.trace.toolCalls.length === 0) && (
+                        {!trace.guardrails?.invoked && !trace.trace?.thinking && (!trace.trace?.toolCalls || trace.trace.toolCalls.length === 0) && (
                           <span className="text-xs text-[var(--text-tertiary)]">—</span>
                         )}
                       </div>

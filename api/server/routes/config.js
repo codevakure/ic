@@ -15,6 +15,15 @@ const { getLogStores } = require('~/cache');
 const { mcpServersRegistry } = require('@librechat/api');
 
 const router = express.Router();
+
+// Log Sandpack bundler URL on startup
+const sandpackBundlerURL = process.env.SANDPACK_BUNDLER_URL;
+if (sandpackBundlerURL) {
+  logger.info(`[Artifacts] Sandpack Bundler URL configured: ${sandpackBundlerURL}`);
+} else {
+  logger.warn('[Artifacts] SANDPACK_BUNDLER_URL not set - using client default');
+}
+
 const emailLoginEnabled =
   process.env.ALLOW_EMAIL_LOGIN === undefined || isEnabled(process.env.ALLOW_EMAIL_LOGIN);
 const passwordResetEnabled = isEnabled(process.env.ALLOW_PASSWORD_RESET);
@@ -87,6 +96,11 @@ router.get('/', async function (req, res) {
 
   try {
     const appConfig = await getAppConfig({ role: req.user?.role });
+
+    // Log bundler URL when config is requested
+    if (process.env.SANDPACK_BUNDLER_URL) {
+      logger.debug(`[Config API] Sending bundlerURL: ${process.env.SANDPACK_BUNDLER_URL}`);
+    }
 
     const isOpenIdEnabled =
       !!process.env.OPENID_CLIENT_ID &&

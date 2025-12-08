@@ -1,86 +1,60 @@
 /**
  * Intent Analyzer Package
  * 
- * UNIVERSAL QUERY ROUTING - One package to rule them all!
+ * Simplified routing for LibreChat/Ranger:
  * 
- * Routes every query to:
- * 1. The right TOOLS (web_search, execute_code, file_search, artifacts)
- * 2. The right MODEL (4-tier system: simple → moderate → complex → expert)
- *
- * ## 4-TIER MODEL SYSTEM (target distribution):
- * - simple   (~1%)  - Nova Micro   ($0.035/$0.14)  - Greetings, text-only simple responses
- * - moderate (~80%) - Haiku 4.5    ($1/$5)         - Most tasks, tool usage, standard code
- * - complex  (~15%) - Sonnet 4.5   ($3/$15)        - Debugging, detailed analysis
- * - expert   (~4%)  - Opus 4.5     ($15/$75)       - Deep analysis, architecture, research
+ * 1. UPLOAD INTENT - Where to send uploaded files
+ *    - IMAGE → Vision/image analysis
+ *    - FILE_SEARCH → RAG/document search
+ *    - CODE_INTERPRETER → Code executor
  * 
- * ## Routing Rules:
- * - Tool usage → Haiku 4.5 minimum (Claude models handle tools better)
- * - Deep analysis requests → Opus 4.5
- * - Text-only simple queries → Nova Micro allowed
+ * 2. MODEL ROUTING - 4-tier system based on query complexity (regex only)
+ *    - simple   (~1%)  - Nova Micro  - Greetings only
+ *    - moderate (~80%) - Haiku 4.5   - DEFAULT, most tasks
+ *    - complex  (~15%) - Sonnet 4.5  - Debugging, analysis
+ *    - expert   (~4%)  - Opus 4.5    - Deep research
+ * 
+ * Tool selection is now config-driven (toolsAutoEnabled in ranger.yaml)
+ * No LLM classifier - uses regex patterns, defaults to Haiku 4.5
  * 
  * ## Quick Start
  * ```typescript
- * import { routeQuery, Tool } from '@librechat/intent-analyzer';
+ * import { routeToModel, analyzeUploadIntent, UploadIntent } from '@librechat/intent-analyzer';
  * 
- * const result = await routeQuery('What are booming stocks today?', {
+ * // Model routing
+ * const result = routeToModel('Explain quantum computing', {
  *   provider: 'bedrock',
- *   preset: 'premium',
- *   availableTools: [Tool.WEB_SEARCH, Tool.CODE_INTERPRETER],
- *   llmFallback: async (prompt) => callNovaMicro(prompt),
+ *   preset: 'costOptimized',
+ *   hasTools: true,
  * });
- * 
- * console.log(result.tools);  // ['web_search']
  * console.log(result.model);  // 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
  * console.log(result.tier);   // 'moderate'
- * ```
  * 
- * ## Modules
- * - Core: Upload intent, query intent, model routing
- * - LLM Routing: Model configs, presets, cost calculation
- * - Legacy: Detailed attachment/tool routing
+ * // Upload intent
+ * const uploadResult = analyzeUploadIntent({ filename: 'data.xlsx', mimetype: 'application/vnd.ms-excel' });
+ * console.log(uploadResult.intent);  // UploadIntent.CODE_INTERPRETER
+ * ```
  */
 
 // ============================================================================
-// CORE MODULE - Intent Analysis
+// CORE MODULE - Upload Intent & Model Routing
 // ============================================================================
 export {
   // Types
   UploadIntent,
-  Tool,
   type FileInfo,
   type UploadIntentResult,
   type BatchUploadIntentResult,
-  type AttachedFileContext,
-  type QueryContext,
-  type QueryIntentResult,
-  // New types for weighted scoring and context
-  type PreviousToolContext,
-  type IntentSignal,
-  type SignalSource,
-  // Model Routing Types (from core)
+  type ModelTier,
   type ModelRoutingResult,
-  type UnifiedQueryResult,
-  type UnifiedAnalysisOptions,
-  type LlmFallbackFunction,
-  type LlmFallbackResponse,
   // Upload Intent
   analyzeUploadIntent,
   analyzeUploadIntents,
   getUploadEndpoint,
   getToolResource,
-  // Query Intent
-  analyzeQueryIntent,
-  shouldUseTool,
-  capabilityToTool,
-  toolToCapability,
-  // Model Routing
+  // Model Routing (regex-based)
   scoreQueryComplexity,
   getTierFromScore,
-  // Unified Analysis
-  analyzeQuery,
-  analyzeTools,
-  analyzeModelTier,
-  getTierThreshold,
 } from './core';
 
 // ============================================================================
@@ -88,22 +62,17 @@ export {
 // ============================================================================
 export {
   // Types
-  type ModelTier,
   type ModelConfig,
   type ModelPair,
   type TokenCost,
   type ModelCapability,
   type BedrockPresetTier,
   type OpenAIPresetTier,
-  type UserPreference,
-  type RoutingResult,
-  type RoutingReasonCategory,
-  type QueryFeatures,
-  type RoutingStats,
+  type RouteToModelConfig,
+  type ModelRoutingResponse,
   // Bedrock Models
   BedrockModels,
   BedrockRoutingPairs,
-  CLASSIFIER_MODEL,
   getBedrockModel,
   getBedrockModelsByTier,
   getBedrockRoutingPair,
@@ -118,19 +87,13 @@ export {
   getOpenAIRoutingPair,
   getOpenAIModelForTier,
   calculateOpenAICost,
-  // Universal Router (MAIN ENTRY POINT)
-  routeQuery,
+  // Model Router (MAIN ENTRY POINT)
   routeToModel,
-  getClassifierModel,
-  type RouterConfig,
-  type UniversalRoutingResult,
 } from './llm-routing';
 
 // ============================================================================
-// LEGACY MODULES - Full-featured (for advanced use cases)
+// ATTACHMENT MODULE - Detailed file routing
 // ============================================================================
-
-// Attachment routing (detailed)
 export {
   routeAttachment,
   routeAttachments,
@@ -161,13 +124,3 @@ export {
   OCR_CANDIDATES,
   STT_CANDIDATES,
 } from './attachments/matrix';
-
-// Tools selection (detailed)
-export {
-  selectTools,
-  shouldEnableTool,
-  ToolType,
-  type ToolDefinition,
-  type ToolSelectionContext,
-  type ToolSelectionResult,
-} from './tools';

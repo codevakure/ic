@@ -125,6 +125,46 @@ export const normalizeLayout = (layout: number[]) => {
   return normalizedLayout;
 };
 
+/**
+ * Formats a raw identifier (snake_case, kebab-case, etc.) into a readable label
+ */
+const formatLabel = (str: string): string => {
+  if (!str) return '';
+  // Replace underscores and hyphens with spaces, then capitalize first letter
+  return str
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+};
+
+/**
+ * Generates a user-friendly display label from action type and payload
+ */
+const getActionDisplayLabel = (type: string, payload: any): string => {
+  if (type === 'intent') {
+    const { intent } = payload;
+    return formatLabel(intent) || 'Processing...';
+  }
+  
+  if (type === 'tool') {
+    const { params } = payload;
+    const operation = params?.operation;
+    // Use operation if available, otherwise just show generic action
+    return operation ? formatLabel(operation) : 'Executing action...';
+  }
+  
+  if (type === 'prompt') {
+    const { prompt } = payload;
+    const cleanPrompt = prompt?.trim().replace(/\n/g, ' ') || '';
+    if (cleanPrompt.length <= 50) {
+      return cleanPrompt;
+    }
+    return cleanPrompt.substring(0, 50) + '...';
+  }
+  
+  return 'Processing...';
+};
+
 export const handleUIAction = async (result: any, ask: any) => {
   const supportedTypes = ['intent', 'tool', 'prompt'];
 
@@ -135,6 +175,8 @@ export const handleUIAction = async (result: any, ask: any) => {
   }
 
   let messageText = '';
+  // Use friendly display label for the minimal indicator
+  const actionSummary = getActionDisplayLabel(type, payload);
 
   if (type === 'intent') {
     const { intent, params } = payload;
@@ -185,12 +227,20 @@ Execute the intention of the prompt that is mentioned in the message using the t
     `;
   }
 
-  console.log('About to submit message:', messageText);
+  console.log('About to submit UI action:', actionSummary);
 
   try {
-    await ask({ text: messageText });
-    console.log('Message submitted successfully');
+    // Pass metadata to mark this as a UI action for minimal indicator rendering
+    await ask({ 
+      text: messageText,
+      metadata: {
+        isUIAction: true,
+        uiActionType: type,
+        uiActionSummary: actionSummary,
+      },
+    });
+    console.log('UI action submitted successfully');
   } catch (error) {
-    console.error('Error submitting message:', error);
+    console.error('Error submitting UI action:', error);
   }
 };

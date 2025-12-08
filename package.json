@@ -158,5 +158,9 @@
       "admin/",
       "packages/"
     ]
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.946.0",
+    "@librechat/agents": "^3.0.44"
   }
 }

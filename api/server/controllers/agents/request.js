@@ -49,6 +49,7 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
     parentMessageId = null,
     overrideParentMessageId = null,
     responseMessageId: editedResponseMessageId = null,
+    metadata = null,
   } = req.body;
 
   let sender;
@@ -213,6 +214,7 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
       isEdited: !!editedContent,
       userMCPAuthMap: result.userMCPAuthMap,
       responseMessageId: editedResponseMessageId,
+      metadata,
       progressOptions: {
         res,
       },
@@ -321,10 +323,26 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
       res.end();
     }
 
-    // Save user message if needed
+    // Save user message if needed (include guardrail tracking from middleware)
+    // This is done async to not block the UI - save happens in background
     if (!client.skipSaveUserMessage) {
-      await saveMessage(req, userMessage, {
+      // Merge guardrail tracking metadata from input moderation middleware
+      const userMessageToSave = { ...userMessage };
+      if (req.guardrailTracking?.input) {
+        userMessageToSave.metadata = {
+          ...(userMessageToSave.metadata || {}),
+          guardrailTracking: req.guardrailTracking.input
+        };
+        logger.debug('[AgentController] Including guardrail tracking in user message', {
+          outcome: req.guardrailTracking.input.outcome,
+          actionApplied: req.guardrailTracking.input.actionApplied
+        });
+      }
+      // Don't await - save in background to not block UI
+      saveMessage(req, userMessageToSave, {
         context: "api/server/controllers/agents/request.js - don't skip saving user message",
+      }).catch((err) => {
+        logger.error('[AgentController] Failed to save user message with guardrail tracking:', err);
       });
     }
 

@@ -1,9 +1,12 @@
 /**
- * Intent Analyzer Service - Unified Tool Selection + Model Routing
+ * Intent Analyzer Service - Model Routing Only
+ * 
+ * SIMPLIFIED ARCHITECTURE (v2.0):
+ * - Tool selection is now config-driven (handled in Agent.js)
+ * - This service only handles model routing for non-agents endpoints
  * 
  * Uses @librechat/intent-analyzer for:
- * 1. autoToolSelection - Smart tool selection based on query intent
- * 2. modelRouting - 4-Tier automatic model routing based on complexity
+ * - modelRouting - 4-Tier automatic model routing based on complexity
  * 
  * 4-TIER MODEL SYSTEM (target distribution):
  *   SIMPLE   (~1%)  : Nova Micro  - Greetings, text-only simple responses
@@ -16,79 +19,14 @@
  * - Deep analysis requests → Opus 4.5
  * - Text-only simple queries → Nova Micro allowed
  * 
- * Configuration is loaded from librechat.yaml under the `intentAnalyzer` key.
+ * Configuration is loaded from ranger.yaml under the `intentAnalyzer` key.
  */
 
 const { logger } = require('@librechat/data-schemas');
 const { EModelEndpoint } = require('librechat-data-provider');
-const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 // Lazy-loaded intent analyzer module
 let intentAnalyzer = null;
-
-// Lazy-loaded Bedrock client for LLM classification
-let bedrockClient = null;
-
-/**
- * Get or create Bedrock client for LLM classification
- */
-function getBedrockClient() {
-  if (!bedrockClient) {
-    bedrockClient = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
-  }
-  return bedrockClient;
-}
-
-/**
- * LLM Fallback function - calls Nova Micro for classification
- * This is used when regex patterns don't match confidently
- * 
- * @param {string} prompt - The classification prompt
- * @returns {Promise<{text: string, usage?: {inputTokens: number, outputTokens: number}}>} The LLM response with usage data
- */
-async function llmClassifierFallback(prompt) {
-  const client = getBedrockClient();
-  const classifierModel = 'us.amazon.nova-micro-v1:0';
-  
-  try {
-    const command = new InvokeModelCommand({
-      modelId: classifierModel,
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'user',
-            content: [{ text: prompt }],
-          },
-        ],
-        inferenceConfig: {
-          maxTokens: 500,
-          temperature: 0.1, // Low temperature for consistent classification
-        },
-      }),
-    });
-    
-    const response = await client.send(command);
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    
-    // Extract text from Nova response format
-    const text = responseBody.output?.message?.content?.[0]?.text || '';
-    
-    // Extract usage data for cost tracking
-    const usage = responseBody.usage ? {
-      inputTokens: responseBody.usage.inputTokens || 0,
-      outputTokens: responseBody.usage.outputTokens || 0,
-    } : undefined;
-    
-    return { text, usage };
-  } catch (error) {
-    logger.error('[IntentAnalyzer] LLM classifier failed:', error.message);
-    return { text: '' }; // Return empty response on failure, will fall back to regex result
-  }
-}
 
 // 4-Tier Model pricing (per 1K tokens) - matches AWS Bedrock official pricing
 const MODEL_PRICING = {
@@ -104,19 +42,18 @@ const MODEL_PRICING = {
   'us.amazon.nova-lite-v1:0': { input: 0.00006, output: 0.00024, tier: 'simple' },
   // SIMPLE tier (~1%) - Greetings, text-only simple responses
   'us.amazon.nova-micro-v1:0': { input: 0.000035, output: 0.00014, tier: 'simple' },
-  // CLASSIFIER - Used for LLM classification fallback only (same as Nova Micro)
-  'classifier': { input: 0.000035, output: 0.00014, tier: 'classifier' },
 };
 
 /**
  * Default intent analyzer configuration
+ * 
+ * Tool selection is config-driven via toolsAutoEnabled in ranger.yaml + UI-selected MCP
+ * Model routing selects appropriate model tier based on query complexity
  */
 const DEFAULT_CONFIG = {
-  autoToolSelection: false,
   modelRouting: false,
   preset: 'costOptimized',
   debug: false,
-  classifierModel: 'us.amazon.nova-micro-v1:0',
   endpoints: {
     [EModelEndpoint.bedrock]: {
       enabled: false,
@@ -141,6 +78,9 @@ async function getIntentAnalyzer() {
 
 /**
  * Get intent analyzer configuration from app config
+ * 
+ * NOTE: Only modelRouting is supported. Tool selection is config-driven.
+ * 
  * @param {object} appConfig - Application configuration
  * @param {string} endpoint - The endpoint type
  * @returns {object} Intent analyzer configuration for the endpoint
@@ -152,7 +92,6 @@ function getIntentAnalyzerConfig(appConfig, endpoint) {
   // Check if endpoint is enabled
   if (!endpointConfig.enabled) {
     return { 
-      autoToolSelection: false, 
       modelRouting: false,
       enabled: false,
     };
@@ -160,19 +99,17 @@ function getIntentAnalyzerConfig(appConfig, endpoint) {
   
   return {
     enabled: true,
-    autoToolSelection: globalConfig.autoToolSelection ?? false,
     modelRouting: globalConfig.modelRouting ?? false,
     preset: globalConfig.preset ?? 'costOptimized',
     debug: globalConfig.debug ?? false,
-    classifierModel: endpointConfig.classifierModel ?? globalConfig.classifierModel ?? 'us.amazon.nova-micro-v1:0',
   };
 }
 
 /**
- * Route a request to the optimal model based on prompt complexity (5-tier)
+ * Route a request to the optimal model based on prompt complexity (4-tier)
  * 
  * NOTE: This is for NON-AGENTS endpoints only. Agents endpoint does routing
- * in loadEphemeralAgent AFTER tool selection (so artifacts can elevate tier).
+ * in loadEphemeralAgent using routeToModel from intent-analyzer.
  * 
  * @param {object} params - Routing parameters
  * @param {string} params.endpoint - The endpoint type (bedrock, openAI, etc.)
@@ -180,10 +117,9 @@ function getIntentAnalyzerConfig(appConfig, endpoint) {
  * @param {string} params.currentModel - The currently selected model
  * @param {string} [params.userId] - Optional user ID for logging
  * @param {object} [params.appConfig] - Application configuration (from req.config)
- * @param {Array<{role: string, content: string}>} [params.conversationHistory] - Recent conversation messages for context
  * @returns {Promise<string|null>} The routed model ID, or null if no routing needed
  */
-async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, conversationHistory = [] }) {
+async function routeModel({ endpoint, prompt, currentModel, userId, appConfig }) {
   // Get configuration from intentAnalyzer
   const config = getIntentAnalyzerConfig(appConfig || global.appConfig, endpoint);
   
@@ -211,17 +147,12 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
     // Estimate input tokens (rough: ~4 chars per token)
     const estimatedInputTokens = Math.ceil(prompt.length / 4);
     
-    // Route the prompt using unified analyzer
-    // For non-agents endpoints: no tool selection, just model tier routing
-    const startTime = Date.now();
-    const result = await analyzer.routeQuery(prompt, {
+    // Route the prompt using simplified analyzer (regex only, defaults to Haiku 4.5)
+    const result = analyzer.routeToModel(prompt, {
       provider,
       preset: config.preset,
-      availableTools: [], // No tools for non-agents endpoints
-      conversationHistory: conversationHistory.slice(-5), // Last 5 messages for context
-      fallbackThreshold: 0.4,
+      hasTools: false, // Non-agents endpoints don't have tool context here
     });
-    const routingTimeMs = Date.now() - startTime;
     
     // Get pricing for both models
     const routedPricing = MODEL_PRICING[result.model] || { input: 0, output: 0, tier: 'unknown' };
@@ -233,13 +164,6 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
     const routedOutputCost = (estimatedOutputTokens / 1_000_000) * routedPricing.output;
     const routedTotalCost = routedInputCost + routedOutputCost;
     
-    const currentInputCost = (estimatedInputTokens / 1_000_000) * currentPricing.input;
-    const currentOutputCost = (estimatedOutputTokens / 1_000_000) * currentPricing.output;
-    const currentTotalCost = currentInputCost + currentOutputCost;
-    
-    const costSavings = currentTotalCost - routedTotalCost;
-    const costSavingsPercent = currentTotalCost > 0 ? ((costSavings / currentTotalCost) * 100).toFixed(1) : 0;
-    
     // Get model short names for logging
     const getShortName = (model) => {
       if (!model) return 'unknown';
@@ -250,21 +174,13 @@ async function routeModel({ endpoint, prompt, currentModel, userId, appConfig, c
       return model.split('.').pop()?.replace('-v1:0', '')?.substring(0, 15) || model;
     };
     
-    // Build classifier cost string if LLM was used
-    let classifierCostStr = '';
-    if (result.usedLlmFallback && result.classifierUsage) {
-      const { inputTokens, outputTokens, cost } = result.classifierUsage;
-      classifierCostStr = ` | Classifier: ${inputTokens}in/${outputTokens}out=$${cost.toFixed(6)}`;
-    }
-    
-    // Simplified single-line logging
-    // Format: [Router] Tools: [...] | Model: X | Method: regex/LLM | In: X | Out: X | Cached: X | Cost: $X
+    // Simplified logging
     logger.info(
-      `[Router] Tools: [${result.tools?.join(', ') || 'none'}] | ` +
-      `Model: ${getShortName(result.model)} | ` +
-      `Method: ${result.usedLlmFallback ? 'LLM' : 'regex'} | ` +
+      `[Router] Model: ${getShortName(result.model)} | ` +
+      `Tier: ${result.tier} | ` +
+      `Score: ${result.score?.toFixed(2) || 'N/A'} | ` +
       `Est.In: ${estimatedInputTokens} | Est.Out: ${estimatedOutputTokens} | ` +
-      `Cost: $${routedTotalCost.toFixed(4)}${classifierCostStr}`
+      `Cost: $${routedTotalCost.toFixed(4)}`
     );
     
     return result.model;
@@ -293,7 +209,6 @@ function getIntentAnalyzerStats() {
 
 module.exports = {
   routeModel,
-  llmClassifierFallback, // Export for use in Agent.js tool selection
   clearIntentAnalyzerCache,
   getIntentAnalyzerStats,
   getIntentAnalyzerConfig,

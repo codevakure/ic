@@ -95,15 +95,29 @@ async function buildEndpointOption(req, res, next) {
     if (conversationId) {
       try {
         // Query by conversationId only - user filter not needed for reading
+        // Fetch content field to extract tool calls for context
         const messages = await getMessages(
           { conversationId },
-          'text isCreatedByUser'
+          'text isCreatedByUser content'
         );
         // Convert to simple format and take last 5 messages
-        conversationHistory = messages.slice(-5).map(m => ({
-          role: m.isCreatedByUser ? 'user' : 'assistant',
-          content: m.text?.substring(0, 500) || '', // Limit length
-        }));
+        // Include tool information for intent analyzer context
+        conversationHistory = messages.slice(-5).map(m => {
+          // Extract tool names from content array if present
+          const toolsUsed = [];
+          if (Array.isArray(m.content)) {
+            for (const item of m.content) {
+              if (item.type === 'tool_call' && item.tool_call?.name) {
+                toolsUsed.push(item.tool_call.name);
+              }
+            }
+          }
+          return {
+            role: m.isCreatedByUser ? 'user' : 'assistant',
+            content: m.text?.substring(0, 500) || '', // Limit length
+            toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined, // Tools used in this message
+          };
+        });
         // Debug: logger.debug(`[buildEndpointOption] ConversationId: ${conversationId?.slice(0, 8)}..., DB messages: ${messages.length}, using: ${conversationHistory.length}`);
       } catch (err) {
         logger.warn('[buildEndpointOption] Could not fetch conversation history:', err.message);

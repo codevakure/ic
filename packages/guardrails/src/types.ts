@@ -48,6 +48,10 @@ export interface InputModerationResult {
   metadata?: GuardrailMetadata;
   blockMessage?: string;
   violations?: ViolationDetail[];
+  /** Tracking metadata - always populated when guardrails invoked */
+  trackingMetadata?: GuardrailTrackingMetadata;
+  /** Whether the action was actually applied (based on env flags) */
+  actionApplied?: boolean;
 }
 
 /**
@@ -61,6 +65,10 @@ export interface OutputModerationResult {
     metadata: GuardrailMetadata;
   };
   violations?: ViolationDetail[];
+  /** Tracking metadata - always populated when guardrails invoked */
+  trackingMetadata?: GuardrailTrackingMetadata;
+  /** Whether the action was actually applied (based on env flags) */
+  actionApplied?: boolean;
 }
 
 /**
@@ -88,10 +96,12 @@ export interface GuardrailResult {
     sensitiveInformationPolicyFreeUnits?: number;
     contextualGroundingPolicyUnits?: number;
   };
-  reason: 'disabled' | 'invalid_content' | 'not_initialized' | 'policy_violation' | 'passed' | 'error';
+  reason: 'disabled' | 'invalid_content' | 'not_initialized' | 'policy_violation' | 'passed' | 'error' | 'anonymized' | 'intervened_passthrough';
   userMessage?: string | null;
   error?: string;
   violations?: ViolationDetail[];
+  /** Tracking metadata for all outcomes (always populated when guardrails invoked) */
+  trackingMetadata?: GuardrailTrackingMetadata;
 }
 
 /**
@@ -115,4 +125,31 @@ export interface GuardrailsConfig {
   secretAccessKey?: string;
   sessionToken?: string;
   blockMessage?: string;
+  /** Whether to apply block action on UI (if false, still saves to DB but doesn't block) */
+  blockEnabled?: boolean;
+  /** Whether to apply anonymize action on UI (if false, still saves to DB but doesn't anonymize) */
+  anonymizeEnabled?: boolean;
+  /** Whether to apply intervene action on UI (if false, still saves to DB but doesn't intervene) */
+  interveneEnabled?: boolean;
+}
+
+/**
+ * Guardrail outcome type for tracking
+ */
+export type GuardrailOutcome = 'blocked' | 'anonymized' | 'intervened' | 'passed';
+
+/**
+ * Extended metadata for all guardrail outcomes (not just blocked)
+ */
+export interface GuardrailTrackingMetadata {
+  guardrailInvoked: boolean;
+  outcome: GuardrailOutcome;
+  actionApplied: boolean;  // Whether the action was actually applied to UI
+  violations: ViolationDetail[];
+  assessments?: any[];
+  originalContent?: string;
+  modifiedContent?: string;
+  reason: string;
+  systemNote?: string;
+  timestamp: string;
 }

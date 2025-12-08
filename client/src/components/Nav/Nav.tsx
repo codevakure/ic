@@ -215,9 +215,9 @@ const Nav = memo(
                 'nav active max-w-[320px] flex-shrink-0 overflow-x-hidden bg-surface-primary-alt',
                 'md:max-w-[260px]',
               )}
-              initial={{ width: 0 }}
-              animate={{ width: navWidth }}
-              exit={{ width: 0 }}
+              initial={isSmallScreen ? { x: '-100%' } : { width: 0 }}
+              animate={isSmallScreen ? { x: 0 } : { width: navWidth }}
+              exit={isSmallScreen ? { x: '-100%' } : { width: 0 }}
               transition={{ duration: 0.2 }}
               key="nav"
             >

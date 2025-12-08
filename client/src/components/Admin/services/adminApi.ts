@@ -96,9 +96,17 @@ export interface TokenMetrics {
   summary: {
     totalInputTokens: number;
     totalOutputTokens: number;
+    totalCacheWriteTokens: number;
+    totalCacheReadTokens: number;
     totalTokens: number;
+    totalInputCost: number;
+    totalOutputCost: number;
+    totalCacheWriteCost: number;
+    totalCacheReadCost: number;
     totalCost: number;
+    totalCacheSavings: number;
     totalTransactions: number;
+    totalDuration?: number;
   };
   trend: {
     date: string;
@@ -111,11 +119,19 @@ export interface TokenMetrics {
     name: string;
     inputTokens: number;
     outputTokens: number;
+    cacheWriteTokens: number;
+    cacheReadTokens: number;
     totalTokens: number;
     inputCost: number;
     outputCost: number;
+    cacheWriteCost: number;
+    cacheReadCost: number;
+    totalInputCost: number;
     totalCost: number;
+    cacheSavings: number;
     transactions: number;
+    totalDuration?: number;
+    avgDuration?: number;
   }[];
   topUsers: {
     userId: string;
@@ -163,43 +179,57 @@ export interface AgentMetrics {
   generatedAt: string;
 }
 
-export interface CostsMetrics {
-  startDate: string;
-  endDate: string;
+// CostsMetrics is the same as TokenMetrics (same backend endpoint)
+export type CostsMetrics = TokenMetrics;
+
+export interface ToolUsage {
+  toolName: string;
+  displayName: string;
+  category: string;
+  invocations: number;
+  successCount: number;
+  errorCount: number;
+  avgDuration: number;
+  userCount: number;
+  conversationCount: number;
+}
+
+export interface ToolMetrics {
+  startDate: string | null;
+  endDate: string | null;
+  tools: ToolUsage[];
+  trend: { date: string; count: number }[];
   summary: {
-    totalInputTokens: number;
-    totalOutputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    totalTransactions: number;
+    totalInvocations: number;
+    totalTools: number;
+    avgSuccessRate: number;
+    mostUsedTool: string;
   };
-  trend: {
-    date: string;
-    inputTokens: number;
-    outputTokens: number;
-    transactions: number;
-  }[];
-  byModel: {
-    model: string;
-    name: string;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    inputCost: number;
-    outputCost: number;
-    totalCost: number;
-    transactions: number;
-  }[];
-  topUsers: {
-    userId: string;
-    email?: string;
-    name?: string;
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    transactions: number;
-  }[];
+  generatedAt: string;
+}
+
+export interface GuardrailsMetrics {
+  startDate: string | null;
+  endDate: string | null;
+  summary: {
+    totalEvents: number;
+    blocked: number;
+    intervened: number;
+    anonymized: number;
+    passed: number;
+    userCount: number;
+    conversationCount: number;
+    blockRate: number | string;
+  };
+  outcomes: {
+    blocked: number;
+    intervened: number;
+    anonymized: number;
+    passed: number;
+  };
+  violations: { type: string; category: string; count: number }[];
+  violationBreakdown?: { type: string; blocked: number; intervened: number; anonymized: number; total: number }[];
+  trend: { date: string; total: number; blocked: number; intervened: number; anonymized: number }[];
   generatedAt: string;
 }
 
@@ -280,6 +310,20 @@ export const dashboardApi = {
     if (params.endDate) query.set('endDate', params.endDate);
     const queryStr = query.toString();
     return adminFetch<CostsMetrics>(`/dashboard/costs${queryStr ? `?${queryStr}` : ''}`);
+  },
+  getToolMetrics: (params: DateRangeParams = {}) => {
+    const query = new URLSearchParams();
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    const queryStr = query.toString();
+    return adminFetch<ToolMetrics>(`/dashboard/tools${queryStr ? `?${queryStr}` : ''}`);
+  },
+  getGuardrailsMetrics: (params: DateRangeParams = {}) => {
+    const query = new URLSearchParams();
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    const queryStr = query.toString();
+    return adminFetch<GuardrailsMetrics>(`/dashboard/guardrails${queryStr ? `?${queryStr}` : ''}`);
   },
   getActivityTimeline: (days?: number) =>
     adminFetch<ActivityTimeline>(`/dashboard/activity${days ? `?days=${days}` : ''}`),
@@ -588,6 +632,27 @@ export const userDetailApi = {
 };
 
 // LLM Traces/Observability Types
+export interface GuardrailViolation {
+  type: 'CONTENT_POLICY' | 'TOPIC_POLICY' | 'WORD_POLICY' | 'PII_POLICY';
+  category: string;
+  confidence?: string;
+  action?: string;
+}
+
+export interface GuardrailOutcomeData {
+  outcome: 'blocked' | 'anonymized' | 'intervened' | 'passed';
+  actionApplied: boolean;
+  violations: GuardrailViolation[];
+  reason: string;
+  timestamp?: string;
+}
+
+export interface GuardrailsData {
+  invoked: boolean;
+  input: GuardrailOutcomeData | null;
+  output: GuardrailOutcomeData | null;
+}
+
 export interface LLMTrace {
   id: string;
   messageId: string;
@@ -625,7 +690,29 @@ export interface LLMTrace {
       output: string;
     }>;
     duration: number | null;
+    /** Prompt caching information */
+    caching?: {
+      enabled: boolean;
+      writeTokens: number;
+      readTokens: number;
+      writeCost: number;
+      readCost: number;
+    };
+    /** Detailed token breakdown by component (what's in the context) */
+    tokenBreakdown?: {
+      // High-level totals
+      instructions?: number;    // System prompt tokens
+      artifacts?: number;       // Artifacts prompt tokens  
+      tools?: number;           // Tool definitions tokens (total)
+      toolCount?: number;       // Number of tools
+      toolContext?: number;     // Tool usage instructions (total)
+      total?: number;           // Total context tokens
+      // Detailed per-tool breakdown
+      toolsDetail?: Array<{ name: string; tokens: number }>;
+      toolContextDetail?: Array<{ name: string; tokens: number }>;
+    };
   };
+  guardrails: GuardrailsData | null;
   createdAt: string;
 }
 
@@ -654,8 +741,11 @@ export interface LLMTracesParams {
   userId?: string;
   conversationId?: string;
   model?: string;
+  agent?: string;
+  guardrails?: string;
   startDate?: string;
   endDate?: string;
+  toolName?: string;
 }
 
 // LLM Traces API for Observability

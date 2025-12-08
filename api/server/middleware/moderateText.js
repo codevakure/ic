@@ -112,7 +112,7 @@ async function sendGuardrailResponse(req, res, message, violationDetails = null)
 }
 
 async function moderateText(req, res, next) {
-  const { text } = req.body;
+  const { text, messageId: reqMessageId, conversationId: _convoId } = req.body;
   const userId = req.user?.id;
   const startTime = Date.now();
 
@@ -128,8 +128,25 @@ async function moderateText(req, res, next) {
       const result = await guardrailsService.handleInputModeration(text);
       const processingTime = Date.now() - startTime;
       
-      if (result.blocked) {
-        // ONLY LOG BLOCKED CONTENT
+      // Attach tracking metadata to request for downstream processing
+      // This will be included when the user message is saved by the request controller
+      // NOTE: Don't save here - the request controller saves the user message
+      if (result.trackingMetadata) {
+        req.guardrailTracking = {
+          input: result.trackingMetadata,
+          processingTime
+        };
+        
+        logger.debug('[moderateText] Attached guardrail tracking to request', {
+          outcome: result.trackingMetadata.outcome,
+          actionApplied: result.trackingMetadata.actionApplied,
+          processingTime: `${processingTime}ms`
+        });
+      }
+      
+      // Check if block action should be applied
+      if (result.blocked && result.actionApplied) {
+        // BLOCK action is enabled - block the content
         logger.warn('[moderateText] 🚫 INPUT BLOCKED', {
           userId,
           time: `${processingTime}ms`,
@@ -140,8 +157,17 @@ async function moderateText(req, res, next) {
         // metadata includes: guardrailBlocked, violations, systemNote, etc.
         return await sendGuardrailResponse(req, res, result.blockMessage, result.metadata);
       }
+      
+      // Check if block was detected but action disabled
+      if (result.trackingMetadata?.outcome === 'blocked' && !result.actionApplied) {
+        logger.info('[moderateText] ⚠️ BLOCK DETECTED but not applied (GUARDRAILS_BLOCK_ENABLED=false)', {
+          userId,
+          time: `${processingTime}ms`,
+          violations: result.trackingMetadata.violations?.map(v => `${v.type}:${v.category}`) || []
+        });
+      }
 
-      // Content passed - continue (no logging for passed content)
+      // Content passed or action disabled - continue
       return next();
 
     } catch (error) {

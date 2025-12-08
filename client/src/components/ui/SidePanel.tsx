@@ -317,7 +317,10 @@ export function useSourcesPanel() {
       ...prev,
       isOpen: false,
     }));
-  }, [setPanelState]);
+    // Restore artifacts visibility when sources panel closes
+    // This allows artifacts to auto-show again if they exist
+    setArtifactsVisible(true);
+  }, [setPanelState, setArtifactsVisible]);
 
   const updateHeaderActions = useCallback((headerActions: React.ReactNode) => {
     setPanelState((prev) => ({

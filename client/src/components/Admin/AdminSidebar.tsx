@@ -1,6 +1,6 @@
 import { memo, useCallback, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCheck, Settings, ChevronLeft, ChevronRight, Sun, Moon, Shield, DollarSign, Bot, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, UserCheck, Settings, ChevronLeft, ChevronRight, Sun, Moon, Shield, ShieldAlert, DollarSign, Bot, Activity, Wrench } from 'lucide-react';
 import { TooltipAnchor, ThemeContext } from '@librechat/client';
 import { cn } from '~/utils';
 
@@ -47,6 +47,18 @@ const navItems: NavItem[] = [
     title: 'Agents',
     icon: Bot,
     path: '/admin/agents',
+  },
+  {
+    id: 'tools',
+    title: 'Tools',
+    icon: Wrench,
+    path: '/admin/tools',
+  },
+  {
+    id: 'guardrails',
+    title: 'Guardrails',
+    icon: ShieldAlert,
+    path: '/admin/guardrails',
   },
   {
     id: 'roles',

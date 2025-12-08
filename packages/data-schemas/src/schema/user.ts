@@ -136,7 +136,7 @@ const userSchema = new Schema<IUser>(
       type: {
         memories: {
           type: Boolean,
-          default: true,
+          default: false,
         },
       },
       default: {},

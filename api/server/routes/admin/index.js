@@ -58,6 +58,12 @@ router.get('/dashboard/costs', dashboardController.getCostsMetrics);
 // GET /api/admin/dashboard/traces - Get LLM traces for observability
 router.get('/dashboard/traces', dashboardController.getLLMTraces);
 
+// GET /api/admin/dashboard/tools - Get tool usage metrics
+router.get('/dashboard/tools', dashboardController.getToolMetrics);
+
+// GET /api/admin/dashboard/guardrails - Get guardrails metrics
+router.get('/dashboard/guardrails', dashboardController.getGuardrailsMetrics);
+
 /**
  * User Management
  */

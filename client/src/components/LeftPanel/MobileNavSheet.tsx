@@ -32,12 +32,12 @@ interface MobileNavSheetProps {
 }
 
 /**
- * Mobile Navigation Sheet - Draggable top sheet for mobile navigation
+ * Mobile Navigation Sheet - Draggable BOTTOM sheet for mobile navigation
  * Features:
- * - Drag down to close
- * - Drag up to open (from handle)
+ * - Drag down to close (swipe down on the sheet)
  * - Tap backdrop to close
  * - Native-like spring animation
+ * - No conflict with Chrome's native pull-to-refresh
  */
 const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps) => {
   const navigate = useNavigate();
@@ -82,7 +82,7 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     onClose();
   };
 
-  // Drag handlers
+  // Drag handlers - only trigger from the drag handle area
   const handleDragStart = useCallback((clientY: number) => {
     setIsDragging(true);
     startY.current = clientY;
@@ -93,11 +93,10 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     if (!isDragging) return;
     currentY.current = clientY;
     const deltaY = clientY - startY.current;
-    // Only allow dragging down (positive deltaY) when open
+    // For bottom sheet: allow dragging DOWN (positive deltaY) to close
     if (isOpen && deltaY > 0) {
       setDragY(deltaY);
     }
-    // Only allow dragging up (negative deltaY) when closed - handled by handle
   }, [isDragging, isOpen]);
 
   const handleDragEnd = useCallback(() => {
@@ -114,16 +113,16 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     setDragY(0);
   }, [isDragging, isOpen, onClose]);
 
-  // Touch event handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Touch event handlers for drag handle only
+  const handleHandleTouchStart = (e: React.TouchEvent) => {
     handleDragStart(e.touches[0].clientY);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleHandleTouchMove = (e: React.TouchEvent) => {
     handleDragMove(e.touches[0].clientY);
   };
 
-  const handleTouchEnd = () => {
+  const handleHandleTouchEnd = () => {
     handleDragEnd();
   };
 
@@ -167,124 +166,8 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     return 'U';
   };
 
-  const sheetHeight = 'auto';
-  const translateY = isOpen ? dragY : -500;
-
-  // Handle for pull-down gesture (when closed)
-  const handlePullHandleTouchStart = useCallback((e: React.TouchEvent) => {
-    setIsDragging(true);
-    startY.current = e.touches[0].clientY;
-    currentY.current = e.touches[0].clientY;
-  }, []);
-
-  const handlePullHandleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging) return;
-    currentY.current = e.touches[0].clientY;
-    const deltaY = currentY.current - startY.current;
-    // Only allow dragging down when handle is pulled
-    if (deltaY > 0) {
-      setDragY(deltaY);
-    }
-  }, [isDragging]);
-
-  const handlePullHandleTouchEnd = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    
-    const deltaY = currentY.current - startY.current;
-    const threshold = 50; // pixels to trigger open
-    
-    if (deltaY > threshold) {
-      onToggle(); // Open the sheet
-    }
-    
-    setDragY(0);
-  }, [isDragging, onToggle]);
-
-  // Track if drag started from top zone
-  const dragStartedFromTop = useRef(false);
-
-  // Handle drag from top 30% of screen to open
-  const handleScreenTouchStart = useCallback((e: React.TouchEvent) => {
-    if (isOpen) return; // Only when closed
-    
-    const touchY = e.touches[0].clientY;
-    const screenHeight = window.innerHeight;
-    const topZone = screenHeight * 0.15; // Top 15% of screen
-    
-    if (touchY <= topZone) {
-      dragStartedFromTop.current = true;
-      setIsDragging(true);
-      startY.current = touchY;
-      currentY.current = touchY;
-    }
-  }, [isOpen]);
-
-  const handleScreenTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging || !dragStartedFromTop.current) return;
-    
-    currentY.current = e.touches[0].clientY;
-    const deltaY = currentY.current - startY.current;
-    
-    // Only allow dragging down
-    if (deltaY > 0) {
-      setDragY(deltaY);
-    }
-  }, [isDragging]);
-
-  const handleScreenTouchEnd = useCallback(() => {
-    if (!isDragging || !dragStartedFromTop.current) return;
-    
-    setIsDragging(false);
-    dragStartedFromTop.current = false;
-    
-    const deltaY = currentY.current - startY.current;
-    const threshold = 60; // pixels to trigger open
-    
-    if (deltaY > threshold) {
-      onToggle(); // Open the sheet
-    }
-    
-    setDragY(0);
-  }, [isDragging, onToggle]);
-
   return (
     <>
-      {/* Invisible touch zone for top 15% of screen - drag down to open */}
-      {!isOpen && (
-        <div
-          className="fixed left-0 right-0 top-0 z-[99]"
-          style={{ height: '15vh' }}
-          onTouchStart={handleScreenTouchStart}
-          onTouchMove={handleScreenTouchMove}
-          onTouchEnd={handleScreenTouchEnd}
-        />
-      )}
-
-      {/* Small visual indicator - horizontal pill/grabber like native sheets */}
-      <div
-        className={cn(
-          'fixed left-1/2 z-[102] -translate-x-1/2',
-          'flex items-center justify-center',
-          'pointer-events-none',
-          'transition-all duration-200',
-          isOpen && 'opacity-0'
-        )}
-        style={{
-          top: '6px',
-          transform: `translateX(-50%) translateY(${!isOpen && isDragging ? Math.min(dragY, 100) : 0}px)`,
-        }}
-      >
-        {/* Native sheet grabber - horizontal pill */}
-        <div 
-          className="w-9 h-1 rounded-full bg-text-tertiary"
-          style={{ 
-            transition: 'opacity 0.2s ease',
-            opacity: isDragging ? 0.6 : 0.25,
-          }}
-        />
-      </div>
-
       {/* Backdrop */}
       {isOpen && (
         <div
@@ -300,30 +183,31 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
         />
       )}
 
-      {/* Sheet */}
+      {/* Sheet - Now from BOTTOM */}
       <div
         ref={sheetRef}
         className={cn(
-          'fixed left-0 right-0 top-0 z-[101]',
-          'bg-surface-primary rounded-b-2xl shadow-xl',
-          'border-b border-x border-border-light',
+          'fixed left-0 right-0 bottom-0 z-[101]',
+          'bg-surface-primary rounded-t-2xl shadow-xl',
+          'border-t border-x border-border-light',
           'transform transition-transform',
           isDragging ? 'duration-0' : 'duration-300 ease-out',
-          !isOpen && !isDragging && '-translate-y-full'
+          !isOpen && !isDragging && 'translate-y-full'
         )}
         style={{
           transform: isOpen 
             ? `translateY(${dragY}px)` 
-            : 'translateY(-100%)',
+            : 'translateY(100%)',
+          maxHeight: '80vh',
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Drag Handle */}
+        {/* Drag Handle - Touch events only on handle */}
         <div
           className="flex items-center justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={handleMouseDown}
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={handleHandleTouchEnd}
         >
           <div className="w-10 h-1 rounded-full bg-text-tertiary/50" />
         </div>

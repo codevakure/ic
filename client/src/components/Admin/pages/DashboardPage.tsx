@@ -14,7 +14,6 @@ import {
   RefreshCw,
   UserCheck,
   AlertCircle,
-  FileText,
   Ban,
   Calendar,
   TrendingUp,
@@ -23,6 +22,8 @@ import {
   Bot,
   Hash,
   BarChart3,
+  Wrench,
+  Shield,
 } from 'lucide-react';
 import {
   AdminAreaChart,
@@ -39,6 +40,8 @@ import {
   type ConversationMetrics,
   type UserMetrics,
   type SystemHealth,
+  type ToolMetrics,
+  type GuardrailsMetrics,
 } from '../services/adminApi';
 import { cn } from '~/utils';
 
@@ -163,6 +166,8 @@ function DashboardPage() {
   const [userMetrics, setUserMetrics] = useState<UserMetrics | null>(null);
   const [hourlyActivity, setHourlyActivity] = useState<HourlyActivity | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [toolMetrics, setToolMetrics] = useState<ToolMetrics | null>(null);
+  const [guardrailsMetrics, setGuardrailsMetrics] = useState<GuardrailsMetrics | null>(null);
   const [bannedCount, setBannedCount] = useState<number>(0);
 
   // Calculate date range from preset
@@ -219,7 +224,9 @@ function DashboardPage() {
         conversationsRes,
         usersRes,
         healthRes, 
-        hourlyRes
+        hourlyRes,
+        toolsRes,
+        guardrailsRes
       ] = await Promise.allSettled([
         dashboardApi.getOverview(dateRange),
         dashboardApi.getTokenMetrics(dateRange),
@@ -227,6 +234,8 @@ function DashboardPage() {
         dashboardApi.getUserMetrics(dateRange),
         systemApi.getHealth(),
         dashboardApi.getHourlyActivity('America/Chicago'),
+        dashboardApi.getToolMetrics(dateRange),
+        dashboardApi.getGuardrailsMetrics(dateRange),
       ]);
 
       if (overviewRes.status === 'fulfilled') setOverview(overviewRes.value);
@@ -235,6 +244,8 @@ function DashboardPage() {
       if (usersRes.status === 'fulfilled') setUserMetrics(usersRes.value);
       if (healthRes.status === 'fulfilled') setSystemHealth(healthRes.value);
       if (hourlyRes.status === 'fulfilled') setHourlyActivity(hourlyRes.value);
+      if (toolsRes.status === 'fulfilled') setToolMetrics(toolsRes.value);
+      if (guardrailsRes.status === 'fulfilled') setGuardrailsMetrics(guardrailsRes.value);
 
       // Fetch banned users count
       try {
@@ -341,6 +352,26 @@ function DashboardPage() {
       value: m.count,
     }));
   }, [conversationMetrics?.byModel]);
+
+  // Tools usage trend - real data
+  const toolsUsageData = useMemo(() => {
+    if (!toolMetrics?.trend?.length) return [];
+    return toolMetrics.trend.map(d => ({
+      name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value: d.count,
+    }));
+  }, [toolMetrics?.trend]);
+
+  // Guardrails trend - real data with all 3 categories
+  const guardrailsData = useMemo(() => {
+    if (!guardrailsMetrics?.trend?.length) return [];
+    return guardrailsMetrics.trend.map(d => ({
+      name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      blocked: d.blocked,
+      intervened: d.intervened,
+      anonymized: d.anonymized,
+    }));
+  }, [guardrailsMetrics?.trend]);
 
   // Get display label for date range
   const dateRangeLabel = useMemo(() => {
@@ -520,7 +551,7 @@ function DashboardPage() {
           <MetricCard
             title="Cost"
             value={formatCurrency(tokenMetrics?.summary?.totalCost ?? 0)}
-            subtitle={datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`}
+            subtitle={tokenMetrics?.summary?.cacheSavings ? `Saved ${formatCurrency(tokenMetrics.summary.cacheSavings)} from cache` : (datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`)}
             icon={<Coins className="h-4 w-4" />}
             iconColor="text-orange-600 dark:text-orange-400"
             iconBg="bg-orange-500/10"
@@ -635,12 +666,12 @@ function DashboardPage() {
       </div>
 
       {/* ROW 4: By Endpoint (6 grid) + Conversations by Model (6 grid) */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* By Endpoint */}
-        <div className="rounded-xl border border-border-light bg-surface-secondary p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="rounded-xl border border-border-light bg-surface-secondary p-4">
+          <div className="mb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-text-primary">By Endpoint</h3>
+              <h3 className="text-sm font-semibold text-text-primary">By Endpoint</h3>
               <p className="text-xs text-text-secondary">Conversations by endpoint</p>
             </div>
             <Activity className="h-4 w-4 text-text-tertiary" />
@@ -648,23 +679,23 @@ function DashboardPage() {
           {endpointData.length > 0 ? (
             <AdminBarChart
               data={endpointData}
-              height={200}
+              height={160}
               color={CHART_COLORS.teal}
               formatter={formatNumber}
               horizontal
             />
           ) : (
-            <div className="flex h-[200px] items-center justify-center text-text-tertiary text-sm">
+            <div className="flex h-[160px] items-center justify-center text-text-tertiary text-sm">
               No endpoint data
             </div>
           )}
         </div>
 
         {/* Conversations by Model */}
-        <div className="rounded-xl border border-border-light bg-surface-secondary p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="rounded-xl border border-border-light bg-surface-secondary p-4">
+          <div className="mb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-text-primary">Conversations by Model</h3>
+              <h3 className="text-sm font-semibold text-text-primary">Conversations by Model</h3>
               <p className="text-xs text-text-secondary">Model distribution (Top 5)</p>
             </div>
             <Bot className="h-4 w-4 text-text-tertiary" />
@@ -672,22 +703,87 @@ function DashboardPage() {
           {conversationsByModelData.length > 0 ? (
             <AdminBarChart
               data={conversationsByModelData}
-              height={200}
+              height={160}
               color={CHART_COLORS.purple}
               formatter={formatNumber}
               horizontal
             />
           ) : (
-            <div className="flex h-[200px] items-center justify-center text-text-tertiary text-sm">
+            <div className="flex h-[160px] items-center justify-center text-text-tertiary text-sm">
               No model data
             </div>
           )}
         </div>
       </div>
 
-      {/* ROW 5: Cost Breakdown Table */}
+      {/* ROW 5: Tools Usage + Guardrails */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Tools Usage Trend */}
+        <div 
+          className="rounded-xl border border-border-light bg-surface-secondary p-4 cursor-pointer hover:border-[var(--surface-submit)] transition-colors"
+          onClick={() => navigate('/admin/tools')}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">Tools Usage</h3>
+              <p className="text-xs text-text-secondary">
+                {toolMetrics?.summary?.totalInvocations ?? 0} invocations • {toolMetrics?.summary?.totalTools ?? 0} tools
+              </p>
+            </div>
+            <Wrench className="h-4 w-4 text-text-tertiary" />
+          </div>
+          {toolsUsageData.length > 0 ? (
+            <AdminAreaChart
+              data={toolsUsageData}
+              dataKey="value"
+              height={160}
+              color={CHART_COLORS.warning}
+              formatter={formatNumber}
+            />
+          ) : (
+            <div className="flex h-[160px] items-center justify-center text-text-tertiary text-sm">
+              No tool usage data
+            </div>
+          )}
+        </div>
+
+        {/* Guardrails Activity */}
+        <div 
+          className="rounded-xl border border-border-light bg-surface-secondary p-4 cursor-pointer hover:border-[var(--surface-submit)] transition-colors"
+          onClick={() => navigate('/admin/guardrails')}
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">Guardrails</h3>
+              <p className="text-xs text-text-secondary">
+                {guardrailsMetrics?.summary?.totalEvents ?? 0} events • {guardrailsMetrics?.summary?.blocked ?? 0} blocked • {guardrailsMetrics?.summary?.anonymized ?? 0} anonymized
+              </p>
+            </div>
+            <Shield className="h-4 w-4 text-text-tertiary" />
+          </div>
+          {guardrailsData.length > 0 ? (
+            <AdminMultiBarChart
+              data={guardrailsData}
+              dataKeys={[
+                { key: 'blocked', color: CHART_COLORS.danger, name: 'Blocked' },
+                { key: 'intervened', color: CHART_COLORS.warning, name: 'Intervened' },
+                { key: 'anonymized', color: CHART_COLORS.info, name: 'Anonymized' },
+              ]}
+              height={160}
+              formatter={formatNumber}
+              stacked={true}
+            />
+          ) : (
+            <div className="flex h-[160px] items-center justify-center text-text-tertiary text-sm">
+              No guardrails data
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ROW 6: Cost Breakdown Table */}
       {tokenMetrics?.byModel && tokenMetrics.byModel.length > 0 && (
-        <div className="rounded-xl border border-border-light bg-surface-secondary p-5">
+        <div className="rounded-xl border border-border-light bg-surface-secondary p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-text-primary">Cost Breakdown by Model</h3>

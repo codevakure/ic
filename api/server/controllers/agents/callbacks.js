@@ -91,38 +91,42 @@ class ModelEndHandler {
         usage.model = modelName;
       }
 
-      // Log token usage for every LLM call with full breakdown
-      const inputTokens = usage.input_tokens || 0;
-      const outputTokens = usage.output_tokens || 0;
-      const totalTokens = usage.total_tokens || (inputTokens + outputTokens);
-      
-      // Cache details - check multiple possible property names (Anthropic/Bedrock variations)
+      // === CACHE TOKEN EXTRACTION & NORMALIZATION ===
+      // Extract cache tokens from multiple possible sources:
+      // 1. LangChain normalized: input_token_details.cache_creation, input_token_details.cache_read
+      // 2. Anthropic direct API: cache_creation_input_tokens, cache_read_input_tokens
+      // 3. AWS Bedrock SDK (raw response): cacheWriteInputTokens, cacheReadInputTokens
+      // NOTE: LangChain AWS does NOT extract cache tokens from Bedrock, so we check response_metadata
+      const provider = agentContext?.provider || 'unknown';
       const inputDetails = usage.input_token_details || {};
-      const cacheRead = inputDetails.cache_read || inputDetails.cache_read_input_tokens || usage.cache_read_input_tokens || 0;
-      const cacheCreation = inputDetails.cache_creation || inputDetails.cache_creation_input_tokens || usage.cache_creation_input_tokens || 0;
+      const responseMetadata = data?.output?.response_metadata || {};
+      const rawBedrockUsage = responseMetadata?.usage || responseMetadata?.metadata?.usage || {};
       
-      // Calculate actual context size from total if caching is active
-      // When caching: input_tokens = new tokens only, total includes cached
-      const hasCaching = cacheRead > 0 || cacheCreation > 0 || (totalTokens > inputTokens + outputTokens);
-      const cachedTokens = hasCaching ? (totalTokens - inputTokens - outputTokens) : cacheRead;
-      const totalContext = inputTokens + cachedTokens;
+      const cacheRead = 
+        inputDetails.cache_read || 
+        inputDetails.cache_read_input_tokens || 
+        usage.cache_read_input_tokens || 
+        rawBedrockUsage.cacheReadInputTokens || 0;
+      const cacheCreation = 
+        inputDetails.cache_creation || 
+        inputDetails.cache_creation_input_tokens || 
+        usage.cache_creation_input_tokens || 
+        rawBedrockUsage.cacheWriteInputTokens || 0;
       
-      // Build log message
-      let logMsg = `[LLM Usage] model=${modelName || 'unknown'} | provider=${agentContext.provider || 'unknown'}`;
-      
-      if (hasCaching && cachedTokens > 0) {
-        // Caching is active - show detailed breakdown
-        logMsg += ` | context=${totalContext.toLocaleString()} (new=${inputTokens.toLocaleString()}, cached=${cachedTokens.toLocaleString()})`;
-        if (cacheCreation > 0) {
-          logMsg += ` | cache_write=${cacheCreation.toLocaleString()}`;
-        }
-      } else {
-        logMsg += ` | input=${inputTokens.toLocaleString()}`;
+      // Normalize cache tokens into input_token_details for downstream database storage
+      // This ensures recordCollectedUsage() gets cache tokens in the expected format
+      if ((cacheRead > 0 || cacheCreation > 0) && !usage.input_token_details) {
+        usage.input_token_details = {
+          cache_read: cacheRead,
+          cache_creation: cacheCreation,
+        };
       }
       
-      logMsg += ` | output=${outputTokens.toLocaleString()} | total=${totalTokens.toLocaleString()}`;
-      
-      logger.info(logMsg);
+      // Log cache status
+      if (cacheRead > 0 || cacheCreation > 0) {
+        logger.info(`[Cache] ✅ ${provider}/${modelName} | read=${cacheRead} | write=${cacheCreation}`);
+      }
+      // === END CACHE TOKEN EXTRACTION ===
 
       this.collectedUsage.push(usage);
       if (!streamingDisabled) {
@@ -324,11 +328,16 @@ function createToolEndCallback({ req, res, artifactPromises }) {
       return;
     }
     
+    // Detailed logging for code execution artifacts
+    const artifactKeys = Object.keys(output.artifact);
     logger.info('[ToolEndCallback] Processing tool with artifact:', { 
       toolName: output.name, 
-      artifactKeys: Object.keys(output.artifact) 
+      artifactKeys,
+      hasContent: !!output.artifact.content,
+      hasFiles: !!output.artifact.files,
+      hasSessionId: !!output.artifact.session_id,
     });
-
+    
     if (output.artifact[Tools.file_search]) {
       artifactPromises.push(
         (async () => {

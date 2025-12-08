@@ -789,6 +789,7 @@ class AnthropicClient extends BaseClient {
       requestOptions.topK = top_k;
     }
 
+    // Handle system message with cache control
     if (this.systemMessage && this.supportsCacheControl === true) {
       requestOptions.system = [
         {

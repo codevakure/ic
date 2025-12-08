@@ -20,32 +20,61 @@ const {
 /**
  * Model pricing per MILLION tokens (AWS Bedrock pricing)
  * These are the actual models used in the Intent Analyzer
+ * 
+ * Cache pricing:
+ * - cacheWrite: Cost to write tokens to cache (typically 1.25x input rate)
+ * - cacheRead: Cost to read cached tokens (typically 10% of input rate = 90% discount)
  */
 const MODEL_PRICING = {
   'us.amazon.nova-micro-v1:0': { 
     name: 'Amazon Nova Micro',
     input: 0.035, 
-    output: 0.14 
+    output: 0.14,
+    cacheWrite: 0.04375,  // 1.25x input
+    cacheRead: 0.0035     // 10% of input
   },
   'global.amazon.nova-2-lite-v1:0': { 
     name: 'Amazon Nova Lite',
     input: 0.06, 
-    output: 0.24 
+    output: 0.24,
+    cacheWrite: 0.075,    // 1.25x input
+    cacheRead: 0.006      // 10% of input
   },
   'us.anthropic.claude-haiku-4-5-20251001-v1:0': { 
     name: 'Claude Haiku 4.5',
     input: 1.0, 
-    output: 5.0 
+    output: 5.0,
+    cacheWrite: 1.25,     // 1.25x input
+    cacheRead: 0.1        // 10% of input (90% discount)
   },
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0': { 
     name: 'Claude Sonnet 4.5',
     input: 3.0, 
-    output: 15.0 
+    output: 15.0,
+    cacheWrite: 3.75,     // 1.25x input
+    cacheRead: 0.3        // 10% of input (90% discount)
   },
   'global.anthropic.claude-opus-4-5-20251101-v1:0': { 
     name: 'Claude Opus 4.5',
     input: 5.0, 
-    output: 25.0 
+    output: 25.0,
+    cacheWrite: 6.25,     // 1.25x input
+    cacheRead: 0.5        // 10% of input (90% discount)
+  },
+  // Additional models with standard cache rates
+  'us.anthropic.claude-3-5-sonnet-20241022-v2:0': {
+    name: 'Claude 3.5 Sonnet',
+    input: 3.0,
+    output: 15.0,
+    cacheWrite: 3.75,
+    cacheRead: 0.3
+  },
+  'us.anthropic.claude-3-7-sonnet-20250219-v1:0': {
+    name: 'Claude 3.7 Sonnet',
+    input: 3.0,
+    output: 15.0,
+    cacheWrite: 3.75,
+    cacheRead: 0.3
   },
 };
 
@@ -57,13 +86,134 @@ const MODEL_PRICING = {
  * @returns {number} Cost in dollars
  */
 const calculateCost = (model, tokenType, tokens) => {
-  const pricing = MODEL_PRICING[model];
+  const pricing = MODEL_PRICING[model] || findMatchingPricing(model);
   if (!pricing) {
     // For agents or unknown models, use a default pricing
     return (tokens / 1000000) * 1.0; // Default $1 per million
   }
   const rate = tokenType === 'prompt' ? pricing.input : pricing.output;
   return (Math.abs(tokens) / 1000000) * rate;
+};
+
+/**
+ * Calculate cost for structured tokens including cache tokens
+ * @param {string} model - Model ID
+ * @param {Object} tokenBreakdown - Token breakdown with input, write, read, output
+ * @returns {Object} Cost breakdown in dollars
+ */
+const calculateStructuredCost = (model, tokenBreakdown) => {
+  const pricing = MODEL_PRICING[model] || findMatchingPricing(model);
+  const defaultPricing = { input: 1.0, output: 1.0, cacheWrite: 1.25, cacheRead: 0.1 };
+  const rates = pricing || defaultPricing;
+  
+  const inputCost = (Math.abs(tokenBreakdown.input || 0) / 1000000) * rates.input;
+  const writeCost = (Math.abs(tokenBreakdown.write || 0) / 1000000) * (rates.cacheWrite || rates.input * 1.25);
+  const readCost = (Math.abs(tokenBreakdown.read || 0) / 1000000) * (rates.cacheRead || rates.input * 0.1);
+  const outputCost = (Math.abs(tokenBreakdown.output || 0) / 1000000) * rates.output;
+  
+  return {
+    inputCost,
+    writeCost,
+    readCost,
+    outputCost,
+    totalInputCost: inputCost + writeCost + readCost,
+    totalCost: inputCost + writeCost + readCost + outputCost,
+  };
+};
+
+/**
+ * Find matching pricing by partial model name match
+ * @param {string} model - Model ID to match
+ * @returns {Object|null} Pricing object or null
+ */
+const findMatchingPricing = (model) => {
+  if (!model) return null;
+  const modelLower = model.toLowerCase();
+  
+  // Check for partial matches
+  for (const [key, pricing] of Object.entries(MODEL_PRICING)) {
+    // Match by model family
+    if (modelLower.includes('opus-4-5') && key.includes('opus-4-5')) return pricing;
+    if (modelLower.includes('sonnet-4-5') && key.includes('sonnet-4-5')) return pricing;
+    if (modelLower.includes('haiku-4-5') && key.includes('haiku-4-5')) return pricing;
+    if (modelLower.includes('claude-3-7-sonnet') && key.includes('claude-3-7-sonnet')) return pricing;
+    if (modelLower.includes('claude-3-5-sonnet') && key.includes('claude-3-5-sonnet')) return pricing;
+    if (modelLower.includes('nova-micro') && key.includes('nova-micro')) return pricing;
+    if (modelLower.includes('nova-lite') && key.includes('nova-lite')) return pricing;
+  }
+  return null;
+};
+
+/**
+ * Extract guardrails data from user and AI messages
+ * Checks both messages for tracking metadata
+ * @param {Object} userMessage - User message object
+ * @param {Object} aiMessage - AI response message object
+ * @returns {Object|null} Guardrails data if present
+ */
+const extractGuardrailsData = (userMessage, aiMessage) => {
+  // Check user message for input guardrails (blocked/passed)
+  const userTracking = userMessage?.metadata?.guardrailTracking;
+  // Check AI message for output guardrails (blocked/anonymized/passed)
+  const aiTracking = aiMessage?.metadata?.guardrailTracking;
+  // Check for legacy guardrailBlocked field
+  const legacyBlocked = aiMessage?.metadata?.guardrailBlocked;
+
+  // If no guardrail data found, return null
+  if (!userTracking && !aiTracking && !legacyBlocked) {
+    return null;
+  }
+
+  const result = {
+    invoked: false,
+    input: null,
+    output: null,
+  };
+
+  // Input guardrails (from user message)
+  if (userTracking) {
+    result.invoked = true;
+    result.input = {
+      outcome: userTracking.outcome,
+      actionApplied: userTracking.actionApplied,
+      violations: userTracking.violations || [],
+      assessments: userTracking.assessments,  // Raw AWS response
+      originalContent: userTracking.originalContent,
+      reason: userTracking.reason,
+      systemNote: userTracking.systemNote,
+      timestamp: userTracking.timestamp,
+    };
+  }
+
+  // Output guardrails (from AI message)
+  if (aiTracking) {
+    result.invoked = true;
+    result.output = {
+      outcome: aiTracking.outcome,
+      actionApplied: aiTracking.actionApplied,
+      violations: aiTracking.violations || [],
+      assessments: aiTracking.assessments,  // Raw AWS response
+      originalContent: aiTracking.originalContent,
+      modifiedContent: aiTracking.modifiedContent,
+      reason: aiTracking.reason,
+      systemNote: aiTracking.systemNote,
+      timestamp: aiTracking.timestamp,
+    };
+  }
+
+  // Handle legacy format (guardrailBlocked without tracking metadata)
+  if (legacyBlocked && !aiTracking) {
+    result.invoked = true;
+    result.output = {
+      outcome: 'blocked',
+      actionApplied: true,
+      violations: aiMessage?.metadata?.violations || [],
+      reason: aiMessage?.metadata?.blockReason || 'policy_violation',
+      timestamp: aiMessage?.createdAt?.toISOString(),
+    };
+  }
+
+  return result;
 };
 
 /**
@@ -117,9 +267,11 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
     // Parse date range or default to current month
     let startDate, endDate;
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       // Default to current month
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -172,16 +324,19 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       Message.countDocuments({ createdAt: { $gte: thisWeek } }),
     ]);
 
-    // Token usage from transactions with accurate cost calculation
+    // Token usage from transactions with accurate cost calculation (including cache tokens)
     let tokenUsageToday = 0;
     let tokenUsageThisWeek = 0;
     let tokenUsageThisMonth = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheWriteTokens = 0;
+    let totalCacheReadTokens = 0;
     let totalCost = 0;
+    let cacheSavings = 0;
 
     try {
-      const [todayTokens, weekTokens, monthTokens, tokensByType] = await Promise.all([
+      const [todayTokens, weekTokens, monthTokens, simplePromptTokens, structuredPromptTokens, completionTokens] = await Promise.all([
         Transaction.aggregate([
           { $match: { createdAt: { $gte: today } } },
           { $group: { _id: null, total: { $sum: { $abs: '$rawAmount' } } } },
@@ -194,11 +349,52 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
           { $match: { createdAt: { $gte: thisMonth } } },
           { $group: { _id: null, total: { $sum: { $abs: '$rawAmount' } } } },
         ]),
-        // Get tokens grouped by model and type for accurate cost calculation
+        // Simple prompt transactions (no cache breakdown) - use rawAmount as input
         Transaction.aggregate([
           {
+            $match: {
+              tokenType: 'prompt',
+              inputTokens: { $exists: false },
+              writeTokens: { $exists: false },
+              readTokens: { $exists: false },
+            },
+          },
+          {
             $group: {
-              _id: { model: '$model', tokenType: '$tokenType' },
+              _id: '$model',
+              tokens: { $sum: { $abs: '$rawAmount' } },
+            },
+          },
+        ]),
+        // Structured prompt transactions (with cache breakdown)
+        Transaction.aggregate([
+          {
+            $match: {
+              tokenType: 'prompt',
+              $or: [
+                { inputTokens: { $exists: true } },
+                { writeTokens: { $exists: true } },
+                { readTokens: { $exists: true } },
+              ],
+            },
+          },
+          {
+            $group: {
+              _id: '$model',
+              inputTokens: { $sum: { $abs: { $ifNull: ['$inputTokens', 0] } } },
+              writeTokens: { $sum: { $abs: { $ifNull: ['$writeTokens', 0] } } },
+              readTokens: { $sum: { $abs: { $ifNull: ['$readTokens', 0] } } },
+            },
+          },
+        ]),
+        // Completion transactions - always use rawAmount
+        Transaction.aggregate([
+          {
+            $match: { tokenType: 'completion' },
+          },
+          {
+            $group: {
+              _id: '$model',
               tokens: { $sum: { $abs: '$rawAmount' } },
             },
           },
@@ -209,18 +405,42 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       tokenUsageThisWeek = weekTokens[0]?.total || 0;
       tokenUsageThisMonth = monthTokens[0]?.total || 0;
 
-      // Calculate accurate costs and token totals
-      tokensByType.forEach(item => {
+      // Process simple prompt transactions (no cache)
+      simplePromptTokens.forEach(item => {
         const tokens = item.tokens;
-        const modelId = item._id.model;
-        const tokenType = item._id.tokenType;
+        const modelId = item._id;
+        totalInputTokens += tokens;
+        totalCost += calculateCost(modelId, 'prompt', tokens);
+      });
+
+      // Process structured prompt transactions (with cache breakdown)
+      structuredPromptTokens.forEach(item => {
+        const modelId = item._id;
+        const inputTokens = item.inputTokens || 0;
+        const writeTokens = item.writeTokens || 0;
+        const readTokens = item.readTokens || 0;
         
-        if (tokenType === 'prompt') {
-          totalInputTokens += tokens;
-        } else if (tokenType === 'completion') {
-          totalOutputTokens += tokens;
-        }
-        totalCost += calculateCost(modelId, tokenType, tokens);
+        totalInputTokens += inputTokens;
+        totalCacheWriteTokens += writeTokens;
+        totalCacheReadTokens += readTokens;
+        
+        const pricing = MODEL_PRICING[modelId] || findMatchingPricing(modelId) || MODEL_PRICING.default;
+        totalCost += (inputTokens / 1000000) * pricing.input;
+        totalCost += (writeTokens / 1000000) * (pricing.cacheWrite || pricing.input * 1.25);
+        totalCost += (readTokens / 1000000) * (pricing.cacheRead || pricing.input * 0.1);
+        
+        // Calculate savings: what we would have paid at input rate vs cache read rate
+        const fullInputCost = (readTokens / 1000000) * pricing.input;
+        const cacheReadCost = (readTokens / 1000000) * (pricing.cacheRead || pricing.input * 0.1);
+        cacheSavings += fullInputCost - cacheReadCost;
+      });
+
+      // Process completion transactions
+      completionTokens.forEach(item => {
+        const tokens = item.tokens;
+        const modelId = item._id;
+        totalOutputTokens += tokens;
+        totalCost += calculateCost(modelId, 'completion', tokens);
       });
     } catch (error) {
       logger.warn('[Admin] Could not fetch token metrics:', error.message);
@@ -278,7 +498,10 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
         thisMonth: Math.abs(tokenUsageThisMonth),
         input: Math.abs(totalInputTokens),
         output: Math.abs(totalOutputTokens),
+        cacheWrite: Math.abs(totalCacheWriteTokens),
+        cacheRead: Math.abs(totalCacheReadTokens),
         totalCost: parseFloat(totalCost.toFixed(4)),
+        cacheSavings: parseFloat(cacheSavings.toFixed(4)),
       },
       agents: {
         total: totalAgents,
@@ -304,9 +527,11 @@ const getUserMetrics = async (startDateStr, endDateStr) => {
     let startDate, endDate;
     const now = new Date();
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = now;
@@ -438,9 +663,11 @@ const getConversationMetrics = async (startDateStr, endDateStr) => {
     let startDate, endDate;
     const now = new Date();
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = now;
@@ -574,68 +801,137 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
     let startDate, endDate;
     const now = new Date();
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = now;
     }
 
-    // Get detailed model breakdown with accurate cost calculation
-    const modelBreakdown = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: { model: '$model', tokenType: '$tokenType' },
-          tokens: { $sum: { $abs: '$rawAmount' } },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    // Get detailed model breakdown with accurate cost calculation including cache tokens
+    // Some transactions have structured tokens (inputTokens, writeTokens, readTokens)
+    // Others have simple tokens (rawAmount with tokenType: prompt/completion)
+    const allTransactions = await Transaction.find({
+      createdAt: { $gte: startDate, $lte: endDate },
+    }).lean();
 
-    // Process model breakdown and calculate accurate costs
+    // Process all transactions and calculate accurate costs
     const modelMap = {};
-    modelBreakdown.forEach(item => {
-      const modelId = item._id.model || 'unknown';
-      const tokenType = item._id.tokenType; // 'prompt' or 'completion'
+    
+    allTransactions.forEach(tx => {
+      const modelId = tx.model || 'unknown';
+      const tokenType = tx.tokenType;
       
       if (!modelMap[modelId]) {
-        const pricing = MODEL_PRICING[modelId] || { name: modelId, input: 1.0, output: 5.0 };
+        const pricing = MODEL_PRICING[modelId] || findMatchingPricing(modelId) || { 
+          name: modelId, 
+          input: 1.0, 
+          output: 5.0,
+          cacheWrite: 1.25,
+          cacheRead: 0.1 
+        };
         modelMap[modelId] = {
           model: modelId,
           name: pricing.name,
           inputTokens: 0,
           outputTokens: 0,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
           inputCost: 0,
           outputCost: 0,
+          cacheWriteCost: 0,
+          cacheReadCost: 0,
           totalCost: 0,
           transactions: 0,
         };
       }
       
-      const pricing = MODEL_PRICING[modelId] || { input: 1.0, output: 5.0 };
-      const tokens = item.tokens;
+      const pricing = MODEL_PRICING[modelId] || findMatchingPricing(modelId) || { 
+        input: 1.0, 
+        output: 5.0,
+        cacheWrite: 1.25,
+        cacheRead: 0.1 
+      };
       
       if (tokenType === 'prompt') {
-        modelMap[modelId].inputTokens += tokens;
-        modelMap[modelId].inputCost += calculateCost(modelId, 'prompt', tokens);
+        // Check if this is a structured transaction with cache tokens
+        if (tx.inputTokens !== undefined || tx.writeTokens !== undefined || tx.readTokens !== undefined) {
+          // Structured transaction with cache breakdown
+          const inputTokens = Math.abs(tx.inputTokens || 0);
+          const writeTokens = Math.abs(tx.writeTokens || 0);
+          const readTokens = Math.abs(tx.readTokens || 0);
+          
+          modelMap[modelId].inputTokens += inputTokens;
+          modelMap[modelId].cacheWriteTokens += writeTokens;
+          modelMap[modelId].cacheReadTokens += readTokens;
+          
+          modelMap[modelId].inputCost += (inputTokens / 1000000) * pricing.input;
+          modelMap[modelId].cacheWriteCost += (writeTokens / 1000000) * (pricing.cacheWrite || pricing.input * 1.25);
+          modelMap[modelId].cacheReadCost += (readTokens / 1000000) * (pricing.cacheRead || pricing.input * 0.1);
+        } else {
+          // Simple prompt transaction (all tokens counted as input)
+          const tokens = Math.abs(tx.rawAmount || 0);
+          modelMap[modelId].inputTokens += tokens;
+          modelMap[modelId].inputCost += calculateCost(modelId, 'prompt', tokens);
+        }
       } else if (tokenType === 'completion') {
+        const tokens = Math.abs(tx.rawAmount || 0);
         modelMap[modelId].outputTokens += tokens;
         modelMap[modelId].outputCost += calculateCost(modelId, 'completion', tokens);
       }
-      modelMap[modelId].transactions += item.count;
+      modelMap[modelId].transactions += 1;
+    });
+
+    // Get duration data by model from Message collection
+    const durationByModel = await Message.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          isCreatedByUser: false, // AI messages
+          model: { $exists: true, $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: '$model',
+          count: { $sum: 1 },
+          // Calculate duration as time between createdAt and updatedAt (ms)
+          totalDuration: {
+            $sum: {
+              $subtract: ['$updatedAt', '$createdAt']
+            }
+          },
+        },
+      },
+    ]);
+
+    // Create a map of model -> duration
+    const durationMap = {};
+    durationByModel.forEach(item => {
+      durationMap[item._id] = {
+        totalDuration: item.totalDuration || 0,
+        messageCount: item.count || 0,
+      };
     });
 
     // Calculate total costs and finalize
     const byModel = Object.values(modelMap).map(m => ({
       ...m,
-      totalCost: m.inputCost + m.outputCost,
-      totalTokens: m.inputTokens + m.outputTokens,
+      totalInputCost: m.inputCost + m.cacheWriteCost + m.cacheReadCost,
+      totalCost: m.inputCost + m.outputCost + m.cacheWriteCost + m.cacheReadCost,
+      totalTokens: m.inputTokens + m.outputTokens + m.cacheWriteTokens + m.cacheReadTokens,
+      // Cache savings estimation (90% discount on cache reads vs normal input)
+      cacheSavings: m.cacheReadTokens > 0 
+        ? parseFloat(((m.cacheReadTokens / 1000000) * (MODEL_PRICING[m.model]?.input || 1) * 0.9).toFixed(6))
+        : 0,
+      // Duration data
+      totalDuration: durationMap[m.model]?.totalDuration || 0,
+      avgDuration: durationMap[m.model]?.messageCount > 0 
+        ? Math.round((durationMap[m.model].totalDuration || 0) / durationMap[m.model].messageCount)
+        : 0,
     })).sort((a, b) => b.totalCost - a.totalCost);
 
     // Token usage over time with accurate costs
@@ -745,11 +1041,19 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
       .sort((a, b) => b.totalCost - a.totalCost)
       .slice(0, 10);
 
-    // Calculate period totals
+    // Calculate period totals including cache tokens
     const totalInputTokens = byModel.reduce((sum, m) => sum + m.inputTokens, 0);
     const totalOutputTokens = byModel.reduce((sum, m) => sum + m.outputTokens, 0);
+    const totalCacheWriteTokens = byModel.reduce((sum, m) => sum + m.cacheWriteTokens, 0);
+    const totalCacheReadTokens = byModel.reduce((sum, m) => sum + m.cacheReadTokens, 0);
+    const totalInputCost = byModel.reduce((sum, m) => sum + m.inputCost, 0);
+    const totalOutputCost = byModel.reduce((sum, m) => sum + m.outputCost, 0);
+    const totalCacheWriteCost = byModel.reduce((sum, m) => sum + m.cacheWriteCost, 0);
+    const totalCacheReadCost = byModel.reduce((sum, m) => sum + m.cacheReadCost, 0);
     const totalCost = byModel.reduce((sum, m) => sum + m.totalCost, 0);
+    const totalCacheSavings = byModel.reduce((sum, m) => sum + (m.cacheSavings || 0), 0);
     const totalTransactions = byModel.reduce((sum, m) => sum + m.transactions, 0);
+    const totalDuration = byModel.reduce((sum, m) => sum + (m.totalDuration || 0), 0);
 
     return {
       startDate: startDate.toISOString(),
@@ -757,9 +1061,17 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
       summary: {
         totalInputTokens,
         totalOutputTokens,
-        totalTokens: totalInputTokens + totalOutputTokens,
+        totalCacheWriteTokens,
+        totalCacheReadTokens,
+        totalTokens: totalInputTokens + totalOutputTokens + totalCacheWriteTokens + totalCacheReadTokens,
+        totalInputCost: parseFloat(totalInputCost.toFixed(6)),
+        totalOutputCost: parseFloat(totalOutputCost.toFixed(6)),
+        totalCacheWriteCost: parseFloat(totalCacheWriteCost.toFixed(6)),
+        totalCacheReadCost: parseFloat(totalCacheReadCost.toFixed(6)),
         totalCost: parseFloat(totalCost.toFixed(6)),
+        totalCacheSavings: parseFloat(totalCacheSavings.toFixed(6)),
         totalTransactions,
+        totalDuration,
       },
       trend: tokenTrend,
       byModel,
@@ -783,9 +1095,11 @@ const getModelMetrics = async (startDateStr, endDateStr) => {
     let startDate, endDate;
     const now = new Date();
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = now;
@@ -940,9 +1254,11 @@ const getAgentMetrics = async (startDateStr, endDateStr) => {
     let startDate, endDate;
     const now = new Date();
     if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-      endDate.setHours(23, 59, 59, 999);
+      // Handle both YYYY-MM-DD and full ISO strings
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = now;
@@ -998,13 +1314,13 @@ const getAgentMetrics = async (startDateStr, endDateStr) => {
         }
         
         const tokens = item.tokens;
-        // Agents use similar pricing to sonnet by default
+        // Use calculateCost for consistent pricing across the application
         if (tokenType === 'prompt') {
           agentMap[agentId].inputTokens += tokens;
-          agentMap[agentId].inputCost += (tokens / 1000000) * 3.0;
+          agentMap[agentId].inputCost += calculateCost(agentId, tokenType, tokens);
         } else if (tokenType === 'completion') {
           agentMap[agentId].outputTokens += tokens;
-          agentMap[agentId].outputCost += (tokens / 1000000) * 15.0;
+          agentMap[agentId].outputCost += calculateCost(agentId, tokenType, tokens);
         }
         agentMap[agentId].transactions += item.count;
         item.users.forEach(u => agentMap[agentId].users.add(u?.toString()));
@@ -1740,7 +2056,7 @@ const getTransactionHistory = async ({ userId, startDate, endDate, page = 1, lim
  * @param {Object} options - Query options
  * @returns {Object} Traces with pagination
  */
-const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationId = null, model = null, startDate = null, endDate = null } = {}) => {
+const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationId = null, model = null, startDate = null, endDate = null, toolName = null } = {}) => {
   try {
     const mongoose = require('mongoose');
     
@@ -1760,6 +2076,15 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
       matchConditions.createdAt = {};
       if (startDate) matchConditions.createdAt.$gte = new Date(startDate);
       if (endDate) matchConditions.createdAt.$lte = new Date(endDate);
+    }
+    // Filter by tool name - look for messages with tool calls containing this tool
+    if (toolName) {
+      matchConditions['content'] = {
+        $elemMatch: {
+          type: 'tool_call',
+          'tool_call.name': { $regex: toolName, $options: 'i' }
+        }
+      };
     }
 
     // Get total count
@@ -1804,22 +2129,78 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
           createdAt: { $gte: timeWindowStart, $lte: timeWindowEnd },
         }).lean();
 
-        // Calculate costs
+        // Calculate costs with full cache token breakdown
+        // Transaction stores: inputTokens, writeTokens, readTokens, rawAmount, tokenValue
+        // tokenValue already has correct rates applied from spendStructuredTokens
         let inputTokens = 0;
         let outputTokens = 0;
+        let cacheWriteTokens = 0;
+        let cacheReadTokens = 0;
+        let totalCostFromTx = 0;  // Use actual tokenValue from transactions
         let inputCost = 0;
         let outputCost = 0;
+        let cacheWriteCost = 0;
+        let cacheReadCost = 0;
+        let contextBreakdown = null;  // Will hold the breakdown of what's in the cached context
 
         transactions.forEach(tx => {
-          const tokens = Math.abs(tx.rawAmount);
-          const cost = calculateCost(tx.model, tx.tokenType, tokens);
-          if (tx.tokenType === 'prompt') {
-            inputTokens += tokens;
-            inputCost += cost;
-          } else {
-            outputTokens += tokens;
-            outputCost += cost;
+          // Debug: log each transaction
+          logger.debug('[Admin Traces] Processing transaction:', {
+            conversationId: tx.conversationId,
+            tokenType: tx.tokenType,
+            inputTokens: tx.inputTokens,
+            writeTokens: tx.writeTokens,
+            readTokens: tx.readTokens,
+            rawAmount: tx.rawAmount,
+            contextBreakdown: tx.contextBreakdown,
+          });
+          
+          // Use tokenValue if available (already has correct rates applied)
+          // Otherwise fall back to manual calculation
+          if (tx.tokenValue !== undefined && tx.tokenValue !== null) {
+            totalCostFromTx += Math.abs(tx.tokenValue) / 1000000; // tokenValue is in micro-dollars
           }
+          
+          if (tx.tokenType === 'prompt') {
+            // Prompt transactions may have structured tokens
+            const txInputTokens = Math.abs(tx.inputTokens || tx.rawAmount || 0);
+            const txWriteTokens = Math.abs(tx.writeTokens || 0);
+            const txReadTokens = Math.abs(tx.readTokens || 0);
+            
+            inputTokens += txInputTokens;
+            cacheWriteTokens += txWriteTokens;
+            cacheReadTokens += txReadTokens;
+            
+            // Extract context breakdown if available (what's in the cached tokens)
+            if (tx.contextBreakdown && !contextBreakdown) {
+              contextBreakdown = tx.contextBreakdown;
+            }
+            
+            // Calculate costs using model-specific rates
+            const costs = calculateStructuredCost(tx.model || aiMsg.model, {
+              input: txInputTokens,
+              write: txWriteTokens,
+              read: txReadTokens,
+              output: 0,
+            });
+            inputCost += costs.inputCost;
+            cacheWriteCost += costs.writeCost;
+            cacheReadCost += costs.readCost;
+          } else {
+            // Completion tokens
+            const tokens = Math.abs(tx.rawAmount || 0);
+            outputTokens += tokens;
+            outputCost += calculateCost(tx.model || aiMsg.model, 'completion', tokens);
+          }
+        });
+
+        // Debug: log final token counts
+        logger.info('[Admin Traces] Final token summary:', {
+          conversationId: aiMsg.conversationId,
+          inputTokens,
+          outputTokens,
+          contextBreakdown: contextBreakdown ? JSON.stringify(contextBreakdown) : 'null',
+          transactionCount: transactions.length,
         });
 
         // Extract text from AI content
@@ -1865,16 +2246,51 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
           // Trace details
           trace: {
             model: aiMsg.model,
-            modelName: MODEL_PRICING[aiMsg.model]?.name || aiMsg.model,
+            modelName: MODEL_PRICING[aiMsg.model]?.name || findMatchingPricing(aiMsg.model)?.name || aiMsg.model,
             endpoint: aiMsg.endpoint,
             sender: aiMsg.sender,
-            // Tokens & Costs
+            // Tokens - full breakdown including cache
             inputTokens,
             outputTokens,
-            totalTokens: inputTokens + outputTokens,
+            cacheWriteTokens,
+            cacheReadTokens,
+            totalTokens: inputTokens + outputTokens + cacheWriteTokens + cacheReadTokens,
+            // Cache info
+            caching: {
+              enabled: cacheWriteTokens > 0 || cacheReadTokens > 0,
+              writeTokens: cacheWriteTokens,
+              readTokens: cacheReadTokens,
+              writeCost: parseFloat(cacheWriteCost.toFixed(6)),
+              readCost: parseFloat(cacheReadCost.toFixed(6)),
+              // Cache hit ratio (if reading from cache)
+              hitRatio: (cacheReadTokens > 0 && inputTokens > 0) 
+                ? parseFloat((cacheReadTokens / (inputTokens + cacheReadTokens) * 100).toFixed(1))
+                : 0,
+              // Estimated savings from cache reads (90% discount on cached tokens)
+              estimatedSavings: parseFloat((cacheReadTokens > 0 
+                ? (cacheReadTokens / 1000000) * ((MODEL_PRICING[aiMsg.model]?.input || 1) * 0.9)
+                : 0).toFixed(6)),
+            },
+            // Context breakdown - what's in those tokens (system prompt, artifacts, tools, etc.)
+            tokenBreakdown: contextBreakdown ? {
+              // High-level totals
+              instructions: contextBreakdown.instructions || 0,
+              artifacts: contextBreakdown.artifacts || 0,
+              tools: contextBreakdown.tools || 0,
+              toolCount: contextBreakdown.toolCount || 0,
+              toolContext: contextBreakdown.toolContext || 0,
+              total: contextBreakdown.total || 0,
+              // Detailed per-tool breakdown
+              toolsDetail: contextBreakdown.toolsDetail || [],
+              toolContextDetail: contextBreakdown.toolContextDetail || [],
+            } : null,
+            // Costs - accurate with cache token rates
             inputCost: parseFloat(inputCost.toFixed(6)),
             outputCost: parseFloat(outputCost.toFixed(6)),
-            totalCost: parseFloat((inputCost + outputCost).toFixed(6)),
+            cacheWriteCost: parseFloat(cacheWriteCost.toFixed(6)),
+            cacheReadCost: parseFloat(cacheReadCost.toFixed(6)),
+            totalInputCost: parseFloat((inputCost + cacheWriteCost + cacheReadCost).toFixed(6)),
+            totalCost: parseFloat((inputCost + outputCost + cacheWriteCost + cacheReadCost).toFixed(6)),
             // Extended thinking
             thinking: thinkingText,
             // Tool calls
@@ -1884,6 +2300,8 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
               ? new Date(aiMsg.updatedAt).getTime() - new Date(userMessage?.createdAt || aiMsg.createdAt).getTime()
               : null,
           },
+          // Guardrails tracking data
+          guardrails: extractGuardrailsData(userMessage, aiMsg),
           createdAt: aiMsg.createdAt,
         };
       })
@@ -1916,6 +2334,293 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
   }
 };
 
+/**
+ * Get tool usage metrics from message content
+ * Aggregates tool call data from AI messages
+ * @param {string} startDate - Optional start date filter
+ * @param {string} endDate - Optional end date filter
+ * @returns {Promise<Object>} Tool usage metrics
+ */
+const getToolMetrics = async (startDate, endDate) => {
+  try {
+    const dateFilter = {};
+    if (startDate) dateFilter.$gte = new Date(startDate);
+    if (endDate) dateFilter.$lte = new Date(endDate);
+
+    const matchStage = {
+      'content.type': 'tool_call',
+      isCreatedByUser: false,
+    };
+    if (Object.keys(dateFilter).length > 0) {
+      matchStage.createdAt = dateFilter;
+    }
+
+    // Aggregate tool calls from messages
+    const toolAggregation = await Message.aggregate([
+      { $match: matchStage },
+      { $unwind: '$content' },
+      { $match: { 'content.type': 'tool_call' } },
+      {
+        $group: {
+          _id: '$content.tool_call.name',
+          invocations: { $sum: 1 },
+          conversationIds: { $addToSet: '$conversationId' },
+          userIds: { $addToSet: '$user' },
+        },
+      },
+      { $sort: { invocations: -1 } },
+    ]);
+
+    // Get daily trend
+    const trendAggregation = await Message.aggregate([
+      { $match: matchStage },
+      { $unwind: '$content' },
+      { $match: { 'content.type': 'tool_call' } },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.date': 1 } },
+    ]);
+
+    const tools = toolAggregation.map(t => ({
+      toolName: t._id || 'unknown',
+      displayName: t._id?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown',
+      category: categorizeToolName(t._id),
+      invocations: t.invocations,
+      successCount: t.invocations, // Assume success if output exists
+      errorCount: 0,
+      avgDuration: 0, // Not tracked in current schema
+      userCount: t.userIds?.length || 0,
+      conversationCount: t.conversationIds?.length || 0,
+    }));
+
+    const totalInvocations = tools.reduce((sum, t) => sum + t.invocations, 0);
+
+    return {
+      startDate: startDate || null,
+      endDate: endDate || null,
+      tools,
+      trend: trendAggregation.map(t => ({
+        date: t._id.date,
+        count: t.count,
+      })),
+      summary: {
+        totalInvocations,
+        totalTools: tools.length,
+        avgSuccessRate: 100, // Assume 100% if no error tracking
+        mostUsedTool: tools[0]?.toolName || 'N/A',
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getToolMetrics:', error);
+    throw error;
+  }
+};
+
+/**
+ * Categorize tool by name pattern
+ */
+const categorizeToolName = (toolName) => {
+  if (!toolName) return 'other';
+  const name = toolName.toLowerCase();
+  if (name.includes('sharepoint') || name.includes('onedrive') || name.includes('outlook') || name.includes('teams') || name.includes('excel')) {
+    return 'mcp';
+  }
+  if (name.includes('web_search') || name.includes('code') || name.includes('execute')) {
+    return 'builtin';
+  }
+  if (name.includes('rag') || name.includes('retrieve') || name.includes('search')) {
+    return 'agent';
+  }
+  return 'other';
+};
+
+/**
+ * Get guardrails usage metrics from message metadata
+ * Aggregates guardrail tracking data from messages
+ * @param {string} startDate - Optional start date filter
+ * @param {string} endDate - Optional end date filter
+ * @returns {Promise<Object>} Guardrails metrics
+ */
+const getGuardrailsMetrics = async (startDate, endDate) => {
+  try {
+    const dateFilter = {};
+    if (startDate) dateFilter.$gte = new Date(startDate);
+    if (endDate) dateFilter.$lte = new Date(endDate);
+
+    const matchStage = {
+      $or: [
+        { 'metadata.guardrailTracking': { $exists: true } },
+        { 'metadata.guardrailBlocked': { $exists: true } },
+      ],
+    };
+    if (Object.keys(dateFilter).length > 0) {
+      matchStage.createdAt = dateFilter;
+    }
+
+    // Get all guardrail events
+    const guardrailMessages = await Message.find(matchStage)
+      .select('messageId conversationId user metadata createdAt')
+      .lean();
+
+    // Categorize by outcome
+    const outcomes = {
+      blocked: 0,
+      intervened: 0,
+      anonymized: 0,
+      passed: 0,
+    };
+
+    const violations = {};
+    const userIds = new Set();
+    const conversationIds = new Set();
+
+    for (const msg of guardrailMessages) {
+      userIds.add(msg.user?.toString());
+      conversationIds.add(msg.conversationId);
+
+      const tracking = msg.metadata?.guardrailTracking;
+      const legacyBlocked = msg.metadata?.guardrailBlocked;
+
+      if (legacyBlocked) {
+        outcomes.blocked++;
+        // Track violations
+        if (msg.metadata?.violations) {
+          for (const v of msg.metadata.violations) {
+            const key = `${v.type}:${v.category}`;
+            violations[key] = (violations[key] || 0) + 1;
+          }
+        }
+      } else if (tracking) {
+        const outcome = tracking.outcome?.toLowerCase() || 'passed';
+        if (outcomes[outcome] !== undefined) {
+          outcomes[outcome]++;
+        }
+        // Track violations
+        if (tracking.violations) {
+          for (const v of tracking.violations) {
+            const key = `${v.type}:${v.category}`;
+            violations[key] = (violations[key] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    // Get daily trend with all outcome types
+    const trendAggregation = await Message.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+          blocked: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$metadata.guardrailBlocked', true] },
+                    { $eq: ['$metadata.guardrailTracking.outcome', 'blocked'] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          intervened: {
+            $sum: {
+              $cond: [
+                { $eq: ['$metadata.guardrailTracking.outcome', 'intervened'] },
+                1,
+                0,
+              ],
+            },
+          },
+          anonymized: {
+            $sum: {
+              $cond: [
+                { $eq: ['$metadata.guardrailTracking.outcome', 'anonymized'] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Get violation breakdown by type
+    const violationsByType = {};
+    for (const msg of guardrailMessages) {
+      const tracking = msg.metadata?.guardrailTracking;
+      const violations_list = tracking?.violations || msg.metadata?.violations || [];
+      const outcome = msg.metadata?.guardrailBlocked ? 'blocked' : (tracking?.outcome?.toLowerCase() || 'passed');
+      
+      for (const v of violations_list) {
+        const vType = v.type || 'unknown';
+        if (!violationsByType[vType]) {
+          violationsByType[vType] = { blocked: 0, intervened: 0, anonymized: 0 };
+        }
+        if (violationsByType[vType][outcome] !== undefined) {
+          violationsByType[vType][outcome]++;
+        }
+      }
+    }
+
+    const violationBreakdown = Object.entries(violationsByType)
+      .map(([type, counts]) => ({
+        type,
+        ...counts,
+        total: counts.blocked + counts.intervened + counts.anonymized,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    const totalEvents = guardrailMessages.length;
+    const violationsList = Object.entries(violations)
+      .map(([key, count]) => {
+        const [type, category] = key.split(':');
+        return { type, category, count };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      startDate: startDate || null,
+      endDate: endDate || null,
+      summary: {
+        totalEvents,
+        blocked: outcomes.blocked,
+        intervened: outcomes.intervened,
+        anonymized: outcomes.anonymized,
+        passed: outcomes.passed,
+        userCount: userIds.size,
+        conversationCount: conversationIds.size,
+        blockRate: totalEvents > 0 ? ((outcomes.blocked / totalEvents) * 100).toFixed(1) : 0,
+      },
+      outcomes,
+      violations: violationsList,
+      violationBreakdown,
+      trend: trendAggregation.map(t => ({
+        date: t._id,
+        total: t.count,
+        blocked: t.blocked,
+        intervened: t.intervened,
+        anonymized: t.anonymized,
+      })),
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getGuardrailsMetrics:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOverviewMetrics,
   getUserMetrics,
@@ -1930,5 +2635,7 @@ module.exports = {
   getUserUsageDetails,
   getTransactionHistory,
   getLLMTraces,
+  getToolMetrics,
+  getGuardrailsMetrics,
   MODEL_PRICING,
 };

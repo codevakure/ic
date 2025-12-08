@@ -182,7 +182,7 @@ router.patch('/preferences', checkMemoryOptOut, async (req, res) => {
     res.json({
       updated: true,
       preferences: {
-        memories: updatedUser.personalization?.memories ?? true,
+        memories: updatedUser.personalization?.memories ?? false,
       },
     });
   } catch (error) {

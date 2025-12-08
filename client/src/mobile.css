@@ -31,8 +31,9 @@
 
 @media (max-width: 767px) {
   .nav {
-    width: calc(100% - 10px)  ;
-    transition: all 0.15s;
+    width: 320px;
+    max-width: calc(100% - 40px);
+    transition: transform 0.2s ease-out;
   }
   .nav-mask {
     position: fixed;
@@ -42,10 +43,8 @@
     top: 0;
     bottom: 0;
     background-color: rgba(7, 7, 7, 0.4);
-    padding-left: 420px;
-    padding-top: 12px;
     opacity: 0;
-    transition: all 0.5s;
+    transition: opacity 0.2s ease-out;
     pointer-events: none;
   }
 

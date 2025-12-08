@@ -36,16 +36,31 @@ const hideSandpackLoadingStyles = `
 const CustomLoadingOverlay = memo(function CustomLoadingOverlay() {
   const { sandpack, listen } = useSandpack();
   const [showLoader, setShowLoader] = React.useState(true);
+  const [hasError, setHasError] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   
   React.useEffect(() => {
     // Listen for sandpack messages
     const unsubscribe = listen((message) => {
+      // Log all messages for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Sandpack]', message.type, message);
+      }
+      
       if (message.type === 'done') {
         // Wait for content to fully render before hiding loader
-        setTimeout(() => setShowLoader(false), 1800);
+        setTimeout(() => setShowLoader(false), 1000);
       }
       if (message.type === 'start') {
         setShowLoader(true);
+        setHasError(false);
+        setErrorMessage(null);
+      }
+      // Handle errors
+      if (message.type === 'action' && (message as any).action === 'show-error') {
+        setHasError(true);
+        setErrorMessage((message as any).message || 'Bundle error');
+        setShowLoader(false);
       }
     });
     
@@ -55,13 +70,39 @@ const CustomLoadingOverlay = memo(function CustomLoadingOverlay() {
   // Also track status changes as backup
   React.useEffect(() => {
     if (sandpack.status === 'running') {
-      // Longer delay to ensure iframe content is fully loaded
-      const timer = setTimeout(() => setShowLoader(false), 2500);
+      // Shorter delay now that we have proper message handling
+      const timer = setTimeout(() => setShowLoader(false), 1500);
       return () => clearTimeout(timer);
     } else if (sandpack.status === 'initial' || sandpack.status === 'idle') {
       setShowLoader(true);
     }
   }, [sandpack.status]);
+
+  // Check for bundler errors in sandpack state
+  React.useEffect(() => {
+    if (sandpack.error) {
+      setHasError(true);
+      setErrorMessage(sandpack.error.message || 'Bundler error');
+      setShowLoader(false);
+    }
+  }, [sandpack.error]);
+
+  // Show error state
+  if (hasError && errorMessage) {
+    return (
+      <div 
+        className={cn(
+          'absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 p-4',
+          'bg-surface-primary-alt/95',
+        )}
+      >
+        <div className="text-red-500 text-sm font-medium">Preview Error</div>
+        <div className="text-text-secondary text-xs max-w-md text-center overflow-auto max-h-32">
+          {errorMessage}
+        </div>
+      </div>
+    );
+  }
 
   if (!showLoader) {
     return null;
@@ -71,7 +112,7 @@ const CustomLoadingOverlay = memo(function CustomLoadingOverlay() {
     <div 
       className={cn(
         'absolute inset-0 z-50 flex items-center justify-center',
-        'bg-surface-primary-alt',
+        'bg-surface-primary-alt/80 backdrop-blur-sm',
       )}
     >
       <ArtifactLoader size="lg" />

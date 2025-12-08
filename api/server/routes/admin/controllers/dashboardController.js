@@ -197,7 +197,7 @@ const getCostsMetrics = async (req, res) => {
  */
 const getLLMTraces = async (req, res) => {
   try {
-    const { page = 1, limit = 50, userId, conversationId, model, startDate, endDate } = req.query;
+    const { page = 1, limit = 50, userId, conversationId, model, startDate, endDate, toolName } = req.query;
     
     const traces = await adminService.getLLMTraces({
       page: parseInt(page, 10),
@@ -207,6 +207,7 @@ const getLLMTraces = async (req, res) => {
       model,
       startDate,
       endDate,
+      toolName,
     });
     
     res.json(traces);
@@ -214,6 +215,42 @@ const getLLMTraces = async (req, res) => {
     logger.error('[Admin Dashboard] Error fetching LLM traces:', error);
     res.status(500).json({
       message: 'Error fetching LLM traces',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Get tool usage metrics
+ * Returns tool invocation statistics
+ */
+const getToolMetrics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const metrics = await adminService.getToolMetrics(startDate, endDate);
+    res.status(200).json(metrics);
+  } catch (error) {
+    logger.error('[Admin] Error fetching tool metrics:', error);
+    res.status(500).json({ 
+      message: 'Error fetching tool metrics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Get guardrails usage metrics
+ * Returns guardrail tracking statistics
+ */
+const getGuardrailsMetrics = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const metrics = await adminService.getGuardrailsMetrics(startDate, endDate);
+    res.status(200).json(metrics);
+  } catch (error) {
+    logger.error('[Admin] Error fetching guardrails metrics:', error);
+    res.status(500).json({ 
+      message: 'Error fetching guardrails metrics',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -231,4 +268,6 @@ module.exports = {
   getUsageMetrics,
   getCostsMetrics,
   getLLMTraces,
+  getToolMetrics,
+  getGuardrailsMetrics,
 };

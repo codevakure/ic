@@ -46,14 +46,14 @@ const standardDependencies = {
   clsx: '^1.2.1',
   'tailwind-merge': '^1.9.1',
   // 'tailwindcss-animate': '^1.0.5', // Removed - requires tailwindcss as peer dependency
-  // recharts: '2.1.9', // Removed - has lodash submodule dependencies that break in browser bundlers (lodash/toString)
+  // recharts: Disabled - lodash dependency breaks Sandpack bundler (No transformer for /node_modules/lodash/toString)
   'chart.js': '^4.4.0',
-  'react-chartjs-2': '^5.2.0',
+  'react-chartjs-2': '^5.2.0', // Use this instead of recharts - works with Sandpack
   // Radix UI peer dependencies
   '@radix-ui/react-visually-hidden': '^1.0.3',
   '@radix-ui/react-collection': '^1.0.3',
   '@radix-ui/react-context': '^1.0.3',
-  '@swc/helpers': '^0.5.1',
+  '@swc/helpers': '0.4.14', // Pinned - newer versions break Sandpack bundler (classPrivateFieldLooseKey error)
   '@radix-ui/react-accordion': '^1.1.2',
   '@radix-ui/react-alert-dialog': '^1.0.2',
   '@radix-ui/react-aspect-ratio': '^1.1.0',

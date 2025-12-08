@@ -877,33 +877,25 @@ export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
 // =============================================================================
-// Intent Analyzer Schema - Unified Tool Selection + Model Routing
+// Intent Analyzer Schema - Model Routing Only
 // Uses @librechat/intent-analyzer package
+// Tool selection is config-driven (toolsAutoEnabled in agents endpoint)
 // =============================================================================
 const intentAnalyzerEndpointSchema = z.object({
   /** Enable intent analyzer for this endpoint */
   enabled: z.boolean().optional().default(false),
-  /** 
-   * Model used for LLM classification when regex patterns don't match.
-   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
-   */
-  classifierModel: z.string().optional(),
 });
 
 export const intentAnalyzerSchema = z.object({
-  /** 
-   * Enable automatic tool selection based on query intent.
-   * When true: Tools are selected based on query analysis (smart selection)
-   * When false: toolsAutoEnabled tools are always included for every request
-   */
-  autoToolSelection: z.boolean().optional().default(false),
-  
   /**
-   * Enable 5-tier model routing based on query complexity.
+   * Enable 4-tier model routing based on query complexity.
    * Routes simple queries to cheap models, complex queries to powerful models.
+   * Uses regex patterns only - defaults to Haiku 4.5 if no pattern matches.
    * 
-   * Tiers: TRIVIAL (Nova Lite) → SIMPLE (Nova Pro) → MODERATE (Haiku) 
-   *        → COMPLEX (Sonnet) → EXPERT (Opus)
+   * Tiers: SIMPLE (Nova Micro) → MODERATE (Haiku 4.5) 
+   *        → COMPLEX (Sonnet 4.5) → EXPERT (Opus 4.5)
+   * 
+   * Tool selection is config-driven via toolsAutoEnabled in ranger.yaml
    */
   modelRouting: z.boolean().optional().default(false),
   
@@ -914,12 +906,6 @@ export const intentAnalyzerSchema = z.object({
    * - 'ultraCheap': Routes up to Haiku 4.5 (cheapest)
    */
   preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional().default('costOptimized'),
-  
-  /** 
-   * Model used for LLM classification fallback when regex patterns don't match.
-   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
-   */
-  classifierModel: z.string().optional(),
   
   /** Enable verbose debug logging */
   debug: z.boolean().optional().default(false),
@@ -936,7 +922,7 @@ export const configSchema = z.object({
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
-  /** Unified intent analyzer configuration (tool selection + model routing) */
+  /** Intent analyzer configuration (model routing only, tools are config-driven) */
   intentAnalyzer: intentAnalyzerSchema.optional(),
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
