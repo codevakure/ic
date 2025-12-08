@@ -329,7 +329,27 @@ function getPowerPointInstructions() {
  * @returns {string} Complete instructions for code executor
  */
 function getCodeExecutorInstructions() {
-  return `${getAvailablePackages()}
+  return `
+# ⛔ CODE EXECUTOR USAGE RESTRICTIONS ⛔
+
+**DO NOT USE CODE EXECUTOR FOR:**
+- Dashboards → Use Artifacts (React components)
+- Charts/Visualizations for display → Use Artifacts
+- Interactive UI components → Use Artifacts
+- Mock/sample data generation for visuals → Use Artifacts with inline data
+- Any visual output the user will see directly → Use Artifacts
+
+**ONLY USE CODE EXECUTOR FOR:**
+- Creating downloadable FILES: PowerPoint (.pptx), Word (.docx), PDF (.pdf), Excel (.xlsx)
+- Processing uploaded files (CSV, Excel, PDF parsing)
+- Heavy data computation/transformation
+- Generating images to EMBED in documents
+
+**CRITICAL: If user asks for a "dashboard", "chart", or "visualization" WITHOUT mentioning a file format, CREATE AN ARTIFACT INSTEAD. Do NOT run Python code.**
+
+---
+
+${getAvailablePackages()}
 
 # ⛔ CRITICAL: NETWORK ACCESS IS COMPLETELY BLOCKED
 

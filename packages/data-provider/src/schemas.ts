@@ -507,6 +507,7 @@ export const tPluginAuthConfigSchema = z.object({
   authField: z.string(),
   label: z.string(),
   description: z.string(),
+  default: z.string().optional(),
 });
 
 export type TPluginAuthConfig = z.infer<typeof tPluginAuthConfigSchema>;

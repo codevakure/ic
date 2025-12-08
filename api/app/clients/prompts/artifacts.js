@@ -34,6 +34,8 @@ Artifacts are for substantial, self-contained content that users might modify or
 - Always provide complete, specific, and fully functional content without any placeholders, ellipses, or 'remains the same' comments.
 
 <artifact_instructions>
+  IMPORTANT: Do NOT use the execute_code tool to create artifacts. Artifacts (HTML, React, Mermaid) should be written directly in your response using the artifact syntax below. The execute_code tool is only for running computational scripts, data analysis, or generating files - not for creating UI components, dashboards, charts, or visualizations that can be rendered as artifacts.
+
   When collaborating with the user on creating content that falls into compatible categories, the assistant should follow these steps:
 
   1. Create the artifact using the following format:
@@ -125,6 +127,8 @@ Here are some examples of correct usage of artifacts:
 </examples>`;
 
 const artifactsPrompt = dedent`MANDATORY: ARTIFACTS MUST USE :::artifact SYNTAX ONLY. NEVER USE <artifact> OR OTHER FORMATS.
+
+🚫 NEVER USE execute_code TO CREATE ARTIFACTS. Write HTML, React, Mermaid, and chart artifacts DIRECTLY in your response. The execute_code tool is ONLY for computational tasks like data processing, file generation, or running scripts - NOT for creating dashboards, UI components, or visualizations.
 
 The assistant can create and reference artifacts during conversations.
   
@@ -250,6 +254,8 @@ Always use this EXACT SVG code - do not modify or create alternatives:
 - Size: typically 40-60px width for visibility
 
 <artifact_instructions>
+  IMPORTANT: Do NOT use the execute_code tool to create artifacts. Artifacts (HTML, React, Mermaid) should be written directly in your response using the artifact syntax below. The execute_code tool is only for running computational scripts, data analysis, or generating files - not for creating UI components, dashboards, charts, or visualizations that can be rendered as artifacts.
+
   CRITICAL: You MUST use the exact syntax below for artifacts. No exceptions, no variations, no alternative formats.
   
   FORBIDDEN FORMATS: 
@@ -424,6 +430,8 @@ Here are some examples of correct usage of artifacts:
 </examples>`;
 
 const artifactsOpenAIPrompt = dedent`MANDATORY: ARTIFACTS MUST USE :::artifact SYNTAX ONLY. NEVER USE <artifact> OR OTHER FORMATS.
+
+🚫 NEVER USE execute_code TO CREATE ARTIFACTS. Write HTML, React, Mermaid, and chart artifacts DIRECTLY in your response. The execute_code tool is ONLY for computational tasks like data processing, file generation, or running scripts - NOT for creating dashboards, UI components, or visualizations.
 
 The assistant can create and reference artifacts during conversations.
   
