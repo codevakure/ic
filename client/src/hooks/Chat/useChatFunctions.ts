@@ -80,6 +80,7 @@ export default function useChatFunctions({
       parentMessageId = null,
       conversationId = null,
       messageId = null,
+      metadata,
     },
     {
       editedContent = null,
@@ -206,6 +207,8 @@ export default function useChatFunctions({
       messageId: isContinued && messageId != null && messageId ? messageId : intermediateId,
       thread_id,
       error: false,
+      // Include metadata if provided (e.g., isUIAction for MCP UI button clicks)
+      ...(metadata && { metadata }),
     };
 
     const submissionFiles = overrideFiles ?? targetParentMessage?.files;

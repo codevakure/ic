@@ -63,19 +63,19 @@ const SharePrompt = React.memo(
         disabled={disabled}
       >
         <Button
-          variant={variant === 'ghost' ? 'ghost' : 'default'}
+          variant={variant === 'ghost' ? 'ghost' : 'outline'}
           size="sm"
           aria-label="Share prompt"
           className={cn(
             variant === 'ghost' 
               ? 'h-7 w-7 p-0 text-text-tertiary hover:bg-surface-hover hover:text-text-primary' 
-              : 'h-10 w-10 border border-transparent bg-blue-500/90 p-0.5 transition-all hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-800',
+              : 'h-10 w-10 border border-border-light bg-surface-secondary p-0.5 transition-all hover:bg-surface-hover',
             className
           )}
           disabled={disabled}
         >
           <Share2Icon className={cn(
-            variant === 'ghost' ? 'h-4 w-4' : 'size-5 cursor-pointer text-white',
+            variant === 'ghost' ? 'h-4 w-4' : 'size-5 cursor-pointer text-text-secondary',
             iconClassName
           )} />
         </Button>

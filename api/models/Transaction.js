@@ -190,6 +190,12 @@ async function createAutoRefillTransaction(txData) {
  */
 async function createTransaction(_txData) {
   const { balance, transactions, ...txData } = _txData;
+  
+  // Debug: log contextBreakdown if present
+  if (txData.contextBreakdown) {
+    logger.info(`[createTransaction] contextBreakdown present: ${JSON.stringify(txData.contextBreakdown)}`);
+  }
+  
   if (txData.rawAmount != null && isNaN(txData.rawAmount)) {
     return;
   }
@@ -229,6 +235,11 @@ async function createStructuredTransaction(_txData) {
   const { balance, transactions, ...txData } = _txData;
   if (transactions?.enabled === false) {
     return;
+  }
+
+  // Debug: log contextBreakdown if present
+  if (txData.contextBreakdown) {
+    logger.info(`[createStructuredTransaction] contextBreakdown present: ${JSON.stringify(txData.contextBreakdown)}`);
   }
 
   const transaction = new Transaction({

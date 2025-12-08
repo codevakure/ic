@@ -5,6 +5,7 @@ import { getConfigDefaults, SystemRoles } from 'ranger-data-provider';
 import { ResizablePanel, ResizablePanelGroup, useMediaQuery } from '@ranger/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { useSourcesPanel, SidePanelGroupProvider, GlobalSourcesPanel } from '~/components/ui/SidePanel';
+import { useArtifactsPanelContext } from '~/Providers';
 import { useGetStartupConfig } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import ArtifactsPanel from './ArtifactsPanel';
@@ -18,7 +19,8 @@ interface SidePanelProps {
   defaultCollapsed?: boolean;
   navCollapsedSize?: number;
   fullPanelCollapse?: boolean;
-  artifacts?: React.ReactNode;
+  /** Whether artifacts should be visible (content is rendered via portal from Presentation) */
+  hasArtifacts?: boolean;
   children: React.ReactNode;
   /** Hide the right navigation side panel (for standalone pages like Bookmarks) */
   hideNavPanel?: boolean;
@@ -33,7 +35,7 @@ const SidePanelGroup = memo(
     defaultCollapsed = false,
     fullPanelCollapse = false,
     navCollapsedSize = 3,
-    artifacts,
+    hasArtifacts = false,
     children,
     hideNavPanel = false,
   }: SidePanelProps) => {
@@ -43,6 +45,14 @@ const SidePanelGroup = memo(
       () => startupConfig?.interface ?? defaultInterface,
       [startupConfig],
     );
+    
+    // Get the portal target setter from context
+    const { setPortalTarget } = useArtifactsPanelContext();
+    
+    // Callback to handle portal target mount/unmount
+    const handlePortalTargetMount = useCallback((element: HTMLDivElement | null) => {
+      setPortalTarget(element);
+    }, [setPortalTarget]);
 
     // Hide side panel for non-admin users
     const shouldHideSidePanel = user?.role !== SystemRoles.ADMIN;
@@ -52,7 +62,7 @@ const SidePanelGroup = memo(
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
     const [fullCollapse, setFullCollapse] = useState(fullPanelCollapse);
     const [collapsedSize, setCollapsedSize] = useState(navCollapsedSize);
-    const [shouldRenderArtifacts, setShouldRenderArtifacts] = useState(artifacts != null);
+    const [shouldRenderArtifacts, setShouldRenderArtifacts] = useState(hasArtifacts);
     const [shouldRenderSources, setShouldRenderSources] = useState(false);
 
     const isSmallScreen = useMediaQuery('(max-width: 767px)');
@@ -64,13 +74,13 @@ const SidePanelGroup = memo(
 
     const calculateLayout = useCallback(() => {
       // When sources panel is active (push mode), use dynamic width
-      if (sourcesActive && artifacts == null) {
+      if (sourcesActive && !hasArtifacts) {
         const navSize = 0;
         const panelWidth = sourcesWidth ?? 30; // Use configured width or default to 30%
         const mainSize = 100 - navSize - panelWidth;
         return [mainSize, panelWidth, navSize];
       }
-      if (artifacts == null) {
+      if (!hasArtifacts) {
         const navSize = defaultLayout.length === 2 ? defaultLayout[1] : defaultLayout[2];
         return [100 - navSize, navSize];
       } else {
@@ -80,7 +90,7 @@ const SidePanelGroup = memo(
         const newMainSize = remainingSpace - artifactsSize;
         return [newMainSize, artifactsSize, navSize];
       }
-    }, [artifacts, defaultLayout, sourcesActive, sourcesWidth]);
+    }, [hasArtifacts, defaultLayout, sourcesActive, sourcesWidth]);
 
     const currentLayout = useMemo(() => normalizeLayout(calculateLayout()), [calculateLayout]);
 
@@ -110,11 +120,11 @@ const SidePanelGroup = memo(
     }, [isSmallScreen, defaultCollapsed, navCollapsedSize, fullPanelCollapse]);
 
     const minSizeMain = useMemo(() => {
-      if (artifacts != null || sourcesActive) {
+      if (hasArtifacts || sourcesActive) {
         return 15;
       }
       return 30;
-    }, [artifacts, sourcesActive]);
+    }, [hasArtifacts, sourcesActive]);
 
     /** Memoized close button handler to prevent re-creating it */
     const handleClosePanel = useCallback(() => {
@@ -127,6 +137,13 @@ const SidePanelGroup = memo(
       });
       panelRef.current?.collapse();
     }, []);
+    
+    // Update shouldRenderArtifacts when hasArtifacts changes
+    useEffect(() => {
+      if (hasArtifacts) {
+        setShouldRenderArtifacts(true);
+      }
+    }, [hasArtifacts]);
 
     return (
       <SidePanelGroupProvider>
@@ -146,7 +163,8 @@ const SidePanelGroup = memo(
 
           {!isSmallScreen && (
             <ArtifactsPanel
-              artifacts={artifacts}
+              onPortalTargetMount={handlePortalTargetMount}
+              hasArtifacts={hasArtifacts}
               currentLayout={currentLayout}
               minSizeMain={minSizeMain}
               shouldRender={shouldRenderArtifacts}
@@ -183,8 +201,11 @@ const SidePanelGroup = memo(
             />
           )}
         </ResizablePanelGroup>
-        {artifacts != null && isSmallScreen && (
-          <div className="fixed inset-0 z-[100]">{artifacts}</div>
+        {hasArtifacts && isSmallScreen && (
+          <div 
+            className="fixed inset-0 z-[100]" 
+            ref={handlePortalTargetMount} 
+          />
         )}
         {!hideNavPanel && !hideSidePanel && !shouldHideSidePanel && interfaceConfig.sidePanel === true && (
           <button

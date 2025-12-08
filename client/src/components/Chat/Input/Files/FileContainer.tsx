@@ -24,43 +24,36 @@ const FileContainer = ({
 
   return (
     <div
-      className={cn('group relative inline-block text-sm text-text-primary max-w-xs', containerClassName)}
+      className={cn('group relative inline-block text-sm text-text-primary mb-2', containerClassName)}
     >
       <button
         type="button"
         onClick={onClick}
         aria-label={file.filename}
         className={cn(
-          'w-full relative overflow-hidden rounded-xl border border-border-medium transition-all duration-300 hover:shadow-lg hover:shadow-black/10 dark:hover:shadow-white/10 bg-transparent mb-2',
+          'relative overflow-hidden rounded-lg border border-border-light bg-surface-hover-alt',
           buttonClassName,
         )}
       >
-        <div className="w-full p-4 pr-20 relative">
-          <div className="flex flex-row items-center justify-between gap-4 relative">
-            {/* Left section with icon and content */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="flex-shrink-0">
-                <FilePreview file={file} fileType={fileType} className="relative" />
+        <div className="w-56 p-1.5 relative">
+          <div className="flex flex-row items-center gap-2">
+            <FilePreview file={file} fileType={fileType} className="relative" />
+            <div className="overflow-hidden">
+              <div className="truncate font-medium" title={file.filename}>
+                {file.filename}
               </div>
-              
-              <div className="flex-1 overflow-hidden text-left">
-                <div className="truncate font-semibold text-text-primary" title={file.filename}>
-                  {file.filename}
-                </div>
-                <div className="truncate text-text-secondary text-sm" title={fileType.title}>
-                  {fileType.title}
-                </div>
+              <div className="truncate text-text-secondary" title={fileType.title}>
+                {fileType.title}
               </div>
             </div>
-            
-            {/* Watermark logo on the right - positioned towards bottom like artifact panel */}
-            <div className="absolute -right-16 top-[70%] -translate-y-[30%]">
-              <Watermark 
-                width={80} 
-                height={80} 
-                className="opacity-50 group-hover:opacity-80 transition-all duration-300 group-hover:scale-110"
-              />
-            </div>
+          </div>
+          {/* Watermark positioned bottom-right like artifacts */}
+          <div className="absolute right-1 -bottom-3 pointer-events-none">
+            <Watermark 
+              width={36} 
+              height={36} 
+              className="opacity-30 group-hover:opacity-50 transition-opacity duration-200"
+            />
           </div>
         </div>
       </button>

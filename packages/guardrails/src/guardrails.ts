@@ -11,7 +11,9 @@ import type {
   GuardrailModerateOptions,
   GuardrailsConfig,
   ViolationDetail,
-  GuardrailSource
+  GuardrailSource,
+  GuardrailTrackingMetadata,
+  GuardrailOutcome
 } from './types';
 
 /**
@@ -32,7 +34,11 @@ export class GuardrailsService {
       secretAccessKey: config.secretAccessKey ?? process.env.BEDROCK_AWS_SECRET_ACCESS_KEY,
       sessionToken: config.sessionToken ?? process.env.BEDROCK_AWS_SESSION_TOKEN,
       blockMessage: config.blockMessage ?? process.env.BEDROCK_GUARDRAILS_BLOCK_MESSAGE ??
-        'Your message violates our content policies. Please revise your request and try again.'
+        'Your message violates our content policies. Please revise your request and try again.',
+      // Action flags - default to true (apply actions)
+      blockEnabled: config.blockEnabled ?? process.env.GUARDRAILS_BLOCK_ENABLED !== 'false',
+      anonymizeEnabled: config.anonymizeEnabled ?? process.env.GUARDRAILS_ANONYMIZE_ENABLED !== 'false',
+      interveneEnabled: config.interveneEnabled ?? process.env.GUARDRAILS_INTERVENE_ENABLED !== 'false',
     };
   }
 
@@ -391,12 +397,12 @@ export class GuardrailsService {
    * @example
    * ```typescript
    * const result = await guardrailsService.handleInputModeration(userText);
-   * if (result.blocked) {
+   * if (result.blocked && result.actionApplied) {
    *   // Save messages with result.metadata
    *   // Send result.blockMessage to user
    *   return;
    * }
-   * // Continue to LLM
+   * // Continue to LLM (but still save trackingMetadata for audit)
    * ```
    */
   public async handleInputModeration(text: string): Promise<import('./types').InputModerationResult> {
@@ -411,29 +417,75 @@ export class GuardrailsService {
     // Moderate the input
     const moderationResult = await this.moderateInput(text);
 
-    if (!moderationResult.blocked) {
+    // Determine outcome
+    let outcome: GuardrailOutcome = 'passed';
+    if (moderationResult.blocked) {
+      outcome = 'blocked';
+    } else if (moderationResult.reason === 'anonymized') {
+      outcome = 'anonymized';
+    } else if (moderationResult.reason === 'intervened_passthrough') {
+      outcome = 'intervened';
+    }
+
+    // Create tracking metadata for ALL outcomes (for audit/traces)
+    const trackingMetadata: import('./types').GuardrailTrackingMetadata = {
+      guardrailInvoked: true,
+      outcome,
+      actionApplied: false, // Will be set based on flags below
+      violations: moderationResult.violations || [],
+      assessments: moderationResult.assessments || [],
+      originalContent: text,
+      reason: moderationResult.reason,
+      timestamp: new Date().toISOString()
+    };
+
+    // If content passed, continue without action
+    if (!moderationResult.blocked && outcome === 'passed') {
       return {
         blocked: false,
-        shouldContinue: true
+        shouldContinue: true,
+        trackingMetadata
       };
     }
 
-    // Input was blocked - create metadata for database
-    const metadata: import('./types').GuardrailMetadata = {
-      guardrailBlocked: true,
-      violations: moderationResult.violations || [],
-      assessments: moderationResult.assessments || [],
-      originalUserMessage: text,
-      blockReason: moderationResult.reason,
-      systemNote: this.createInputSystemNote(moderationResult.violations || [])
-    };
+    // Check if block action should be applied based on env flag
+    const shouldApplyBlock = moderationResult.blocked && (this.config.blockEnabled ?? true);
+    trackingMetadata.actionApplied = shouldApplyBlock;
+
+    if (shouldApplyBlock) {
+      // Input was blocked AND block action is enabled
+      const metadata: import('./types').GuardrailMetadata = {
+        guardrailBlocked: true,
+        violations: moderationResult.violations || [],
+        assessments: moderationResult.assessments || [],
+        originalUserMessage: text,
+        blockReason: moderationResult.reason,
+        systemNote: this.createInputSystemNote(moderationResult.violations || [])
+      };
+      trackingMetadata.systemNote = metadata.systemNote;
+
+      return {
+        blocked: true,
+        shouldContinue: false,
+        metadata,
+        blockMessage: this.config.blockMessage!,
+        violations: moderationResult.violations,
+        trackingMetadata,
+        actionApplied: true
+      };
+    }
+
+    // Block detected but action disabled - log but continue
+    console.info('[GuardrailsService] ⚠️ BLOCK DETECTED but action disabled (GUARDRAILS_BLOCK_ENABLED=false)', {
+      outcome,
+      violations: moderationResult.violations?.map(v => `${v.type}:${v.category}`) || []
+    });
 
     return {
-      blocked: true,
-      shouldContinue: false,
-      metadata,
-      blockMessage: this.config.blockMessage!,
-      violations: moderationResult.violations
+      blocked: false, // Not blocking on UI
+      shouldContinue: true, // Continue to LLM
+      trackingMetadata, // But save for audit
+      actionApplied: false
     };
   }
 
@@ -449,10 +501,11 @@ export class GuardrailsService {
    * @example
    * ```typescript
    * const result = await guardrailsService.handleOutputModeration(llmResponse.text);
-   * if (result.blocked && result.modifiedResponse) {
+   * if (result.blocked && result.actionApplied && result.modifiedResponse) {
    *   response.text = result.modifiedResponse.text;
    *   response.metadata = result.modifiedResponse.metadata;
    * }
+   * // Always save result.trackingMetadata for audit
    * ```
    */
   public async handleOutputModeration(responseText: string): Promise<import('./types').OutputModerationResult> {
@@ -466,38 +519,137 @@ export class GuardrailsService {
     // Moderate the output
     const moderationResult = await this.moderateOutput(responseText);
 
-    // Check if content was anonymized (not blocked, but content was modified)
-    if (!moderationResult.blocked && moderationResult.reason === 'anonymized' && moderationResult.content) {
-      // Content was anonymized - return the anonymized content
-      return {
-        blocked: false,
-        content: moderationResult.content,
-        violations: moderationResult.violations
-      };
+    // Determine outcome
+    let outcome: GuardrailOutcome = 'passed';
+    if (moderationResult.blocked) {
+      outcome = 'blocked';
+    } else if (moderationResult.reason === 'anonymized') {
+      outcome = 'anonymized';
+    } else if (moderationResult.reason === 'intervened_passthrough') {
+      outcome = 'intervened';
     }
 
-    if (!moderationResult.blocked) {
-      return {
-        blocked: false
-      };
-    }
-
-    // Output was blocked - create modified response with metadata
-    const metadata: import('./types').GuardrailMetadata = {
-      guardrailBlocked: true,
+    // Create tracking metadata for ALL outcomes (for audit/traces)
+    const trackingMetadata: import('./types').GuardrailTrackingMetadata = {
+      guardrailInvoked: true,
+      outcome,
+      actionApplied: false, // Will be set based on flags below
       violations: moderationResult.violations || [],
       assessments: moderationResult.assessments || [],
-      blockReason: 'policy_violation_output',
-      systemNote: this.createOutputSystemNote(moderationResult.violations || [])
+      originalContent: responseText,
+      reason: moderationResult.reason,
+      timestamp: new Date().toISOString()
     };
 
+    // If content passed without any modification
+    if (!moderationResult.blocked && outcome === 'passed') {
+      return {
+        blocked: false,
+        trackingMetadata
+      };
+    }
+
+    // Handle ANONYMIZED outcome
+    if (!moderationResult.blocked && outcome === 'anonymized' && moderationResult.content) {
+      const shouldApplyAnonymize = this.config.anonymizeEnabled ?? true;
+      trackingMetadata.actionApplied = shouldApplyAnonymize;
+      trackingMetadata.modifiedContent = moderationResult.content;
+
+      if (shouldApplyAnonymize) {
+        return {
+          blocked: false,
+          content: moderationResult.content,
+          violations: moderationResult.violations,
+          trackingMetadata,
+          actionApplied: true
+        };
+      }
+
+      // Anonymize detected but action disabled
+      console.info('[GuardrailsService] ⚠️ ANONYMIZE DETECTED but action disabled (GUARDRAILS_ANONYMIZE_ENABLED=false)', {
+        violations: moderationResult.violations?.map(v => `${v.type}:${v.category}`) || []
+      });
+
+      return {
+        blocked: false,
+        content: responseText, // Return original content
+        trackingMetadata,
+        actionApplied: false
+      };
+    }
+
+    // Handle INTERVENED outcome
+    if (!moderationResult.blocked && outcome === 'intervened') {
+      const shouldApplyIntervene = this.config.interveneEnabled ?? true;
+      trackingMetadata.actionApplied = shouldApplyIntervene;
+      trackingMetadata.modifiedContent = moderationResult.content;
+
+      if (shouldApplyIntervene) {
+        return {
+          blocked: false,
+          content: moderationResult.content,
+          violations: moderationResult.violations,
+          trackingMetadata,
+          actionApplied: true
+        };
+      }
+
+      // Intervene detected but action disabled
+      console.info('[GuardrailsService] ⚠️ INTERVENE DETECTED but action disabled (GUARDRAILS_INTERVENE_ENABLED=false)', {
+        violations: moderationResult.violations?.map(v => `${v.type}:${v.category}`) || []
+      });
+
+      return {
+        blocked: false,
+        content: responseText, // Return original content
+        trackingMetadata,
+        actionApplied: false
+      };
+    }
+
+    // Handle BLOCKED outcome
+    if (moderationResult.blocked) {
+      const shouldApplyBlock = this.config.blockEnabled ?? true;
+      trackingMetadata.actionApplied = shouldApplyBlock;
+
+      const metadata: import('./types').GuardrailMetadata = {
+        guardrailBlocked: true,
+        violations: moderationResult.violations || [],
+        assessments: moderationResult.assessments || [],
+        blockReason: 'policy_violation_output',
+        systemNote: this.createOutputSystemNote(moderationResult.violations || [])
+      };
+      trackingMetadata.systemNote = metadata.systemNote;
+
+      if (shouldApplyBlock) {
+        return {
+          blocked: true,
+          modifiedResponse: {
+            text: this.config.blockMessage!,
+            metadata
+          },
+          violations: moderationResult.violations,
+          trackingMetadata,
+          actionApplied: true
+        };
+      }
+
+      // Block detected but action disabled
+      console.info('[GuardrailsService] ⚠️ OUTPUT BLOCK DETECTED but action disabled (GUARDRAILS_BLOCK_ENABLED=false)', {
+        violations: moderationResult.violations?.map(v => `${v.type}:${v.category}`) || []
+      });
+
+      return {
+        blocked: false, // Not blocking on UI
+        trackingMetadata, // But save for audit
+        actionApplied: false
+      };
+    }
+
+    // Fallback - shouldn't reach here
     return {
-      blocked: true,
-      modifiedResponse: {
-        text: this.config.blockMessage!,
-        metadata
-      },
-      violations: moderationResult.violations
+      blocked: false,
+      trackingMetadata
     };
   }
 

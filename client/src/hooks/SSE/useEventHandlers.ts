@@ -449,13 +449,22 @@ export default function useEventHandlers({
 
   const finalHandler = useCallback(
     (data: TFinalResData, submission: EventSubmission) => {
-      const { requestMessage, responseMessage, conversation, runMessages } = data;
+      const { requestMessage: serverRequestMessage, responseMessage, conversation, runMessages } = data;
       const {
         messages,
+        userMessage,
         conversation: submissionConvo,
         isRegenerate = false,
         isTemporary = false,
       } = submission;
+
+      // Preserve client-side metadata (e.g., isUIAction) in the request message
+      const requestMessage = serverRequestMessage
+        ? {
+            ...serverRequestMessage,
+            metadata: userMessage?.metadata ?? serverRequestMessage.metadata,
+          }
+        : serverRequestMessage;
 
       try {
         if (responseMessage?.attachments && responseMessage.attachments.length > 0) {
@@ -520,7 +529,13 @@ export default function useEventHandlers({
         /* Update messages; if assistants endpoint, client doesn't receive responseMessage */
         let finalMessages: TMessage[] = [];
         if (runMessages) {
-          finalMessages = [...runMessages];
+          // Preserve client-side metadata for user messages in runMessages
+          finalMessages = runMessages.map((msg) => {
+            if (msg.isCreatedByUser && userMessage?.metadata) {
+              return { ...msg, metadata: userMessage.metadata };
+            }
+            return msg;
+          });
         } else if (isRegenerate && responseMessage) {
           finalMessages = [...messages, responseMessage];
         } else if (requestMessage != null && responseMessage != null) {

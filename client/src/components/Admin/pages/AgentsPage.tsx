@@ -4,6 +4,7 @@
  * Agent usage metrics and token consumption.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Bot,
@@ -32,6 +33,7 @@ interface AgentData {
 }
 
 function AgentsPage() {
+  const navigate = useNavigate();
   // State
   const [loading, setLoading] = useState(true);
   const [agentsData, setAgentsData] = useState<AgentMetrics | null>(null);
@@ -120,12 +122,16 @@ function AgentsPage() {
         accessorKey: 'name',
         header: ({ column }) => <SortableHeader column={column}>Agent</SortableHeader>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/admin/traces?agent=${encodeURIComponent(row.original.agentId)}`)}
+            title="Click to view traces for this agent"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-tertiary">
               <Bot className="h-4 w-4 text-text-secondary" />
             </div>
             <div>
-              <p className="font-medium text-text-primary">{row.original.name}</p>
+              <p className="font-medium text-text-primary hover:text-blue-400 transition-colors">{row.original.name}</p>
               <p className="text-xs text-text-tertiary font-mono">{row.original.agentId}</p>
             </div>
           </div>
@@ -180,7 +186,7 @@ function AgentsPage() {
         ),
       },
     ],
-    []
+    [navigate]
   );
 
   // Stats cards data
@@ -218,49 +224,47 @@ function AgentsPage() {
   }, [agents, totals]);
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 md:p-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Agents</h1>
-          <p className="mt-1 text-sm text-text-secondary">
+          <h1 className="text-xl font-bold text-text-primary">Agents</h1>
+          <p className="text-sm text-text-secondary">
             Agent usage metrics and token consumption
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchAgents}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={fetchAgents}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+        >
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          Refresh
+        </button>
       </div>
 
       {/* Date Filters */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border-light bg-surface-secondary p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-light bg-surface-secondary p-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-text-tertiary" />
-          <span className="text-sm font-medium text-text-secondary">Date Range:</span>
+          <span className="text-sm text-text-secondary">Range:</span>
         </div>
         <div className="flex items-center gap-2">
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
+            className="rounded border border-border-light bg-surface-primary px-2 py-1 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
           />
           <span className="text-text-tertiary">to</span>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
+            className="rounded border border-border-light bg-surface-primary px-2 py-1 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <button
             onClick={() => {
               const now = new Date();
@@ -269,7 +273,7 @@ function AgentsPage() {
               setStartDate(start.toISOString().split('T')[0]);
               setEndDate(now.toISOString().split('T')[0]);
             }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
+            className="rounded border border-border-light bg-surface-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-tertiary"
           >
             This Month
           </button>
@@ -281,9 +285,9 @@ function AgentsPage() {
               setStartDate(start.toISOString().split('T')[0]);
               setEndDate(now.toISOString().split('T')[0]);
             }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
+            className="rounded border border-border-light bg-surface-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-tertiary"
           >
-            Last 7 Days
+            7 Days
           </button>
           <button
             onClick={() => {
@@ -293,7 +297,7 @@ function AgentsPage() {
               setStartDate(start.toISOString().split('T')[0]);
               setEndDate(now.toISOString().split('T')[0]);
             }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
+            className="rounded border border-border-light bg-surface-primary px-2 py-1 text-xs text-text-secondary hover:bg-surface-tertiary"
           >
             Last 30 Days
           </button>
@@ -301,35 +305,32 @@ function AgentsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="rounded-xl border border-border-light bg-surface-primary p-4"
+            className="rounded-lg border border-border-light bg-surface-primary p-3"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm text-text-secondary">{stat.label}</span>
-              <div className={cn('rounded-lg p-2', stat.bgColor)}>
-                <stat.icon className={cn('h-4 w-4', stat.color)} />
+              <span className="text-xs text-text-secondary">{stat.label}</span>
+              <div className={cn('rounded-lg p-1.5', stat.bgColor)}>
+                <stat.icon className={cn('h-3.5 w-3.5', stat.color)} />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold text-text-primary">{stat.value}</p>
+            <p className="mt-1 text-xl font-bold text-text-primary">{stat.value}</p>
           </div>
         ))}
       </div>
 
       {/* Agents Table */}
-      <div className="rounded-xl border border-border-light bg-surface-primary">
-        <div className="border-b border-border-light p-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <Bot className="h-5 w-5" />
+      <div className="rounded-lg border border-border-light bg-surface-primary">
+        <div className="border-b border-border-light p-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+            <Bot className="h-4 w-4" />
             Agent Usage Details
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Token consumption and costs per agent
-          </p>
         </div>
-        <div className="p-4">
+        <div className="p-3">
           <AdminDataTable
             columns={columns}
             data={agents}

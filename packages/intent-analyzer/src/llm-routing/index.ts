@@ -1,12 +1,14 @@
 /**
  * LLM Routing Module
  * 
- * Provides model routing capabilities integrated with intent analysis.
+ * Provides model routing based on query complexity using regex patterns.
+ * Defaults to Haiku 4.5 (moderate) when no pattern matches.
  * 
- * This module combines:
- * - Model configurations (Bedrock, OpenAI)
- * - 5-tier routing (trivial → expert)
- * - Universal router that returns both tools AND model
+ * 4-tier system:
+ * - simple:   Nova Micro (~1%)   - Greetings only
+ * - moderate: Haiku 4.5  (~80%)  - DEFAULT, most tasks
+ * - complex:  Sonnet 4.5 (~15%)  - Debugging, analysis
+ * - expert:   Opus 4.5   (~4%)   - Deep research
  */
 
 // Types
@@ -18,18 +20,12 @@ export type {
   ModelCapability,
   BedrockPresetTier,
   OpenAIPresetTier,
-  UserPreference,
-  RoutingResult,
-  RoutingReasonCategory,
-  QueryFeatures,
-  RoutingStats,
 } from './types';
 
 // Models - Bedrock
 export {
   BedrockModels,
   BedrockRoutingPairs,
-  CLASSIFIER_MODEL,
   getBedrockModel,
   getBedrockModelsByTier,
   getBedrockRoutingPair,
@@ -49,11 +45,9 @@ export {
   calculateOpenAICost,
 } from './models/openai';
 
-// Universal Router
+// Model Router (MAIN ENTRY POINT)
 export {
-  routeQuery,
   routeToModel,
-  getClassifierModel,
-  type RouterConfig,
-  type UniversalRoutingResult,
+  type RouteToModelConfig,
+  type ModelRoutingResponse,
 } from './router';

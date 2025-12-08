@@ -352,6 +352,8 @@ export type TAskProps = {
   conversationId?: string | null;
   messageId?: string | null;
   clientTimestamp?: string;
+  /** Optional metadata to attach to the message (e.g., isUIAction for MCP UI button clicks) */
+  metadata?: Record<string, unknown>;
 };
 
 export type TOptions = {

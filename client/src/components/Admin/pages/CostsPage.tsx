@@ -4,6 +4,7 @@
  * Cost breakdown by model with date filtering.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   DollarSign,
@@ -13,6 +14,9 @@ import {
   Cpu,
   ArrowUpRight,
   ArrowDownRight,
+  Zap,
+  Database,
+  Clock,
 } from 'lucide-react';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { dashboardApi, type CostsMetrics } from '../services/adminApi';
@@ -23,11 +27,18 @@ interface ModelCost {
   displayName: string;
   inputTokens: number;
   outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
   totalTokens: number;
   inputCost: number;
   outputCost: number;
+  cacheWriteCost: number;
+  cacheReadCost: number;
   totalCost: number;
+  cacheSavings: number;
   requestCount: number;
+  totalDuration: number;
+  avgDuration: number;
 }
 
 // Model display names
@@ -40,6 +51,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
 };
 
 function CostsPage() {
+  const navigate = useNavigate();
   // State
   const [loading, setLoading] = useState(true);
   const [costsData, setCostsData] = useState<CostsMetrics | null>(null);
@@ -79,11 +91,18 @@ function CostsPage() {
       displayName: MODEL_DISPLAY_NAMES[model.model] || model.name || model.model,
       inputTokens: model.inputTokens || 0,
       outputTokens: model.outputTokens || 0,
+      cacheWriteTokens: model.cacheWriteTokens || 0,
+      cacheReadTokens: model.cacheReadTokens || 0,
       totalTokens: model.totalTokens || 0,
       inputCost: model.inputCost || 0,
       outputCost: model.outputCost || 0,
+      cacheWriteCost: model.cacheWriteCost || 0,
+      cacheReadCost: model.cacheReadCost || 0,
       totalCost: model.totalCost || 0,
+      cacheSavings: model.cacheSavings || 0,
       requestCount: model.transactions || 0,
+      totalDuration: model.totalDuration || 0,
+      avgDuration: model.avgDuration || 0,
     }));
   }, [costsData]);
 
@@ -106,6 +125,13 @@ function CostsPage() {
     return num.toString();
   };
 
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
+    return `${(ms / 3600000).toFixed(1)}h`;
+  };
+
   // Table columns
   const columns: ColumnDef<ModelCost>[] = useMemo(
     () => [
@@ -113,12 +139,16 @@ function CostsPage() {
         accessorKey: 'displayName',
         header: ({ column }) => <SortableHeader column={column}>Model</SortableHeader>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/admin/traces?model=${encodeURIComponent(row.original.model)}`)}
+            title="Click to view traces for this model"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-tertiary">
               <Cpu className="h-4 w-4 text-text-secondary" />
             </div>
             <div>
-              <p className="font-medium text-text-primary">{row.original.displayName}</p>
+              <p className="font-medium text-text-primary hover:text-blue-400 transition-colors">{row.original.displayName}</p>
               <p className="text-xs text-text-tertiary font-mono">{row.original.model}</p>
             </div>
           </div>
@@ -126,49 +156,70 @@ function CostsPage() {
       },
       {
         accessorKey: 'inputTokens',
-        header: ({ column }) => <SortableHeader column={column}>Input Tokens</SortableHeader>,
+        header: ({ column }) => <SortableHeader column={column}>Input</SortableHeader>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <ArrowDownRight className="h-4 w-4 text-blue-500" />
-            <span className="text-sm text-text-secondary">{formatCompact(row.original.inputTokens)}</span>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <ArrowDownRight className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-sm text-text-secondary">{formatCompact(row.original.inputTokens)}</span>
+            </div>
+            <div className="text-xs text-blue-600 dark:text-blue-400">{formatCurrency(row.original.inputCost)}</div>
           </div>
         ),
       },
       {
         accessorKey: 'outputTokens',
-        header: ({ column }) => <SortableHeader column={column}>Output Tokens</SortableHeader>,
+        header: ({ column }) => <SortableHeader column={column}>Output</SortableHeader>,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <ArrowUpRight className="h-4 w-4 text-green-500" />
-            <span className="text-sm text-text-secondary">{formatCompact(row.original.outputTokens)}</span>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <ArrowUpRight className="h-3.5 w-3.5 text-green-500" />
+              <span className="text-sm text-text-secondary">{formatCompact(row.original.outputTokens)}</span>
+            </div>
+            <div className="text-xs text-green-600 dark:text-green-400">{formatCurrency(row.original.outputCost)}</div>
           </div>
         ),
       },
       {
-        accessorKey: 'inputCost',
-        header: ({ column }) => <SortableHeader column={column}>Input Cost</SortableHeader>,
+        accessorKey: 'cacheWriteTokens',
+        header: ({ column }) => <SortableHeader column={column}>Cache Write</SortableHeader>,
         cell: ({ row }) => (
-          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-            {formatCurrency(row.original.inputCost)}
-          </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Database className="h-3.5 w-3.5 text-purple-500" />
+              <span className="text-sm text-text-secondary">{formatCompact(row.original.cacheWriteTokens)}</span>
+            </div>
+            <div className="text-xs text-purple-600 dark:text-purple-400">{formatCurrency(row.original.cacheWriteCost)}</div>
+          </div>
         ),
       },
       {
-        accessorKey: 'outputCost',
-        header: ({ column }) => <SortableHeader column={column}>Output Cost</SortableHeader>,
+        accessorKey: 'cacheReadTokens',
+        header: ({ column }) => <SortableHeader column={column}>Cache Read</SortableHeader>,
         cell: ({ row }) => (
-          <span className="text-sm font-medium text-green-600 dark:text-green-400">
-            {formatCurrency(row.original.outputCost)}
-          </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-yellow-500" />
+              <span className="text-sm text-text-secondary">{formatCompact(row.original.cacheReadTokens)}</span>
+            </div>
+            <div className="text-xs text-yellow-600 dark:text-yellow-400">{formatCurrency(row.original.cacheReadCost)}</div>
+          </div>
         ),
       },
       {
         accessorKey: 'totalCost',
         header: ({ column }) => <SortableHeader column={column}>Total Cost</SortableHeader>,
         cell: ({ row }) => (
-          <span className="text-sm font-bold text-text-primary">
-            {formatCurrency(row.original.totalCost)}
-          </span>
+          <div className="space-y-0.5">
+            <span className="text-sm font-bold text-text-primary">
+              {formatCurrency(row.original.totalCost)}
+            </span>
+            {row.original.cacheSavings > 0 && (
+              <div className="text-xs text-green-500">
+                Saved: {formatCurrency(row.original.cacheSavings)}
+              </div>
+            )}
+          </div>
         ),
       },
       {
@@ -180,17 +231,39 @@ function CostsPage() {
           </span>
         ),
       },
+      {
+        accessorKey: 'totalDuration',
+        header: ({ column }) => <SortableHeader column={column}>Total Duration</SortableHeader>,
+        cell: ({ row }) => (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-cyan-500" />
+              <span className="text-sm text-text-secondary">{formatDuration(row.original.totalDuration)}</span>
+            </div>
+            {row.original.avgDuration > 0 && (
+              <div className="text-xs text-text-tertiary">
+                Avg: {formatDuration(row.original.avgDuration)}
+              </div>
+            )}
+          </div>
+        ),
+      },
     ],
-    []
+    [navigate]
   );
 
-  // Stats cards data
+  // Stats cards data - always show cache tokens (even if 0)
   const stats = useMemo(() => {
     if (!costsData?.summary) return [];
+    const hasCacheSavings = (costsData.summary.totalCacheSavings || 0) > 0;
+    
     return [
       {
         label: 'Total Cost',
         value: formatCurrency(costsData.summary.totalCost || 0),
+        subValue: hasCacheSavings
+          ? `Saved: ${formatCurrency(costsData.summary.totalCacheSavings)}`
+          : undefined,
         icon: DollarSign,
         color: 'text-green-600 dark:text-green-400',
         bgColor: 'bg-green-500/10',
@@ -198,6 +271,7 @@ function CostsPage() {
       {
         label: 'Input Tokens',
         value: formatCompact(costsData.summary.totalInputTokens || 0),
+        subValue: formatCurrency(costsData.summary.totalInputCost || 0),
         icon: ArrowDownRight,
         color: 'text-blue-600 dark:text-blue-400',
         bgColor: 'bg-blue-500/10',
@@ -205,47 +279,71 @@ function CostsPage() {
       {
         label: 'Output Tokens',
         value: formatCompact(costsData.summary.totalOutputTokens || 0),
+        subValue: formatCurrency(costsData.summary.totalOutputCost || 0),
         icon: ArrowUpRight,
         color: 'text-purple-600 dark:text-purple-400',
         bgColor: 'bg-purple-500/10',
       },
       {
-        label: 'Models Used',
-        value: modelCosts.length.toString(),
-        icon: Cpu,
+        label: 'Cache Write',
+        value: formatCompact(costsData.summary.totalCacheWriteTokens || 0),
+        subValue: formatCurrency(costsData.summary.totalCacheWriteCost || 0),
+        icon: Database,
         color: 'text-orange-600 dark:text-orange-400',
         bgColor: 'bg-orange-500/10',
+      },
+      {
+        label: 'Cache Read',
+        value: formatCompact(costsData.summary.totalCacheReadTokens || 0),
+        subValue: formatCurrency(costsData.summary.totalCacheReadCost || 0),
+        icon: Zap,
+        color: 'text-yellow-600 dark:text-yellow-400',
+        bgColor: 'bg-yellow-500/10',
+      },
+      {
+        label: 'Total Duration',
+        value: formatDuration(costsData.summary.totalDuration || 0),
+        subValue: `${formatNumber(costsData.summary.totalTransactions || 0)} requests`,
+        icon: Clock,
+        color: 'text-cyan-600 dark:text-cyan-400',
+        bgColor: 'bg-cyan-500/10',
+      },
+      {
+        label: 'Models Used',
+        value: modelCosts.length.toString(),
+        subValue: undefined,
+        icon: Cpu,
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bgColor: 'bg-indigo-500/10',
       },
     ];
   }, [costsData, modelCosts]);
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 md:p-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Costs</h1>
-          <p className="mt-1 text-sm text-text-secondary">
+          <h1 className="text-xl font-bold text-text-primary">Costs</h1>
+          <p className="text-sm text-text-secondary">
             Cost breakdown by model with detailed token usage
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchCosts}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={fetchCosts}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+        >
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          Refresh
+        </button>
       </div>
 
       {/* Date Filters */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border-light bg-surface-secondary p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-light bg-surface-secondary p-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-text-tertiary" />
-          <span className="text-sm font-medium text-text-secondary">Date Range:</span>
+          <span className="text-sm text-text-secondary">Range:</span>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -303,35 +401,35 @@ function CostsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="rounded-xl border border-border-light bg-surface-primary p-4"
+            className="rounded-lg border border-border-light bg-surface-primary p-3"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm text-text-secondary">{stat.label}</span>
-              <div className={cn('rounded-lg p-2', stat.bgColor)}>
-                <stat.icon className={cn('h-4 w-4', stat.color)} />
+              <span className="text-xs text-text-secondary">{stat.label}</span>
+              <div className={cn('rounded-lg p-1.5', stat.bgColor)}>
+                <stat.icon className={cn('h-3.5 w-3.5', stat.color)} />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold text-text-primary">{stat.value}</p>
+            <p className="mt-1 text-xl font-bold text-text-primary">{stat.value}</p>
+            {stat.subValue && (
+              <p className="text-xs text-text-tertiary">{stat.subValue}</p>
+            )}
           </div>
         ))}
       </div>
 
       {/* Models Table */}
-      <div className="rounded-xl border border-border-light bg-surface-primary">
-        <div className="border-b border-border-light p-4">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
-            <TrendingUp className="h-5 w-5" />
+      <div className="rounded-lg border border-border-light bg-surface-primary">
+        <div className="border-b border-border-light p-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+            <TrendingUp className="h-4 w-4" />
             Cost Breakdown by Model
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Detailed token usage and costs per model
-          </p>
         </div>
-        <div className="p-4">
+        <div className="p-3">
           <AdminDataTable
             columns={columns}
             data={modelCosts}

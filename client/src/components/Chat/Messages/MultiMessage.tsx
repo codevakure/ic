@@ -4,6 +4,7 @@ import { isAssistantsEndpoint } from 'ranger-data-provider';
 import type { TMessage } from 'ranger-data-provider';
 import type { TMessageProps } from '~/common';
 import MessageContent from '~/components/Messages/MessageContent';
+import UIActionMessage from './UIActionMessage';
 import MessageParts from './MessageParts';
 import Message from './Message';
 import store from '~/store';
@@ -12,6 +13,7 @@ export default function MultiMessage({
   // messageId is used recursively here
   messageId,
   messagesTree,
+  conversation,
   currentEditId,
   setCurrentEditId,
 }: TMessageProps) {
@@ -43,6 +45,20 @@ export default function MultiMessage({
 
   if (!message) {
     return null;
+  }
+
+  // Check if this is a UI action message - render as minimal indicator
+  const isUIAction = (message.metadata as { isUIAction?: boolean } | undefined)?.isUIAction;
+  if (isUIAction && message.isCreatedByUser) {
+    return (
+      <UIActionMessage
+        key={message.messageId}
+        message={message}
+        conversation={conversation}
+        currentEditId={currentEditId}
+        setCurrentEditId={setCurrentEditId}
+      />
+    );
   }
 
   if (isAssistantsEndpoint(message.endpoint) && message.content) {

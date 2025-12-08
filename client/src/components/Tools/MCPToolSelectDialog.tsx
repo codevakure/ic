@@ -31,13 +31,16 @@ function MCPToolSelectDialog({
 }) {
   const localize = useLocalize();
   const queryClient = useQueryClient();
-  const { initializeServer, getDisplayName } = useMCPServerManager();
+  const { initializeServer, serverTitles } = useMCPServerManager();
   const { getValues, setValue } = useFormContext<AgentForm>();
   const { removeTool } = useRemoveMCPTool({ showToast: false });
   const { mcpServersMap, startupConfig } = useAgentPanelContext();
   const { refetch: refetchMCPTools } = useMCPToolsQuery({
     enabled: mcpServersMap.size > 0,
   });
+
+  // Helper function to get display name from serverTitles
+  const getDisplayName = (serverName: string) => serverTitles[serverName] || serverName;
 
   const [isSavingCustomVars, setIsSavingCustomVars] = useState(false);
   const [isInitializing, setIsInitializing] = useState<string | null>(null);

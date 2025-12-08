@@ -10,6 +10,8 @@ import {
   CostsPage,
   AgentsPage,
   TracesPage,
+  ToolsPage,
+  GuardrailsPage,
 } from '~/components/Admin';
 
 const adminRoutes = {
@@ -47,6 +49,14 @@ const adminRoutes = {
     {
       path: 'agents',
       element: <AgentsPage />,
+    },
+    {
+      path: 'tools',
+      element: <ToolsPage />,
+    },
+    {
+      path: 'guardrails',
+      element: <GuardrailsPage />,
     },
     {
       path: 'roles',

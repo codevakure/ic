@@ -444,6 +444,7 @@ class AgentClient extends BaseClient {
     // Inject MCP server instructions if available
     const ephemeralAgent = this.options.req.body.ephemeralAgent;
     let mcpServers = [];
+    let mcpInstructions = null;
 
     // Check for ephemeral agent MCP servers
     if (ephemeralAgent && ephemeralAgent.mcp && ephemeralAgent.mcp.length > 0) {
@@ -460,15 +461,15 @@ class AgentClient extends BaseClient {
         .filter(Boolean);
     }
 
+    // Fetch MCP instructions once, store for later use
     if (mcpServers.length > 0) {
       try {
-        const mcpInstructions = await getMCPManager().formatInstructionsForContext(mcpServers);
+        mcpInstructions = await getMCPManager().formatInstructionsForContext(mcpServers);
         if (mcpInstructions) {
-          systemContent = [systemContent, mcpInstructions].filter(Boolean).join('\n\n');
-          logger.debug('[AgentClient] Injected MCP instructions for servers:', mcpServers);
+          logger.debug('[AgentClient] Fetched MCP instructions for servers:', mcpServers);
         }
       } catch (error) {
-        logger.error('[AgentClient] Failed to inject MCP instructions:', error);
+        logger.error('[AgentClient] Failed to fetch MCP instructions:', error);
       }
     }
 
@@ -479,17 +480,46 @@ class AgentClient extends BaseClient {
     const providerEndpoint = this.options.agent?.provider || this.options.endpoint;
     const endpointConfig = appConfig?.endpoints?.[providerEndpoint];
 
+    // Generate branding prompt (returns string with identity, colors, guidelines)
     const brandingPrompt = generateBrandingPrompt({
       req: this.options.req,
       endpointConfig,
     });
-
-    // Prepend branding to system content for consistent model behavior
-    systemContent = brandingPrompt + '\n\n' + systemContent;
-
-    if (systemContent) {
-      this.options.agent.instructions = systemContent;
+    
+    // Debug: Log branding prompt generation
+    if (brandingPrompt) {
+      logger.info(`[buildMessages] Branding prompt generated: ${brandingPrompt.length} chars, preview: ${brandingPrompt.substring(0, 150)}...`);
+    } else {
+      logger.warn('[buildMessages] Branding prompt is empty or null!');
     }
+
+    // Build system content: Branding → Agent Instructions → Code Executor → MCP
+    // NOTE: Memory is intentionally NOT included in system message for cache optimization.
+    // System message is STATIC and gets cached (5-min TTL per session).
+    // Memory changes frequently, so it's injected as a separate user message.
+    const allParts = [brandingPrompt, systemContent, mcpInstructions].filter(Boolean);
+    
+    // Fetch memory but store separately - will be injected as user message in chatCompletion()
+    // This prevents memory updates from invalidating the cached system prompt
+    const memoryContent = await this.useMemory();
+    if (memoryContent) {
+      this.memoryContext = `${memoryInstructions}\n\n# Existing memory about the user:\n${memoryContent}`;
+    } else {
+      this.memoryContext = null;
+    }
+    
+    // Combine static parts only
+    systemContent = allParts.join('\n\n');
+    
+    this.options.agent.instructions = systemContent;
+    
+    // Debug: Log final system content that will be sent to LLM
+    logger.info(`[buildMessages] Final instructions set: ${systemContent.length} chars`);
+    logger.debug(`[buildMessages] Instructions preview: ${systemContent.substring(0, 500)}...`);
+    
+    // Check if branding is included (look for identity section)
+    const hasBranding = systemContent.includes('=== IDENTITY ===') || systemContent.includes('IDENTITY');
+    logger.info(`[buildMessages] Contains branding: ${hasBranding}`);
 
     /** @type {Record<string, number> | undefined} */
     let tokenCountMap;
@@ -514,15 +544,6 @@ class AgentClient extends BaseClient {
 
     if (promptTokens >= 0 && typeof opts?.getReqData === 'function') {
       opts.getReqData({ promptTokens });
-    }
-
-    const withoutKeys = await this.useMemory();
-    if (withoutKeys) {
-      systemContent += `${memoryInstructions}\n\n# Existing memory about the user:\n${withoutKeys}`;
-    }
-
-    if (systemContent) {
-      this.options.agent.instructions = systemContent;
     }
 
     return result;
@@ -561,7 +582,8 @@ class AgentClient extends BaseClient {
    */
   async useMemory() {
     const user = this.options.req.user;
-    if (user.personalization?.memories === false) {
+    // Memory is opt-in: user must explicitly enable it (default is false)
+    if (user.personalization?.memories !== true) {
       return;
     }
     const hasAccess = await checkAccess({
@@ -755,7 +777,16 @@ class AgentClient extends BaseClient {
       }
     }
     
-    const metadata = this.agentIdMap ? { agentIdMap: this.agentIdMap } : undefined;
+    // Build metadata object with agentIdMap and guardrail tracking
+    let metadata = this.agentIdMap ? { agentIdMap: this.agentIdMap } : undefined;
+    
+    // Include guardrail tracking in metadata (for traces/audit)
+    if (this.metadata?.guardrailTracking) {
+      metadata = {
+        ...(metadata || {}),
+        guardrailTracking: this.metadata.guardrailTracking
+      };
+    }
 
     return { completion, metadata };
   }
@@ -778,6 +809,11 @@ class AgentClient extends BaseClient {
     if (!collectedUsage || !collectedUsage.length) {
       return;
     }
+    
+    // Debug: log the raw collectedUsage data - key for understanding token counts
+    const firstUsage = collectedUsage[0];
+    logger.info(`[recordCollectedUsage] Bedrock tokens: input=${firstUsage?.input_tokens}, output=${firstUsage?.output_tokens}, cache_write=${firstUsage?.input_token_details?.cache_creation || 0}, cache_read=${firstUsage?.input_token_details?.cache_read || 0}`);
+    
     const input_tokens =
       (collectedUsage[0]?.input_tokens || 0) +
       (Number(collectedUsage[0]?.input_token_details?.cache_creation) || 0) +
@@ -794,6 +830,14 @@ class AgentClient extends BaseClient {
       const cache_creation = Number(usage.input_token_details?.cache_creation) || 0;
       const cache_read = Number(usage.input_token_details?.cache_read) || 0;
 
+      // Debug: check if contextBreakdown exists on agent
+      const agentContextBreakdown = this.options.agent?.contextBreakdown;
+      if (agentContextBreakdown) {
+        logger.info(`[recordCollectedUsage] Agent has contextBreakdown: ${JSON.stringify(agentContextBreakdown)}`);
+      } else {
+        logger.warn(`[recordCollectedUsage] Agent contextBreakdown is missing! agent keys: ${Object.keys(this.options.agent || {}).join(', ')}`);
+      }
+      
       const txMetadata = {
         context,
         balance,
@@ -802,6 +846,8 @@ class AgentClient extends BaseClient {
         user: this.user ?? this.options.req.user?.id,
         endpointTokenConfig: this.options.endpointTokenConfig,
         model: usage.model ?? model ?? this.model ?? this.options.agent.model_parameters.model,
+        // Include context breakdown for detailed token tracking in admin UI
+        contextBreakdown: agentContextBreakdown,
       };
 
       if (i > 0) {
@@ -817,6 +863,7 @@ class AgentClient extends BaseClient {
       previousTokens += Number(usage.output_tokens) || 0;
 
       if (cache_creation > 0 || cache_read > 0) {
+        logger.info(`[recordCollectedUsage] Saving structured tokens: input=${usage.input_tokens}, write=${cache_creation}, read=${cache_read}, output=${usage.output_tokens}`);
         spendStructuredTokens(txMetadata, {
           promptTokens: {
             input: usage.input_tokens,
@@ -832,6 +879,7 @@ class AgentClient extends BaseClient {
         });
         continue;
       }
+      logger.info(`[recordCollectedUsage] Saving regular tokens: prompt=${usage.input_tokens}, completion=${usage.output_tokens}`);
       spendTokens(txMetadata, {
         promptTokens: usage.input_tokens,
         completionTokens: usage.output_tokens,
@@ -994,11 +1042,30 @@ class AgentClient extends BaseClient {
       };
 
       const toolSet = new Set((this.options.agent.tools ?? []).map((tool) => tool && tool.name));
+      
       let { messages: initialMessages, indexTokenCountMap } = formatAgentMessages(
         payload,
         this.indexTokenCountMap,
         toolSet,
       );
+
+      // Inject memory as context at the beginning of conversation history
+      // This keeps the system prompt static (cacheable) while providing memory context.
+      // The memory is prepended as a user message with clear context markers,
+      // followed by an AI acknowledgment, so it doesn't disrupt conversation flow.
+      // This way, system prompt can be cached independently of memory changes.
+      if (this.memoryContext) {
+        const { AIMessage } = require('@langchain/core/messages');
+        const memoryUserMessage = new HumanMessage({
+          content: `[MEMORY CONTEXT]\n${this.memoryContext}`,
+        });
+        const memoryAckMessage = new AIMessage({
+          content: 'I\'ve noted this information about you and will use it to personalize our conversation.',
+        });
+        // Prepend memory exchange so it comes right after system message
+        initialMessages = [memoryUserMessage, memoryAckMessage, ...initialMessages];
+        logger.debug('[AgentClient] Injected memory context as message pair for cache optimization');
+      }
 
       /**
        * @param {BaseMessage[]} messages
@@ -1053,6 +1120,17 @@ class AgentClient extends BaseClient {
         // }
 
         memoryPromise = this.runMemory(messages);
+
+        // Debug: Verify branding is in agent instructions before createRun
+        const primaryAgentInstructions = agents[0]?.instructions || '';
+        logger.info(`[createRun] Primary agent instructions length: ${primaryAgentInstructions.length} chars`);
+        // Check for branding content - look for identity section marker
+        const hasBranding = primaryAgentInstructions.includes('=== IDENTITY ===') || primaryAgentInstructions.includes('IDENTITY');
+        logger.info(`[createRun] Contains branding: ${hasBranding}`);
+        if (!hasBranding) {
+          logger.warn('[createRun] WARNING: Branding rules missing from agent instructions!');
+          logger.debug(`[createRun] Instructions preview: ${primaryAgentInstructions.substring(0, 300)}...`);
+        }
 
         run = await createRun({
           agents,
@@ -1137,8 +1215,16 @@ class AgentClient extends BaseClient {
         if (guardrailsService.isEnabled() && completionText && completionText.length > 0) {
           const outputResult = await guardrailsService.handleOutputModeration(completionText);
           
-          if (outputResult.blocked && outputResult.modifiedResponse) {
-            // LOG AND HANDLE BLOCKED CONTENT
+          // Always store tracking metadata for audit (even if action not applied)
+          if (outputResult.trackingMetadata) {
+            if (!this.metadata) {
+              this.metadata = {};
+            }
+            this.metadata.guardrailTracking = outputResult.trackingMetadata;
+          }
+          
+          // Handle BLOCKED content (only if action is applied)
+          if (outputResult.blocked && outputResult.actionApplied && outputResult.modifiedResponse) {
             logger.warn('[AgentClient] 🚫 OUTPUT BLOCKED', {
               violations: outputResult.violations?.map(v => `${v.type}:${v.category}`) || []
             });
@@ -1149,18 +1235,24 @@ class AgentClient extends BaseClient {
               text: outputResult.modifiedResponse.text
             }];
             
-            // Store metadata for database save
-            if (!this.metadata) {
-              this.metadata = {};
-            }
-            this.metadata = outputResult.modifiedResponse.metadata;
-          } else if (!outputResult.blocked && outputResult.content && outputResult.content !== completionText) {
-            // HANDLE ANONYMIZED CONTENT - content was modified but not blocked
+            // Store block metadata for database save
+            this.metadata = {
+              ...this.metadata,
+              ...outputResult.modifiedResponse.metadata
+            };
+          } 
+          // Handle BLOCKED detected but action disabled
+          else if (outputResult.trackingMetadata?.outcome === 'blocked' && !outputResult.actionApplied) {
+            logger.info('[AgentClient] ⚠️ OUTPUT BLOCK DETECTED but not applied (GUARDRAILS_BLOCK_ENABLED=false)', {
+              violations: outputResult.trackingMetadata.violations?.map(v => `${v.type}:${v.category}`) || []
+            });
+          }
+          // Handle ANONYMIZED content (only if action is applied)
+          else if (outputResult.actionApplied && outputResult.content && outputResult.content !== completionText) {
             logger.info('[AgentClient] 🔒 OUTPUT ANONYMIZED - PII redacted from response');
             logger.debug('[AgentClient] Anonymized content preview:', outputResult.content.substring(0, 200));
             
             // Find and update TEXT content parts with anonymized content
-            // The anonymized content is a single string, so we need to replace all text parts
             const nonTextParts = this.contentParts.filter(part => part.type !== ContentTypes.TEXT);
             
             // Replace all text parts with a single anonymized text part
@@ -1173,6 +1265,12 @@ class AgentClient extends BaseClient {
             ];
             
             logger.debug('[AgentClient] Updated contentParts with anonymized content');
+          }
+          // Handle ANONYMIZED detected but action disabled
+          else if (outputResult.trackingMetadata?.outcome === 'anonymized' && !outputResult.actionApplied) {
+            logger.info('[AgentClient] ⚠️ OUTPUT ANONYMIZE DETECTED but not applied (GUARDRAILS_ANONYMIZE_ENABLED=false)', {
+              violations: outputResult.trackingMetadata.violations?.map(v => `${v.type}:${v.category}`) || []
+            });
           }
           // No logging for unmodified content (too verbose)
         }

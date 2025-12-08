@@ -235,7 +235,7 @@ class BaseClient {
     };
   }
 
-  createUserMessage({ messageId, parentMessageId, conversationId, text }) {
+  createUserMessage({ messageId, parentMessageId, conversationId, text, metadata }) {
     return {
       messageId,
       parentMessageId,
@@ -243,6 +243,7 @@ class BaseClient {
       sender: 'User',
       text,
       isCreatedByUser: true,
+      ...(metadata && { metadata }),
     };
   }
 
@@ -265,6 +266,7 @@ class BaseClient {
           parentMessageId,
           conversationId,
           text: message,
+          metadata: opts.metadata,
         });
 
     if (typeof opts?.getReqData === 'function') {
