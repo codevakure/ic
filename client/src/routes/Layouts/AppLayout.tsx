@@ -1,22 +1,20 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { useRecoilValue, useSetRecoilState } from 'recoil';
+import { useSetRecoilState } from 'recoil';
 import { FileSources, LocalStorageKeys } from 'ranger-data-provider';
 import type { ExtendedFile } from '~/common';
 import { useDeleteFilesMutation } from '~/data-provider';
 import {
-  EditorProvider,
   SidePanelProvider,
-  ArtifactsProvider,
-  ArtifactsPanelProvider,
   PromptGroupsProvider,
   AssistantsMapContext,
   AgentsMapContext,
   SetConvoProvider,
   FileMapContext,
+  ArtifactsPanelProvider,
+  useArtifactsPanelContext,
 } from '~/Providers';
 import { SidePanelGroup } from '~/components/SidePanel';
-import Artifacts from '~/components/Artifacts/Artifacts';
 import {
   useSetFilesToDelete,
   useAuthContext,
@@ -111,7 +109,12 @@ import store from '~/store';
  * @see useSourcesPanel - Hook to open/close panels from any component
  * @see GlobalSourcesPanel - Handles overlay and mobile modes
  */
-export default function AppLayout() {
+
+/**
+ * Inner component that consumes the ArtifactsPanelContext.
+ * This is separated to allow useArtifactsPanelContext to work (needs to be inside provider).
+ */
+function AppLayoutInner() {
   const { isAuthenticated } = useAuthContext();
   const location = useLocation();
   const previousPathRef = useRef(location.pathname);
@@ -121,40 +124,64 @@ export default function AppLayout() {
   const agentsMap = useAgentsMap({ isAuthenticated });
   const fileMap = useFileMap({ isAuthenticated });
   
-  const artifacts = useRecoilValue(store.artifactsState);
-  const artifactsVisibility = useRecoilValue(store.artifactsVisibility);
-  const setArtifactsVisible = useSetRecoilState(store.artifactsVisibility);
+  // Get hasArtifacts from context - Presentation tells us when artifacts should be visible
+  // The actual artifacts are rendered via portal from Presentation (maintaining ChatContext)
+  const { hasArtifacts, setHasArtifacts } = useArtifactsPanelContext();
+  
   const setSourcesPanelState = useSetRecoilState(store.sourcesPanelState);
+  const setArtifactsVisible = useSetRecoilState(store.artifactsVisibility);
 
   const setFilesToDelete = useSetFilesToDelete();
 
   /**
-   * Auto-close sources panel and artifacts panel on route navigation.
+   * Auto-close panels on route navigation.
    * 
-   * This ensures that when users navigate between different pages
-   * (e.g., from chat to bookmarks, or between conversations),
-   * any open side panel is automatically closed for a clean UX.
+   * Close the panel when:
+   * - Navigating between different conversations (e.g., /c/abc -> /c/xyz)
+   * - Navigating away from chat entirely (e.g., /c/abc -> /prompts)
+   * 
+   * Keep panel open when:
+   * - First message creates conversation (e.g., /c/new -> /c/abc123)
+   *   This allows MCP UI resources to stay visible during streaming.
+   * 
+   * This ensures each conversation's artifacts/UI resources can properly initialize.
    */
   useEffect(() => {
     // Only close if the path actually changed (not on initial mount)
     if (previousPathRef.current !== location.pathname) {
-      setSourcesPanelState((prev) => ({
-        ...prev,
-        isOpen: false,
-      }));
-      // Close artifacts panel on navigation (like file preview/citation panel)
-      setArtifactsVisible(false);
+      const wasNew = previousPathRef.current === '/c/new';
+      const isInChat = location.pathname.startsWith('/c/');
+      const wasInChat = previousPathRef.current?.startsWith('/c/');
+      
+      // Don't close when going from /c/new to /c/<id> (conversation creation during streaming)
+      // Close in all other cases (switching conversations, leaving chat, etc.)
+      const isConversationCreation = wasNew && isInChat && location.pathname !== '/c/new';
+      
+      if (!isConversationCreation) {
+        setSourcesPanelState((prev) => ({
+          ...prev,
+          isOpen: false,
+        }));
+        // Restore artifacts visibility when sources panel closes via navigation
+        setArtifactsVisible(true);
+      }
+      
+      // Reset artifacts when navigating away from chat routes
+      // This prevents the artifacts panel from taking up space on non-chat pages
+      if (wasInChat && !isInChat) {
+        setHasArtifacts(false);
+      }
+      
       previousPathRef.current = location.pathname;
     }
-  }, [location.pathname, setSourcesPanelState, setArtifactsVisible]);
+  }, [location.pathname, setSourcesPanelState, setArtifactsVisible, setHasArtifacts]);
 
   const { mutateAsync } = useDeleteFilesMutation({
     onSuccess: () => {
-      console.log('Temporary Files deleted');
       setFilesToDelete({});
     },
     onError: (error) => {
-      console.log('Error deleting temporary files:', error);
+      console.error('Error deleting temporary files:', error);
     },
   });
 
@@ -194,23 +221,6 @@ export default function AppLayout() {
   const fullCollapse = useMemo(() => localStorage.getItem('fullPanelCollapse') === 'true', []);
 
   /**
-   * Memoize artifacts JSX to prevent recreating it on every render.
-   * This is critical for performance - prevents entire artifact tree from re-rendering.
-   */
-  const artifactsElement = useMemo(() => {
-    if (artifactsVisibility === true && Object.keys(artifacts ?? {}).length > 0) {
-      return (
-        <ArtifactsProvider>
-          <EditorProvider>
-            <Artifacts />
-          </EditorProvider>
-        </ArtifactsProvider>
-      );
-    }
-    return null;
-  }, [artifactsVisibility, artifacts]);
-
-  /**
    * Determine if we should hide the right nav panel.
    * Pages like /bookmarks, /placeholder, /files, /agents don't need the right nav.
    * 
@@ -231,26 +241,50 @@ export default function AppLayout() {
         <AssistantsMapContext.Provider value={assistantsMap}>
           <AgentsMapContext.Provider value={agentsMap}>
             <PromptGroupsProvider>
-              <ArtifactsPanelProvider>
-                <SidePanelProvider>
-                  <div className="relative flex h-full w-full flex-1 overflow-hidden">
-                    <SidePanelGroup
-                      defaultLayout={defaultLayout}
-                      fullPanelCollapse={fullCollapse}
-                      defaultCollapsed={defaultCollapsed}
-                      artifacts={artifactsElement}
-                      hideNavPanel={shouldHideNavPanel}
-                    >
-                      {/* Main content area - child layouts render here */}
-                      <Outlet />
-                    </SidePanelGroup>
-                  </div>
-                </SidePanelProvider>
-              </ArtifactsPanelProvider>
+              <SidePanelProvider>
+                <div className="relative flex h-full w-full flex-1 overflow-hidden">
+                  <SidePanelGroup
+                    defaultLayout={defaultLayout}
+                    fullPanelCollapse={fullCollapse}
+                    defaultCollapsed={defaultCollapsed}
+                    hasArtifacts={hasArtifacts}
+                    hideNavPanel={shouldHideNavPanel}
+                  >
+                    {/* Main content area - child layouts render here */}
+                    <Outlet />
+                  </SidePanelGroup>
+                </div>
+              </SidePanelProvider>
             </PromptGroupsProvider>
           </AgentsMapContext.Provider>
         </AssistantsMapContext.Provider>
       </FileMapContext.Provider>
     </SetConvoProvider>
+  );
+}
+
+/**
+ * AppLayout - Root component that provides ArtifactsPanelProvider.
+ * 
+ * This wrapper ensures that:
+ * 1. ArtifactsPanelProvider is at the top level
+ * 2. Presentation (inside ChatContext) can register its artifacts element
+ * 3. SidePanelGroup can consume that artifacts element
+ * 
+ * This architecture allows artifacts to work correctly with ChatContext
+ * (for isSubmitting, latestMessage, tab switching) while still being
+ * displayed in the shared SidePanelGroup at the AppLayout level.
+ */
+export default function AppLayout() {
+  const { isAuthenticated } = useAuthContext();
+  
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <ArtifactsPanelProvider>
+      <AppLayoutInner />
+    </ArtifactsPanelProvider>
   );
 }

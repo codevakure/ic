@@ -171,3 +171,10 @@ coordination/orchestration/*
 claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
+
+# docs/ ignore patterns
+docs/.next
+docs/out
+docs/node_modules
+docs/.DS_Store
+docs/tmp-compressed-images

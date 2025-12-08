@@ -91,39 +91,6 @@ class ModelEndHandler {
         usage.model = modelName;
       }
 
-      // Log token usage for every LLM call with full breakdown
-      const inputTokens = usage.input_tokens || 0;
-      const outputTokens = usage.output_tokens || 0;
-      const totalTokens = usage.total_tokens || (inputTokens + outputTokens);
-      
-      // Cache details - check multiple possible property names (Anthropic/Bedrock variations)
-      const inputDetails = usage.input_token_details || {};
-      const cacheRead = inputDetails.cache_read || inputDetails.cache_read_input_tokens || usage.cache_read_input_tokens || 0;
-      const cacheCreation = inputDetails.cache_creation || inputDetails.cache_creation_input_tokens || usage.cache_creation_input_tokens || 0;
-      
-      // Calculate actual context size from total if caching is active
-      // When caching: input_tokens = new tokens only, total includes cached
-      const hasCaching = cacheRead > 0 || cacheCreation > 0 || (totalTokens > inputTokens + outputTokens);
-      const cachedTokens = hasCaching ? (totalTokens - inputTokens - outputTokens) : cacheRead;
-      const totalContext = inputTokens + cachedTokens;
-      
-      // Build log message
-      let logMsg = `[LLM Usage] model=${modelName || 'unknown'} | provider=${agentContext.provider || 'unknown'}`;
-      
-      if (hasCaching && cachedTokens > 0) {
-        // Caching is active - show detailed breakdown
-        logMsg += ` | context=${totalContext.toLocaleString()} (new=${inputTokens.toLocaleString()}, cached=${cachedTokens.toLocaleString()})`;
-        if (cacheCreation > 0) {
-          logMsg += ` | cache_write=${cacheCreation.toLocaleString()}`;
-        }
-      } else {
-        logMsg += ` | input=${inputTokens.toLocaleString()}`;
-      }
-      
-      logMsg += ` | output=${outputTokens.toLocaleString()} | total=${totalTokens.toLocaleString()}`;
-      
-      logger.info(logMsg);
-
       this.collectedUsage.push(usage);
       if (!streamingDisabled) {
         return this.finalize(errorMessage);

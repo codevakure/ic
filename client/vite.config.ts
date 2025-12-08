@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 // @ts-ignore
 import path from 'path';
-import type { Plugin } from 'vite';
+import type { Plugin, PluginOption } from 'vite';
 import { defineConfig } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -35,21 +35,18 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     nodePolyfills(),
-    VitePWA({
+    ...VitePWA({
       injectRegister: 'auto', // 'auto' | 'manual' | 'disabled'
       registerType: 'autoUpdate', // 'prompt' | 'autoUpdate'
       devOptions: {
-        enabled: false, // disable service worker registration in development mode
+        enabled: true, // enable service worker registration in development mode
       },
       useCredentials: true,
       includeManifestIcons: false,
       workbox: {
         globPatterns: [
           '**/*.{js,css,html}',
-          'assets/favicon*.png',
-          'assets/icon-*.png',
-          'assets/apple-touch-icon*.png',
-          'assets/maskable-icon.png',
+          'assets/icon-dark.svg',
           'manifest.webmanifest',
         ],
         globIgnores: ['images/**/*', '**/*.map', 'index.html'],
@@ -60,39 +57,33 @@ export default defineConfig(({ command }) => ({
       manifest: {
         name: 'Ranger',
         short_name: 'Ranger',
+        description: 'Enterprise AI Chat Platform',
+        start_url: '/',
         display: 'standalone',
-        background_color: '#000000',
-        theme_color: '#009688',
+        background_color: '#171717',
+        theme_color: '#171717',
         icons: [
           {
-            src: 'assets/favicon-32x32.png',
-            sizes: '32x32',
-            type: 'image/png',
-          },
-          {
-            src: 'assets/favicon-16x16.png',
-            sizes: '16x16',
-            type: 'image/png',
-          },
-          {
-            src: 'assets/apple-touch-icon-180x180.png',
-            sizes: '180x180',
-            type: 'image/png',
-          },
-          {
-            src: 'assets/icon-192x192.png',
+            src: 'assets/icon-dark-192-192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'assets/maskable-icon.png',
+            src: 'assets/icon-dark-512-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'assets/icon-dark-512-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
           },
         ],
       },
-    }),
+    }) as PluginOption[],
     sourcemapExclude({ excludeNodeModules: true }),
     compression({
       threshold: 10240,

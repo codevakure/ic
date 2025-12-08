@@ -443,7 +443,7 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
         totalCost += calculateCost(modelId, 'completion', tokens);
       });
     } catch (error) {
-      logger.warn('[Admin] Could not fetch token metrics:', error.message);
+      logger.debug('[Admin] Could not fetch token metrics:', error.message);
     }
 
     // Agent counts
@@ -1478,8 +1478,6 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    logger.info(`[Admin] Getting hourly activity from ${twentyFourHoursAgo.toISOString()} to ${now.toISOString()}`);
-
     // Get conversations created in last 24 hours grouped by hour
     const conversationsByHour = await Conversation.aggregate([
       {
@@ -1510,8 +1508,6 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
       { $sort: { _id: 1 } },
     ]);
 
-    logger.info(`[Admin] Found ${conversationsByHour.length} hours with conversations`);
-
     // Get messages created in last 24 hours grouped by hour
     const messagesByHour = await Message.aggregate([
       {
@@ -1532,8 +1528,6 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
       },
       { $sort: { _id: 1 } },
     ]);
-
-    logger.info(`[Admin] Found ${messagesByHour.length} hours with messages`);
 
     // Get active sessions count - sessions that were created or updated in last 24 hours
     let sessionsByHour = [];
@@ -1566,8 +1560,6 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
         },
         { $sort: { _id: 1 } },
       ]);
-      
-      logger.info(`[Admin] Found ${sessionCount} active sessions, ${sessionsByHour.length} hours with session data`);
     } catch (error) {
       logger.warn('[Admin] Could not aggregate session data:', error.message);
     }
@@ -1601,8 +1593,6 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
       sessions: acc.sessions + h.sessions,
       peakActiveUsers: Math.max(acc.peakActiveUsers, h.activeUsers),
     }), { conversations: 0, messages: 0, sessions: 0, peakActiveUsers: 0 });
-
-    logger.info(`[Admin] Hourly activity totals: ${JSON.stringify(totals)}`);
 
     return {
       timezone,
@@ -2144,17 +2134,6 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
         let contextBreakdown = null;  // Will hold the breakdown of what's in the cached context
 
         transactions.forEach(tx => {
-          // Debug: log each transaction
-          logger.debug('[Admin Traces] Processing transaction:', {
-            conversationId: tx.conversationId,
-            tokenType: tx.tokenType,
-            inputTokens: tx.inputTokens,
-            writeTokens: tx.writeTokens,
-            readTokens: tx.readTokens,
-            rawAmount: tx.rawAmount,
-            contextBreakdown: tx.contextBreakdown,
-          });
-          
           // Use tokenValue if available (already has correct rates applied)
           // Otherwise fall back to manual calculation
           if (tx.tokenValue !== undefined && tx.tokenValue !== null) {
@@ -2192,15 +2171,6 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
             outputTokens += tokens;
             outputCost += calculateCost(tx.model || aiMsg.model, 'completion', tokens);
           }
-        });
-
-        // Debug: log final token counts
-        logger.info('[Admin Traces] Final token summary:', {
-          conversationId: aiMsg.conversationId,
-          inputTokens,
-          outputTokens,
-          contextBreakdown: contextBreakdown ? JSON.stringify(contextBreakdown) : 'null',
-          transactionCount: transactions.length,
         });
 
         // Extract text from AI content

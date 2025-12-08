@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
-import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator, ThemeSelector } from '@ranger/client';
+import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator, ThemeSelector, useAvatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
@@ -30,6 +30,7 @@ const LeftPanelNav = memo(() => {
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
   const [showSettings, setShowSettings] = useState(false);
+  const avatarSrc = useAvatar(user);
 
   // Define navigation items
   const navItems: NavItem[] = [
@@ -166,9 +167,20 @@ const LeftPanelNav = memo(() => {
             <Select.Select
               aria-label={localize('com_nav_account_settings')}
               data-testid="left-nav-user"
-              className="flex h-7 w-7 items-center justify-center rounded-sm bg-green-600 text-[10px] font-semibold text-white transition-colors hover:bg-green-700"
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-sm text-[10px] font-semibold text-white transition-colors overflow-hidden",
+                !avatarSrc && "bg-green-600 hover:bg-green-700"
+              )}
             >
-              {getUserInitials()}
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={user?.name ?? user?.username ?? 'User avatar'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                getUserInitials()
+              )}
             </Select.Select>
           }
         />

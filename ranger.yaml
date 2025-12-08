@@ -370,7 +370,7 @@ webSearch:
 
 # MCP Servers Configuration
 # mcpServers: {}
-# mcpServers:
+mcpServers:
   # OPTION 1: OAuth handled by SharePoint-MCP server (commented out)
   # ms365-mcp:
   #   title: "Microsoft 365"
@@ -385,81 +385,81 @@ webSearch:
 
   # OPTION 2: OAuth configured in Ranger (client ID, secret, scopes defined here)
   # Ranger handles the OAuth flow and passes token to MCP server via Authorization header
-  # ms365-mcp:
-  #   title: "Microsoft 365"
-  #   iconPath: "Microsoft365Icon"
-  #   type: streamable-http
-  #   url: "http://localhost:3001/sharepoint-mcp/mcp"
-  #   timeout: 30000
-  #   initTimeout: 15000
-  #   chatMenu: true
-  #   startup: false
-  #   requiresOAuth: true
-  #   # Server instructions guide the model on when to use these tools
-  #   serverInstructions: |
-  #     ## Microsoft 365 Tools Usage Guide
+  ms365-mcp:
+    title: "Microsoft 365"
+    iconPath: "Microsoft365Icon"
+    type: streamable-http
+    url: "http://localhost:3001/sharepoint-mcp/mcp"
+    timeout: 30000
+    initTimeout: 15000
+    chatMenu: true
+    startup: false
+    requiresOAuth: true
+    # Server instructions guide the model on when to use these tools
+    serverInstructions: |
+      ## Microsoft 365 Tools Usage Guide
       
-  #     These tools are for accessing the user's Microsoft 365 data (Outlook, SharePoint, OneDrive, Teams).
+      These tools are for accessing the user's Microsoft 365 data (Outlook, SharePoint, OneDrive, Teams).
       
-  #     **CRITICAL: DO NOT ASK FOR CLARIFICATION**
-  #     When a query clearly matches one tool type, execute it immediately. NEVER offer multiple approach options.
-  #     - Stock prices, news, weather, public info → use web_search directly (NOT these MS365 tools)
-  #     - User's emails, calendar, files, SharePoint, OneDrive → use MS365 tools directly
-  #     - Just execute the appropriate tool - don't ask "which would you prefer?"
+      **CRITICAL: DO NOT ASK FOR CLARIFICATION**
+      When a query clearly matches one tool type, execute it immediately. NEVER offer multiple approach options.
+      - Stock prices, news, weather, public info → use web_search directly (NOT these MS365 tools)
+      - User's emails, calendar, files, SharePoint, OneDrive → use MS365 tools directly
+      - Just execute the appropriate tool - don't ask "which would you prefer?"
       
-  #     **WHEN TO USE THESE TOOLS:**
-  #     - User asks about THEIR emails, calendar, files, or documents (e.g., "check my emails", "find my document")
-  #     - User references "my SharePoint", "my OneDrive", "my Outlook", "my Teams"
-  #     - User asks to search within their organization's Microsoft 365 data
-  #     - User wants to look up people/contacts in their organization
-  #     - MRAs (Master Reference Architecture), architecture documents, technical specs
-  #     - Build permits, permit documents, construction documents
-  #     - Company policies, procedures, internal documentation
-  #     - Any document stored in SharePoint or OneDrive
-  #     - Project files, team documents, shared resources
+      **WHEN TO USE THESE TOOLS:**
+      - User asks about THEIR emails, calendar, files, or documents (e.g., "check my emails", "find my document")
+      - User references "my SharePoint", "my OneDrive", "my Outlook", "my Teams"
+      - User asks to search within their organization's Microsoft 365 data
+      - User wants to look up people/contacts in their organization
+      - MRAs (Master Reference Architecture), architecture documents, technical specs
+      - Build permits, permit documents, construction documents
+      - Company policies, procedures, internal documentation
+      - Any document stored in SharePoint or OneDrive
+      - Project files, team documents, shared resources
       
-  #     **WHEN NOT TO USE THESE TOOLS (use web_search instead):**
-  #     - Stock prices, cryptocurrency, market data → web_search
-  #     - News, current events, headlines → web_search  
-  #     - Weather forecasts → web_search
-  #     - Product information, reviews → web_search
-  #     - Any public internet information → web_search
-  #     - User asks about their uploaded files in this chat → file_search
+      **WHEN NOT TO USE THESE TOOLS (use web_search instead):**
+      - Stock prices, cryptocurrency, market data → web_search
+      - News, current events, headlines → web_search  
+      - Weather forecasts → web_search
+      - Product information, reviews → web_search
+      - Any public internet information → web_search
+      - User asks about their uploaded files in this chat → file_search
       
-  #     **IMPORTANT:** If user says "search the web", "look online", "google this" → use web_search, NOT these tools.
+      **IMPORTANT:** If user says "search the web", "look online", "google this" → use web_search, NOT these tools.
       
-  #     **UI RESOURCES - TOKEN OPTIMIZATION:**
-  #     When these tools return data with a UI resource (interactive panel), avoid repeating the full data in your text response.
-  #     The UI resource already displays the information interactively (emails, calendar events, files, etc.).
+      **UI RESOURCES - TOKEN OPTIMIZATION:**
+      When these tools return data with a UI resource (interactive panel), avoid repeating the full data in your text response.
+      The UI resource already displays the information interactively (emails, calendar events, files, etc.).
       
-  #     DO:
-  #     - Provide a brief acknowledgment like "I found 12 emails - you can view them in the panel"
-  #     - Highlight important or urgent items (e.g., "You have 2 unread emails from your manager")
-  #     - Summarize if the user specifically asks for a summary or analysis
-  #     - Answer specific questions about the data (e.g., "Yes, you have a meeting at 3pm")
+      DO:
+      - Provide a brief acknowledgment like "I found 12 emails - you can view them in the panel"
+      - Highlight important or urgent items (e.g., "You have 2 unread emails from your manager")
+      - Summarize if the user specifically asks for a summary or analysis
+      - Answer specific questions about the data (e.g., "Yes, you have a meeting at 3pm")
       
-  #     DON'T:
-  #     - List or table every single item when the UI already shows them
-  #     - Repeat full email subjects, file names, or event details that are visible in the panel
-  #     - Ask which approach the user prefers when the answer is obvious
+      DON'T:
+      - List or table every single item when the UI already shows them
+      - Repeat full email subjects, file names, or event details that are visible in the panel
+      - Ask which approach the user prefers when the answer is obvious
       
-  #     Users can see and interact with the data directly in the UI panel.
-  #   # OAuth configuration - Ranger will use these instead of auto-discovery
-  #   oauth:
-  #     # Microsoft Entra ID (Azure AD) OAuth endpoints
-  #     authorization_url: "${MS365_AUTHORIZATION_URL}"
-  #     token_url: "${MS365_TOKEN_URL}"
-  #     # Client credentials from Azure App Registration
-  #     client_id: "${MS365_CLIENT_ID}"
-  #     client_secret: "${MS365_CLIENT_SECRET}"
-  #     # Microsoft Graph scopes
-  #     scope: "https://graph.microsoft.com/User.Read https://graph.microsoft.com/User.ReadBasic.All https://graph.microsoft.com/User.Read.All offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Sites.Read.All https://graph.microsoft.com/Sites.ReadWrite.All"
-  #     # Callback URL - where Microsoft redirects after auth
-  #     redirect_uri: "${DOMAIN_SERVER}/api/mcp/ms365-mcp/oauth/callback"
-  #     # Use PKCE for security
-  #     code_challenge_methods_supported:
-  #       - "S256"
-  #     # Token exchange method for Microsoft (default_post = form body, basic_auth_header = Basic Auth header)
-  #     token_exchange_method: "default_post"
+      Users can see and interact with the data directly in the UI panel.
+    # OAuth configuration - Ranger will use these instead of auto-discovery
+    oauth:
+      # Microsoft Entra ID (Azure AD) OAuth endpoints
+      authorization_url: "${MS365_AUTHORIZATION_URL}"
+      token_url: "${MS365_TOKEN_URL}"
+      # Client credentials from Azure App Registration
+      client_id: "${MS365_CLIENT_ID}"
+      client_secret: "${MS365_CLIENT_SECRET}"
+      # Microsoft Graph scopes
+      scope: "https://graph.microsoft.com/User.Read https://graph.microsoft.com/User.ReadBasic.All https://graph.microsoft.com/User.Read.All offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Files.Read.All https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Sites.Read.All https://graph.microsoft.com/Sites.ReadWrite.All"
+      # Callback URL - where Microsoft redirects after auth
+      redirect_uri: "${DOMAIN_SERVER}/api/mcp/ms365-mcp/oauth/callback"
+      # Use PKCE for security
+      code_challenge_methods_supported:
+        - "S256"
+      # Token exchange method for Microsoft (default_post = form body, basic_auth_header = Basic Auth header)
+      token_exchange_method: "default_post"
 
 

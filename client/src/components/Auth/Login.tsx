@@ -6,7 +6,6 @@ import type { TLoginLayoutContext } from '~/common';
 import { ErrorMessage } from '~/components/Auth/ErrorMessage';
 import SocialButton from '~/components/Auth/SocialButton';
 import { useAuthContext } from '~/hooks/AuthContext';
-import Logo from '~/components/Nav/Logo';
 import { getLoginError } from '~/utils';
 import { useLocalize } from '~/hooks';
 import LoginForm from './LoginForm';
@@ -64,11 +63,8 @@ function Login() {
   // Render fallback UI if auto-redirect is active.
   if (shouldAutoRedirect) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
-        <div className="mb-6">
-          <Logo height={60} />
-        </div>
-        <p className="text-lg font-semibold text-black dark:text-white">
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <p className="text-lg font-semibold">
           {localize('com_ui_redirecting_to_provider', { 0: startupConfig.openidLabel })}
         </p>
         <div className="mt-4">

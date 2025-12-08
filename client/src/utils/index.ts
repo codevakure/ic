@@ -227,8 +227,6 @@ Execute the intention of the prompt that is mentioned in the message using the t
     `;
   }
 
-  console.log('About to submit UI action:', actionSummary);
-
   try {
     // Pass metadata to mark this as a UI action for minimal indicator rendering
     await ask({ 
@@ -239,7 +237,6 @@ Execute the intention of the prompt that is mentioned in the message using the t
         uiActionSummary: actionSummary,
       },
     });
-    console.log('UI action submitted successfully');
   } catch (error) {
     console.error('Error submitting UI action:', error);
   }

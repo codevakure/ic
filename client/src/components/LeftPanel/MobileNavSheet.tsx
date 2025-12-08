@@ -11,7 +11,7 @@ import {
   LayoutDashboard,
   X,
 } from 'lucide-react';
-import { ThemeSelector } from '@ranger/client';
+import { ThemeSelector, useAvatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
@@ -48,6 +48,7 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
   const balanceQuery = useGetUserBalance({
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
+  const avatarSrc = useAvatar(user);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -260,8 +261,19 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
                 onClick={() => handleNavigation('/profile')}
                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-surface-hover transition-colors"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">
-                  {getUserInitials()}
+                <div className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white overflow-hidden",
+                  !avatarSrc && "bg-green-600"
+                )}>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={user?.name ?? user?.username ?? 'User avatar'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getUserInitials()
+                  )}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium text-text-primary">

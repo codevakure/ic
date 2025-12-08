@@ -1,0 +1,191 @@
+---
+title: "Commands"
+description: "Learn how to use Ranger's keyboard commands for efficient conversation control"
+---
+
+import { Callout } from "nextra/components";
+
+## Chat Commands
+
+Ranger offers powerful keyboard commands that allow for quick access to essential features without interrupting your workflow. These commands enhance productivity by providing shortcuts to frequently used functions.
+
+### Overview
+
+Chat commands in Ranger are special keyboard triggers that activate specific functionality directly from the chat input field:
+
+- Toggle commands that provide quick access to models, prompts, and response settings
+- Intuitive shortcuts for accessing advanced features without navigating menus
+- Seamless integration with your typing experience
+
+![Commands](/images/commands.png)
+
+<Callout type="tip">
+  Commands are designed to speed up your workflow by reducing the need to navigate through menus for common actions.
+</Callout>
+
+### Available Commands
+
+#### The "@" Command
+
+**Purpose**: Switch between endpoints, models, and presets
+
+**How to Use**:
+1. Type "@" at the beginning of your message or wherever you want to switch models
+2. A dropdown menu appears with available models and endpoints
+3. Select the desired model or endpoint
+4. Continue typing your message with the selected model
+
+**When to Use**:
+- When you need to switch between different AI models for specific tasks
+- When working with specialized models for particular domains (code, creative writing, etc.)
+- When you want to test the same prompt across multiple models
+- For tasks requiring specific capabilities only available in certain models
+
+<Callout type="info">
+  The "@" command is particularly useful when you're working on complex tasks that benefit from different AI models' strengths, allowing you to switch models without starting a new conversation.
+</Callout>
+
+**Example Use Case**:
+```
+@GPT-4 Can you help me optimize this database query?
+```
+
+#### The "+" Command
+
+**Purpose**: Configure multi-response settings
+
+**How to Use**:
+1. Type "+" at the beginning of your message
+2. A configuration panel appears for setting multi-response parameters
+3. Select the desired number of responses or variation settings
+4. Continue with your prompt to receive multiple responses
+
+**When to Use**:
+- When brainstorming and you want multiple different ideas
+- When you need alternative approaches to a problem
+- When comparing different possible answers to evaluate options
+- For creative tasks where variety is valuable
+
+<Callout type="tip">
+  Use the "+" command when you need diverse perspectives or want to compare different approaches to the same question. This is especially valuable for creative tasks or when exploring solutions to complex problems.
+</Callout>
+
+**Example Use Case**:
+```
++ Give me three different approaches to improve fraud detection in a banking system
+```
+
+#### The "/" Command
+
+**Purpose**: Access and select prompts via keyboard
+
+**How to Use**:
+1. Type "/" at the beginning of your message
+2. A searchable list of saved prompts appears
+3. Navigate through available prompts using arrow keys or by typing to search
+4. Select a prompt to use as a template for your current message
+
+**When to Use**:
+- When using frequently repeated prompt structures
+- For consistent formatting across similar requests
+- To access saved prompt templates without breaking your flow
+- When working with complex prompts that you've previously optimized
+
+<Callout type="info">
+  The "/" command helps maintain consistency in your prompts and saves time by letting you reuse well-crafted prompts you've saved for recurring tasks.
+</Callout>
+
+**Example Use Case**:
+```
+/code-review Please review the following JavaScript function...
+```
+
+### Combining Commands
+
+Ranger's commands can be combined for even more powerful interactions:
+
+**How to Use Combined Commands**:
+1. Start with the command that sets the context (like "/" for a prompt)
+2. Add additional commands as needed (like "@" to specify a model)
+3. Complete your message with your specific request
+
+**When to Use Combined Commands**:
+- For complex workflows requiring multiple parameters
+- When you need both specific models and multiple responses
+- To apply saved prompts with specific model settings
+
+<Callout type="tip">
+  Combining commands allows for sophisticated interactions. For example, you could use "/risk-assessment @GPT-4 + Show me three different approaches to evaluate loan approval criteria for high-value transactions."
+</Callout>
+
+### Best Practices
+
+**Efficiency Tips**:
+- Memorize the commands you use most frequently
+- Create saved prompts for recurring tasks to use with the "/" command
+- Use "@" to quickly switch models when one isn't performing well for your task
+- Leverage "+" for creative tasks where multiple perspectives are valuable
+
+**Workflow Integration**:
+- Start by using one command at a time until you're comfortable
+- Gradually incorporate combined commands for more complex workflows
+- Create custom prompts optimized for specific models to use with the "@" and "/" commands together
+
+<Callout type="info">
+  Commands become more powerful as you integrate them into your natural workflow. With practice, they'll become second nature and significantly speed up your interactions.
+</Callout>
+
+### Customization
+
+You can enable or disable individual commands in your settings:
+
+1. Access Settings from your account option at the bottom of the left side panel
+2. Navigate to the "Commands" section
+3. Toggle individual commands on/off based on your preferences
+4. Save your settings
+
+<Callout type="tip">
+  If you find yourself not using certain commands, you can disable them in settings to prevent accidentally triggering them during normal typing.
+</Callout>
+
+### Use Cases by Profession
+
+**Software Developers**:
+- Use "@" to switch between code-optimized models for different languages
+- Use "/" to access saved code review or refactoring prompts
+- Use "+" to generate multiple solution approaches for algorithms
+
+**Content Creators**:
+- Use "@" to switch between models optimized for different content styles
+- Use "/" to access saved content templates
+- Use "+" to generate multiple headline or introduction variations
+
+**Researchers**:
+- Use "@" to access more advanced models for complex analyses
+- Use "/" to maintain consistent query structures for literature reviews
+- Use "+" to explore multiple interpretations of research findings
+
+<Callout type="tip">
+  Tailor your command usage to your profession's specific needs. Over time, you'll develop command patterns that significantly enhance your productivity.
+</Callout>
+
+### Troubleshooting
+
+**If Commands Aren't Working**:
+- Check if the command is enabled in your settings
+- Ensure you're typing the command at the start of your message or after a space
+- Try refreshing the application if commands stop responding
+
+<Callout type="info">
+  If a command isn't working as expected, check your settings to ensure it's enabled and properly configured.
+</Callout>
+
+### Command Quick Reference
+
+| Command | Purpose | When to Use |
+|---------|---------|------------|
+| @ | Switch models/endpoints | When you need capabilities of a specific model |
+| + | Multi-response settings | When you want multiple solution approaches |
+| / | Select saved prompts | When using structured or repeated prompt templates |
+
+Chat commands are designed to keep you in your flow while giving you powerful control over how Ranger responds to your requests. With practice, these commands will become an indispensable part of your workflow, helping you work more efficiently and effectively.

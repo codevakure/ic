@@ -150,6 +150,9 @@ const startServer = async () => {
   app.use('/api/mcp', routes.mcp);
   app.use('/api/admin', routes.admin);
 
+  // Serve documentation static files
+  app.use('/docs', express.static(path.join(__dirname, '../../docs/out')));
+
   app.use(ErrorController);
 
   app.use((req, res) => {

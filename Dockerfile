@@ -22,6 +22,7 @@ USER node
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node api/package.json ./api/package.json
 COPY --chown=node:node client/package.json ./client/package.json
+COPY --chown=node:node docs/package.json ./docs/package.json
 COPY --chown=node:node packages/data-provider/package.json ./packages/data-provider/package.json
 COPY --chown=node:node packages/data-schemas/package.json ./packages/data-schemas/package.json
 COPY --chown=node:node packages/api/package.json ./packages/api/package.json
@@ -44,10 +45,15 @@ RUN \
 COPY --chown=node:node . .
 
 RUN \
-    # React client build
-    NODE_OPTIONS="--max-old-space-size=2048" npm run frontend; \
+    # React client build (includes docs via frontend script)
+    NODE_OPTIONS="--max-old-space-size=4096" npm run frontend; \
     npm prune --production; \
     npm cache clean --force
+
+# Verify docs build output
+RUN echo "=== VERIFYING DOCS BUILD ===" && \
+    ls -la /app/docs/out/ 2>/dev/null && echo "✅ docs/out directory found" || echo "⚠️ docs/out not found (search disabled)" && \
+    echo "=== DOCS VERIFICATION COMPLETE ==="
 
 # Node API setup
 EXPOSE 3080

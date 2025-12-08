@@ -42,8 +42,6 @@ async function saveMessage(req, params, metadata) {
   const validConvoId = idSchema.safeParse(params.conversationId);
   if (!validConvoId.success) {
     logger.warn(`Invalid conversation ID: ${params.conversationId}`);
-    logger.info(`---\`saveMessage\` context: ${metadata?.context}`);
-    logger.info(`---Invalid conversation ID Params: ${JSON.stringify(params, null, 2)}`);
     return;
   }
 
@@ -60,7 +58,6 @@ async function saveMessage(req, params, metadata) {
         update.expiredAt = createTempChatExpirationDate(appConfig?.interfaceConfig);
       } catch (err) {
         logger.error('Error creating temporary chat expiration date:', err);
-        logger.info(`---\`saveMessage\` context: ${metadata?.context}`);
         update.expiredAt = null;
       }
     } else {
@@ -71,7 +68,6 @@ async function saveMessage(req, params, metadata) {
       logger.warn(
         `Resetting invalid \`tokenCount\` for message \`${params.messageId}\`: ${update.tokenCount}`,
       );
-      logger.info(`---\`saveMessage\` context: ${metadata?.context}`);
       update.tokenCount = 0;
     }
     const message = await Message.findOneAndUpdate(
@@ -83,7 +79,6 @@ async function saveMessage(req, params, metadata) {
     return message.toObject();
   } catch (err) {
     logger.error('Error saving message:', err);
-    logger.info(`---\`saveMessage\` context: ${metadata?.context}`);
 
     // Check if this is a duplicate key error (MongoDB error code 11000)
     if (err.code === 11000 && err.message.includes('duplicate key error')) {
@@ -263,9 +258,6 @@ async function updateMessage(req, message, metadata) {
     };
   } catch (err) {
     logger.error('Error updating message:', err);
-    if (metadata && metadata?.context) {
-      logger.info(`---\`updateMessage\` context: ${metadata.context}`);
-    }
     throw err;
   }
 }

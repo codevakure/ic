@@ -100,12 +100,44 @@ export async function createRun({
       agent.model_parameters,
     );
 
-    const systemMessage = Object.values(agent.toolContextMap ?? {})
+    // CACHE OPTIMIZATION: toolContextMap contains dynamic content (timestamps, user info)
+    // that would invalidate the system message cache on every request.
+    // Keep it SEPARATE from instructions so the system message stays static and cacheable.
+    // The dynamicContext will be injected as a user message instead.
+    const toolContext = Object.values(agent.toolContextMap ?? {})
       .join('\n')
       .trim();
 
+    // Build dynamic context with user info, current time (CST), and tool-specific context
+    const userName = user?.name || user?.username || 'User';
+    const now = new Date();
+    // Format date/time in CST (Central Standard Time - America/Chicago)
+    const cstDateTime = now.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const dynamicContextParts = [
+      `# Current Session Context`,
+      `- **User**: ${userName}`,
+      `- **Current Date & Time (CST)**: ${cstDateTime}`,
+      `- **Timezone**: All date/time references should use Central Standard Time (CST/America/Chicago) unless the user specifies otherwise.`,
+    ];
+
+    if (toolContext) {
+      dynamicContextParts.push('', '# Tool Instructions', toolContext);
+    }
+
+    const dynamicContext = dynamicContextParts.join('\n');
+
+    // Static system content: only instructions and additional_instructions (no dynamic data)
     const systemContent = [
-      systemMessage,
       agent.instructions ?? '',
       agent.additional_instructions ?? '',
     ]
@@ -143,6 +175,7 @@ export async function createRun({
       tools: agent.tools,
       clientOptions: llmConfig,
       instructions: systemContent,
+      dynamicContext: dynamicContext || undefined, // Only set if there's content
       maxContextTokens: agent.maxContextTokens,
       useLegacyContent: agent.useLegacyContent ?? false,
     };

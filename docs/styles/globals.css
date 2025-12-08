@@ -1,0 +1,536 @@
+/* 
+ * Nextra Template Default Colors and Styling
+ * Following the official nextra-docs-template styling
+ */
+
+/* Root CSS Variables - Following Nextra Default Colors */
+:root {
+  --nextra-primary-hue: 212deg;
+  --nextra-primary-saturation: 100%;
+  --nextra-bg: #ffffff;
+  --nextra-fg: #171717;
+  --nextra-search-bg: #fafafa;
+  --nextra-search-border: #e5e5e5;
+  --nextra-navbar-bg: rgba(255, 255, 255, 0.8);
+}
+
+.dark {
+  --nextra-bg: #111111;
+  --nextra-fg: #ededed;
+  --nextra-search-bg: #1a1a1a;
+  --nextra-search-border: #333333;
+  --nextra-navbar-bg: rgba(17, 17, 17, 0.8);
+}
+
+/* Search Bar Styling - Following Template Design */
+.nextra-search {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  max-width: 100% !important;
+}
+
+.nextra-search input {
+  transition: all 0.2s ease-in-out !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  background: var(--nextra-search-bg) !important;
+  border: 1px solid var(--nextra-search-border) !important;
+  color: var(--nextra-fg) !important;
+  width: 100% !important;
+  max-width: 200px !important;
+  font-size: 14px !important;
+}
+
+.nextra-search input:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* ONLY account setup page images - remove universal targeting */
+/* Only apply sizing to account-setup page specifically */
+
+.nextra-search input::placeholder {
+  color: #9ca3af !important;
+}
+
+.dark .nextra-search input::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Search dropdown styling */
+.nextra-search [data-cmdk-root] {
+  background: var(--nextra-bg) !important;
+  border: 1px solid var(--nextra-search-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .nextra-search [data-cmdk-root] {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Theme Switch Button Styling */
+.nx-button {
+  background: transparent !important;
+  border: 1px solid var(--nextra-search-border) !important;
+  border-radius: 6px !important;
+  padding: 6px !important;
+  color: var(--nextra-fg) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.nx-button:hover {
+  background: var(--nextra-search-bg) !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Theme Logo Styling */
+.theme-logo-container {
+  display: flex;
+  align-items: center;
+  height: 50px;
+}
+
+.ranger-logo {
+  max-width: 162px;
+  height: auto;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Disable Copy Button on Code Blocks */
+.nx-copy-code {
+  display: none !important;
+}
+
+[data-copy] {
+  display: none !important;
+}
+
+.nx-code-block .nx-copy-icon {
+  display: none !important;
+}
+
+/* Navbar fixes - Remove hamburger on desktop, fix mobile */
+.nextra-navbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 30 !important;
+  width: 100% !important;
+  backdrop-filter: blur(12px) !important;
+  background: rgba(250, 250, 250, 0.8) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark .nextra-navbar {
+  background: rgba(17, 17, 17, 0.8) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Hide hamburger completely on desktop and properly show search */
+@media (min-width: 768px) {
+  .nextra-hamburger {
+    display: none !important;
+  }
+  
+  .nextra-mobile-nav {
+    display: none !important;
+  }
+  
+  /* Ensure search is visible and properly positioned */
+  .nextra-search {
+    display: flex !important;
+  }
+}
+
+/* Mobile responsive fixes */
+@media (max-width: 767px) {
+  .nextra-search input {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Mobile navigation styling */
+  .nextra-mobile-nav {
+    z-index: 40 !important;
+    background: white !important;
+    max-height: calc(100vh - var(--nextra-navbar-height)) !important;
+    overflow-y: auto !important;
+  }
+  
+  .dark .nextra-mobile-nav {
+    background: #111827 !important;
+  }
+  
+  /* Hide desktop sidebar on mobile */
+  .nextra-sidebar {
+    display: none !important;
+  }
+}
+
+/* Remove any duplicate search components */
+.nextra-navbar .nextra-search:not(:first-of-type) {
+  display: none !important;
+}
+
+/* Theme dropdown fixes */
+[role="listbox"] {
+  background: white !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dark [role="listbox"] {
+  background: #1f2937 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Light theme colors */
+:root {
+  --sidebar-text-light: #374151;
+  --sidebar-text-hover-light: #111827;
+  --sidebar-text-active-light: #000000;
+  --content-text-light: #374151;
+  --heading-text-light: #111827;
+}
+
+/* Dark theme colors */
+.dark {
+  --sidebar-text-dark: #d1d5db;
+  --sidebar-text-hover-dark: #f3f4f6;
+  --sidebar-text-active-dark: #ffffff;
+  --content-text-dark: #e5e7eb;
+  --heading-text-dark: #f9fafb;
+}
+
+/* Light theme sidebar text */
+.nextra-sidebar nav a {
+  color: var(--sidebar-text-light) !important;
+  transition: color 0.2s ease;
+}
+
+.nextra-sidebar nav a:hover {
+  color: var(--sidebar-text-hover-light) !important;
+}
+
+.nextra-sidebar nav a[aria-selected="true"],
+.nextra-sidebar nav a.active {
+  color: var(--sidebar-text-active-light) !important;
+  font-weight: 600;
+}
+
+/* Dark theme sidebar text */
+.dark .nextra-sidebar nav a {
+  color: var(--sidebar-text-dark) !important;
+}
+
+.dark .nextra-sidebar nav a:hover {
+  color: var(--sidebar-text-hover-dark) !important;
+}
+
+.dark .nextra-sidebar nav a[aria-selected="true"],
+.dark .nextra-sidebar nav a.active {
+  color: var(--sidebar-text-active-dark) !important;
+  font-weight: 600;
+}
+
+/* Light theme content text */
+.nextra-content {
+  color: var(--content-text-light);
+}
+
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3,
+.nextra-content h4,
+.nextra-content h5,
+.nextra-content h6 {
+  color: var(--heading-text-light);
+}
+
+/* Dark theme content text */
+.dark .nextra-content {
+  color: var(--content-text-dark);
+}
+
+.dark .nextra-content h1,
+.dark .nextra-content h2,
+.dark .nextra-content h3,
+.dark .nextra-content h4,
+.dark .nextra-content h5,
+.dark .nextra-content h6 {
+  color: var(--heading-text-dark);
+}
+
+/* Theme logo container improvements */
+.theme-logo-container {
+  position: relative;
+  width: 162px;
+  height: 50px;
+  transition: opacity 0.2s ease;
+}
+
+.theme-logo-container .ranger-logo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+}
+
+/* Large theme logo container for introduction page */
+.theme-logo-large-container {
+  position: relative;
+  width: 400px;
+  height: 125px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+.theme-logo-large-container .ranger-logo-large {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+}
+
+/* Default state: show light logo, hide dark logo */
+.theme-logo-container .light-logo,
+.theme-logo-large-container .light-logo {
+  opacity: 1;
+  display: block;
+}
+
+.theme-logo-container .dark-logo,
+.theme-logo-large-container .dark-logo {
+  opacity: 0;
+  display: none;
+}
+
+/* Dark theme: show dark logo, hide light logo */
+.dark .theme-logo-container .light-logo,
+.theme-logo-container.dark-theme .light-logo,
+.dark .theme-logo-large-container .light-logo,
+.theme-logo-large-container.dark-theme .light-logo {
+  opacity: 0;
+  display: none;
+}
+
+.dark .theme-logo-container .dark-logo,
+.theme-logo-container.dark-theme .dark-logo,
+.dark .theme-logo-large-container .dark-logo,
+.theme-logo-large-container.dark-theme .dark-logo {
+  opacity: 1;
+  display: block;
+}
+
+/* Logo hover effects */
+.ranger-logo:hover {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+/* Improve focus states for accessibility */
+.nextra-sidebar nav a:focus {
+  outline: 2px solid #3182ce;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Light theme search input */
+.nextra-sidebar .nextra-sidebar-search input {
+  color: var(--content-text-light);
+}
+
+.nextra-sidebar .nextra-sidebar-search input::placeholder {
+  color: #9ca3af;
+}
+
+/* Dark theme search input */
+.dark .nextra-sidebar .nextra-sidebar-search input {
+  color: var(--content-text-dark);
+}
+
+.dark .nextra-sidebar .nextra-sidebar-search input::placeholder {
+  color: #6b7280;
+}
+
+/* Ensure proper text contrast for both themes */
+.nextra-sidebar .nextra-sidebar-search,
+.nextra-toc .nextra-toc-content,
+.nextra-breadcrumb {
+  color: inherit;
+}
+
+/* Dark theme specific text improvements */
+.dark .nextra-sidebar .nextra-sidebar-search,
+.dark .nextra-toc .nextra-toc-content,
+.dark .nextra-breadcrumb {
+  color: var(--sidebar-text-dark);
+}
+
+/* Hide ALL copy page functionality completely - Based on GitHub issue #4773 */
+
+/* Hide the entire copy page container */
+article > div[class*="border"][class*="inline-flex"][class*="float-end"],
+div[class*="nextra-border"][class*="float-end"],
+div[class*="border"][class*="inline-flex"][class*="items-stretch"][class*="overflow-hidden"] {
+  display: none !important;
+}
+
+/* Hide copy page dropdown options */
+[role="option"]:has-text("Copy page"),
+[role="menuitem"]:has-text("Copy page") {
+  display: none !important;
+}
+
+/* Hide copy-related dropdowns and menus */
+[role="menuitem"][aria-label*="Copy"],
+[role="button"][aria-label*="Copy"],
+.nextra-copy-button,
+
+/* Hide any copy functionality in the top bar */
+.nextra-navbar *[aria-label*="Copy"],
+.nextra-navbar button[title*="Copy"],
+
+/* Hide copy page related elements */
+*[href*="chatgpt"],
+*[href*="openai.com"],
+*[aria-label*="ChatGPT"],
+*[title*="ChatGPT"],
+*[aria-label*="Open in ChatGPT"],
+*[title*="Open in ChatGPT"],
+*[data-testid*="chatgpt"],
+*[href*="claude"],
+*[href*="anthropic"],
+*[aria-label*="Claude"],
+*[title*="Claude"],
+*[aria-label*="Open in Claude"],
+*[title*="Open in Claude"],
+*[data-testid*="claude"],
+*[aria-label*="Ask questions"],
+*[title*="Ask questions"],
+*[data-testid*="ask-questions"],
+
+/* Target any dropdown content that might contain these options */
+[data-radix-content] *[aria-label*="Copy"],
+[data-radix-content] *[aria-label*="ChatGPT"],
+[data-radix-content] *[aria-label*="Claude"],
+[data-floating-ui-portal] *[aria-label*="Copy"],
+[data-floating-ui-portal] *[aria-label*="ChatGPT"],
+[data-floating-ui-portal] *[aria-label*="Claude"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Additional specific targeting for copy page button */
+button:contains("Copy page"),
+button[type="button"]:has(svg) + button[data-headlessui-state],
+div[class*="border"][class*="inline-flex"][class*="float-end"] {
+  display: none !important;
+}
+
+/* Account Setup Page - Image Sizing */
+/* More specific selectors to ensure CSS applies */
+article img[src*="emaillogin"],
+article img[src*="passwordlogin"], 
+article img[src*="changepasswordlogin"],
+article img[src*="setupokta"],
+article img[src*="setupoktamobile"],
+article img[src*="qrscanokta"],
+article img[src*="emailphonesetup"],
+article img[src*="sms"],
+article img[src*="entercode"],
+article img[src*="dashboardsailpoint"],
+article img[src*="requestformyself"],
+article img[src*="searchrangerselect"],
+article img[src*="rangeroverall"],
+article img[src*="rangerconsumer"],
+article img[src*="rangereconomic"],
+article img[src*="rangeruser"],
+article img[src*="save1selection"],
+article img[src*="reviewrequest"],
+article img[src*="submitrequest"],
+article img[src*="rangerdashboard"],
+article img[src*="rangerssologinemail"],
+article img[src*="rangerssopassword"],
+article img[src*="rangerpushnotification"],
+.nx-prose img[src*="emaillogin"],
+.nx-prose img[src*="passwordlogin"],
+.nx-prose img[src*="changepasswordlogin"], 
+.nx-prose img[src*="setupokta"],
+.nx-prose img[src*="setupoktamobile"],
+.nx-prose img[src*="qrscanokta"],
+.nx-prose img[src*="emailphonesetup"],
+.nx-prose img[src*="sms"],
+.nx-prose img[src*="entercode"],
+.nx-prose img[src*="dashboardsailpoint"],
+.nx-prose img[src*="requestformyself"],
+.nx-prose img[src*="searchrangerselect"],
+.nx-prose img[src*="rangeroverall"],
+.nx-prose img[src*="rangerconsumer"],
+.nx-prose img[src*="rangereconomic"],
+.nx-prose img[src*="rangeruser"],
+.nx-prose img[src*="save1selection"],
+.nx-prose img[src*="reviewrequest"],
+.nx-prose img[src*="submitrequest"],
+.nx-prose img[src*="rangerdashboard"],
+.nx-prose img[src*="rangerssologinemail"],
+.nx-prose img[src*="rangerssopassword"],
+.nx-prose img[src*="rangerpushnotification"],
+main img[src*="emaillogin"],
+main img[src*="passwordlogin"],
+main img[src*="changepasswordlogin"],
+main img[src*="setupokta"],
+main img[src*="setupoktamobile"],
+main img[src*="qrscanokta"],
+main img[src*="emailphonesetup"],
+main img[src*="sms"],
+main img[src*="entercode"],
+main img[src*="dashboardsailpoint"],
+main img[src*="requestformyself"],
+main img[src*="searchrangerselect"],
+main img[src*="rangeroverall"],
+main img[src*="rangerconsumer"],
+main img[src*="rangereconomic"],
+main img[src*="rangeruser"],
+main img[src*="save1selection"],
+main img[src*="reviewrequest"],
+main img[src*="submitrequest"],
+main img[src*="rangerdashboard"],
+main img[src*="rangerssologinemail"],
+main img[src*="rangerssopassword"],
+main img[src*="rangerpushnotification"] {
+  max-width: 400px !important;
+  width: 400px !important;
+  height: auto !important;
+  margin: 1rem auto 2rem auto !important;
+  display: block !important;
+}
+
+/* Logo Styling */
+.theme-logo-container img,
+.theme-logo-large-container img {
+  display: block !important;
+}
+
+.ranger-logo,
+.ranger-logo-large {
+  max-width: 100% !important;
+  height: auto !important;
+}

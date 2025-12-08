@@ -53,7 +53,7 @@ import {
   useDeleteMemoryMutation,
   useUpdateMemoryPreferencesMutation,
 } from '~/data-provider';
-import { useDocumentTitle, useLocalize, useAuthContext, useHasAccess, TranslationKeys } from '~/hooks';
+import { useDocumentTitle, useLocalize, useAuthContext, useHasAccess } from '~/hooks';
 import MemoryCreateDialog from '~/components/SidePanel/Memories/MemoryCreateDialog';
 import MemoryEditDialog from '~/components/SidePanel/Memories/MemoryEditDialog';
 import AdminSettings from '~/components/SidePanel/Memories/AdminSettings';
@@ -620,7 +620,7 @@ const ProfilePage: React.FC = () => {
                   {localize('com_nav_profile')}
                 </h1>
                 <p className="text-sm text-text-secondary">
-                  {localize('com_nav_profile_subtitle' as TranslationKeys)}
+                  {localize('com_nav_profile_subtitle')}
                 </p>
               </div>
               {/* Admin Settings Icon - Only visible to admins */}

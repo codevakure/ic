@@ -1,0 +1,25 @@
+﻿{
+  "index": {
+    "title": "Home",
+    "display": "hidden"
+  },
+  "introduction": "What is Ranger",
+  "account-setupprod": "Request through sailpoint",
+  "account-setup": "Ranger Account Setup & Okta Configuration Guide (Internal Team QA)", 
+  "features": {
+    "title": "Features",
+    "display": "hidden"
+  },
+  "faq": "Frequently Asked Questions (FAQ)",
+  "user-guide": "Chat Screen Interface",
+  "roadmap": {
+    "title": "Roadmap", 
+    "display": "hidden"
+  },
+  "privacy": {
+    "display": "hidden"
+  },
+  "licences": {
+    "display": "hidden"
+  }
+}

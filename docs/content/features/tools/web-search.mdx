@@ -1,0 +1,43 @@
+---
+title: "Web Search"
+description: "Learn how to use Web Search for real-time information retrieval"
+---
+
+import { Callout } from "nextra/components";
+
+# Web Search
+
+The Web Search tool allows Ranger to provide answers with up-to-date information by retrieving content from the web. **This tool requires manual activation** before it can be used.
+
+## How to Access Web Search
+
+**Important:** Web Search must be manually selected before use. It will not activate automatically.
+
+1. Click the Tools icon beside the attachment icon in the chat input
+2. Select Web Search from the dropdown menu
+3. Once activated, Ranger can perform web searches during the chat session
+
+![Web Search Tool](/images/websearchtool.png)
+
+<Callout type="warning">
+  Unlike other tools, Web Search requires manual selection from the Tools panel. It will not activate automatically based on your prompt.
+</Callout>
+
+## How Web Search Works
+
+- When you provide a query, Ranger decides whether to perform a web search based on the prompt
+- The tool executes the search and retrieves relevant web results
+- This process may occur multiple times within a single request if Ranger determines additional information is needed
+- At the end of its response, Ranger provides a final answer with sources and citations
+
+## Citations
+
+Each search result returned by Web Search includes:
+- **url:** The URL of the cited source
+- **title:** The title of the cited source
+
+![Web Search](/images/websearcha.png)
+
+<Callout type="tip">
+  Web Search is especially useful for queries about current events, recent developments, or information that may have changed since Ranger's training data cutoff.
+</Callout>

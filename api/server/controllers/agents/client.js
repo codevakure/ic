@@ -212,7 +212,7 @@ class AgentClient extends BaseClient {
   }
 
   setOptions(options) {
-    logger.info('[api/server/controllers/agents/client.js] setOptions', options);
+    // Options set for agent client
   }
 
   /**
@@ -355,15 +355,6 @@ class AgentClient extends BaseClient {
     const latestMessageId = orderedMessages[orderedMessages.length - 1]?.messageId;
     const currentMessageAttachments = this.message_file_map?.[latestMessageId] || [];
     const currentMessageHasAttachments = currentMessageAttachments.length > 0;
-    
-    if (currentMessageHasAttachments) {
-      logger.debug(`[buildMessages] Current message has ${currentMessageAttachments.length} attachments - will only query these files for context`);
-    } else {
-      const totalFiles = Object.values(this.message_file_map || {}).flat().length;
-      if (totalFiles > 0) {
-        logger.debug(`[buildMessages] No attachments on current message - will query all ${totalFiles} conversation files for context`);
-      }
-    }
 
     const formattedMessages = orderedMessages.map((message, i) => {
       const formattedMessage = formatMessage({
@@ -466,7 +457,7 @@ class AgentClient extends BaseClient {
       try {
         mcpInstructions = await getMCPManager().formatInstructionsForContext(mcpServers);
         if (mcpInstructions) {
-          logger.debug('[AgentClient] Fetched MCP instructions for servers:', mcpServers);
+          // MCP instructions fetched successfully
         }
       } catch (error) {
         logger.error('[AgentClient] Failed to fetch MCP instructions:', error);
@@ -485,13 +476,6 @@ class AgentClient extends BaseClient {
       req: this.options.req,
       endpointConfig,
     });
-    
-    // Debug: Log branding prompt generation
-    if (brandingPrompt) {
-      logger.info(`[buildMessages] Branding prompt generated: ${brandingPrompt.length} chars, preview: ${brandingPrompt.substring(0, 150)}...`);
-    } else {
-      logger.warn('[buildMessages] Branding prompt is empty or null!');
-    }
 
     // Build system content: Branding → Agent Instructions → Code Executor → MCP
     // NOTE: Memory is intentionally NOT included in system message for cache optimization.
@@ -512,14 +496,6 @@ class AgentClient extends BaseClient {
     systemContent = allParts.join('\n\n');
     
     this.options.agent.instructions = systemContent;
-    
-    // Debug: Log final system content that will be sent to LLM
-    logger.info(`[buildMessages] Final instructions set: ${systemContent.length} chars`);
-    logger.debug(`[buildMessages] Instructions preview: ${systemContent.substring(0, 500)}...`);
-    
-    // Check if branding is included (look for identity section)
-    const hasBranding = systemContent.includes('=== IDENTITY ===') || systemContent.includes('IDENTITY');
-    logger.info(`[buildMessages] Contains branding: ${hasBranding}`);
 
     /** @type {Record<string, number> | undefined} */
     let tokenCountMap;
@@ -594,9 +570,6 @@ class AgentClient extends BaseClient {
     });
 
     if (!hasAccess) {
-      logger.debug(
-        `[api/server/controllers/agents/client.js #useMemory] User ${user.id} does not have USE permission for memories`,
-      );
       return;
     }
     const appConfig = this.options.req.config;
@@ -810,9 +783,7 @@ class AgentClient extends BaseClient {
       return;
     }
     
-    // Debug: log the raw collectedUsage data - key for understanding token counts
     const firstUsage = collectedUsage[0];
-    logger.info(`[recordCollectedUsage] Bedrock tokens: input=${firstUsage?.input_tokens}, output=${firstUsage?.output_tokens}, cache_write=${firstUsage?.input_token_details?.cache_creation || 0}, cache_read=${firstUsage?.input_token_details?.cache_read || 0}`);
     
     const input_tokens =
       (collectedUsage[0]?.input_tokens || 0) +
@@ -830,13 +801,7 @@ class AgentClient extends BaseClient {
       const cache_creation = Number(usage.input_token_details?.cache_creation) || 0;
       const cache_read = Number(usage.input_token_details?.cache_read) || 0;
 
-      // Debug: check if contextBreakdown exists on agent
       const agentContextBreakdown = this.options.agent?.contextBreakdown;
-      if (agentContextBreakdown) {
-        logger.info(`[recordCollectedUsage] Agent has contextBreakdown: ${JSON.stringify(agentContextBreakdown)}`);
-      } else {
-        logger.warn(`[recordCollectedUsage] Agent contextBreakdown is missing! agent keys: ${Object.keys(this.options.agent || {}).join(', ')}`);
-      }
       
       const txMetadata = {
         context,
@@ -863,7 +828,6 @@ class AgentClient extends BaseClient {
       previousTokens += Number(usage.output_tokens) || 0;
 
       if (cache_creation > 0 || cache_read > 0) {
-        logger.info(`[recordCollectedUsage] Saving structured tokens: input=${usage.input_tokens}, write=${cache_creation}, read=${cache_read}, output=${usage.output_tokens}`);
         spendStructuredTokens(txMetadata, {
           promptTokens: {
             input: usage.input_tokens,
@@ -879,7 +843,6 @@ class AgentClient extends BaseClient {
         });
         continue;
       }
-      logger.info(`[recordCollectedUsage] Saving regular tokens: prompt=${usage.input_tokens}, completion=${usage.output_tokens}`);
       spendTokens(txMetadata, {
         promptTokens: usage.input_tokens,
         completionTokens: usage.output_tokens,
@@ -1064,7 +1027,6 @@ class AgentClient extends BaseClient {
         });
         // Prepend memory exchange so it comes right after system message
         initialMessages = [memoryUserMessage, memoryAckMessage, ...initialMessages];
-        logger.debug('[AgentClient] Injected memory context as message pair for cache optimization');
       }
 
       /**
@@ -1121,17 +1083,6 @@ class AgentClient extends BaseClient {
 
         memoryPromise = this.runMemory(messages);
 
-        // Debug: Verify branding is in agent instructions before createRun
-        const primaryAgentInstructions = agents[0]?.instructions || '';
-        logger.info(`[createRun] Primary agent instructions length: ${primaryAgentInstructions.length} chars`);
-        // Check for branding content - look for identity section marker
-        const hasBranding = primaryAgentInstructions.includes('=== IDENTITY ===') || primaryAgentInstructions.includes('IDENTITY');
-        logger.info(`[createRun] Contains branding: ${hasBranding}`);
-        if (!hasBranding) {
-          logger.warn('[createRun] WARNING: Branding rules missing from agent instructions!');
-          logger.debug(`[createRun] Instructions preview: ${primaryAgentInstructions.substring(0, 300)}...`);
-        }
-
         run = await createRun({
           agents,
           indexTokenCountMap,
@@ -1187,14 +1138,22 @@ class AgentClient extends BaseClient {
           const contentPartAgentMap = run.Graph.getContentPartAgentMap();
           if (contentPartAgentMap && contentPartAgentMap.size > 0) {
             this.agentIdMap = Object.fromEntries(contentPartAgentMap);
-            logger.debug('[AgentClient] Captured agent ID map:', {
-              totalParts: this.contentParts.length,
-              mappedParts: Object.keys(this.agentIdMap).length,
-            });
           }
         }
       } catch (error) {
         logger.error('[AgentClient] Error capturing agent ID map:', error);
+      }
+
+      // Capture context breakdown for admin token tracking
+      try {
+        if (run?.Graph?.getContextBreakdown) {
+          const contextBreakdown = run.Graph.getContextBreakdown();
+          if (contextBreakdown) {
+            this.options.agent.contextBreakdown = contextBreakdown;
+          }
+        }
+      } catch (error) {
+        logger.error('[AgentClient] Error capturing context breakdown:', error);
       }
 
       // 🛡️ OUTPUT MODERATION: Check completed response before finalizing
@@ -1243,15 +1202,10 @@ class AgentClient extends BaseClient {
           } 
           // Handle BLOCKED detected but action disabled
           else if (outputResult.trackingMetadata?.outcome === 'blocked' && !outputResult.actionApplied) {
-            logger.info('[AgentClient] ⚠️ OUTPUT BLOCK DETECTED but not applied (GUARDRAILS_BLOCK_ENABLED=false)', {
-              violations: outputResult.trackingMetadata.violations?.map(v => `${v.type}:${v.category}`) || []
-            });
+            // Block detected but not applied
           }
           // Handle ANONYMIZED content (only if action is applied)
           else if (outputResult.actionApplied && outputResult.content && outputResult.content !== completionText) {
-            logger.info('[AgentClient] 🔒 OUTPUT ANONYMIZED - PII redacted from response');
-            logger.debug('[AgentClient] Anonymized content preview:', outputResult.content.substring(0, 200));
-            
             // Find and update TEXT content parts with anonymized content
             const nonTextParts = this.contentParts.filter(part => part.type !== ContentTypes.TEXT);
             
@@ -1263,14 +1217,10 @@ class AgentClient extends BaseClient {
                 text: outputResult.content
               }
             ];
-            
-            logger.debug('[AgentClient] Updated contentParts with anonymized content');
           }
           // Handle ANONYMIZED detected but action disabled
           else if (outputResult.trackingMetadata?.outcome === 'anonymized' && !outputResult.actionApplied) {
-            logger.info('[AgentClient] ⚠️ OUTPUT ANONYMIZE DETECTED but not applied (GUARDRAILS_ANONYMIZE_ENABLED=false)', {
-              violations: outputResult.trackingMetadata.violations?.map(v => `${v.type}:${v.category}`) || []
-            });
+            // Anonymize detected but not applied
           }
           // No logging for unmodified content (too verbose)
         }
@@ -1344,16 +1294,8 @@ class AgentClient extends BaseClient {
       appConfig.endpoints?.all ??
       appConfig.endpoints?.[endpoint] ??
       titleProviderConfig.customEndpointConfig;
-    if (!endpointConfig) {
-      logger.debug(
-        `[api/server/controllers/agents/client.js #titleConvo] No endpoint config for "${endpoint}"`,
-      );
-    }
 
     if (endpointConfig?.titleConvo === false) {
-      logger.debug(
-        `[api/server/controllers/agents/client.js #titleConvo] Title generation disabled for endpoint "${endpoint}"`,
-      );
       return;
     }
 

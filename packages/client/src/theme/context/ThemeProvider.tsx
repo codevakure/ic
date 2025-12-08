@@ -16,7 +16,7 @@ type ThemeContextType = {
 
 // Export ThemeContext so it can be imported from hooks
 export const ThemeContext = createContext<ThemeContextType>({
-  theme: 'system',
+  theme: 'dark',
   setTheme: () => undefined,
   setThemeRGB: () => undefined,
   setThemeName: () => undefined,

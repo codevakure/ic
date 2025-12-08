@@ -99,8 +99,8 @@ export function SettingsPage() {
       try {
         const stats = await systemApi.getCacheStats?.() || null;
         setCacheStats(stats as unknown as CacheStats);
-      } catch (err) {
-        console.warn('Could not fetch cache stats:', err);
+      } catch {
+        // Cache stats not available
       }
     } catch (err) {
       console.error('Error fetching settings:', err);

@@ -122,15 +122,6 @@ export class GuardrailsService {
       const response = await this.client.send(command);
       const processingTime = Date.now() - startTime;
 
-      // Debug: Log full response structure to understand what AWS returns
-      console.debug('[GuardrailsService] Raw response:', JSON.stringify({
-        action: response.action,
-        outputs: response.outputs,
-        outputsType: typeof response.outputs,
-        hasOutputs: !!response.outputs,
-        outputsLength: response.outputs?.length
-      }, null, 2));
-
       const intervened = response.action === 'GUARDRAIL_INTERVENED';
 
       if (intervened) {
@@ -167,18 +158,6 @@ export class GuardrailsService {
         
         if (hasAnonymizedViolation) {
           // Content was anonymized but not blocked - return the anonymized content
-          console.info('[GuardrailsService] 🔒 ANONYMIZED', {
-            source,
-            time: `${processingTime}ms`,
-            violations: violations.map(v => `${v.category}`),
-            originalLength: content.length,
-            anonymizedLength: outputContent.length,
-            sameContent: content === outputContent
-          });
-          
-          // Debug: Show first 200 chars of anonymized content
-          console.debug('[GuardrailsService] Anonymized content preview:', outputContent.substring(0, 300));
-          
           return {
             blocked: false,
             content: outputContent, // Return anonymized content
