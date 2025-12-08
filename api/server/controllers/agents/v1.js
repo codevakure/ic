@@ -7,6 +7,7 @@ const {
   agentUpdateSchema,
   mergeAgentOcrConversion,
   convertOcrToContextInPlace,
+  encrypt,
 } = require('@librechat/api');
 const {
   Tools,
@@ -108,7 +109,10 @@ const refreshListAvatars = async (agents, userId) => {
 const createAgentHandler = async (req, res) => {
   try {
     const validatedData = agentCreateSchema.parse(req.body);
-    const { tools = [], ...agentData } = removeNullishValues(validatedData);
+    const { tools = [], tool_credentials = {}, ...agentData } = removeNullishValues(validatedData);
+
+    // Debug logging for tool credentials
+    logger.debug(`[createAgent] Tool credentials keys:`, Object.keys(tool_credentials));
 
     const { id: userId } = req.user;
 
@@ -116,7 +120,7 @@ const createAgentHandler = async (req, res) => {
     agentData.author = userId;
     agentData.tools = [];
 
-    const availableTools = await getCachedTools();
+    const availableTools = await getCachedTools({ includeGlobal: true });
     for (const tool of tools) {
       if (availableTools[tool]) {
         agentData.tools.push(tool);
@@ -126,6 +130,29 @@ const createAgentHandler = async (req, res) => {
         agentData.tools.push(tool);
       }
     }
+
+    // Encrypt and store tool credentials directly in the agent
+    const encryptedCredentials = {};
+    
+    for (const [toolName, credentials] of Object.entries(tool_credentials)) {
+      if (credentials && typeof credentials === 'object') {
+        const encryptedToolCreds = {};
+        for (const [field, value] of Object.entries(credentials)) {
+          if (value && typeof value === 'string') {
+            try {
+              encryptedToolCreds[field] = await encrypt(value);
+            } catch (error) {
+              logger.error(`[createAgent] Failed to encrypt credential ${field} for tool ${toolName}:`, error);
+            }
+          }
+        }
+        if (Object.keys(encryptedToolCreds).length > 0) {
+          encryptedCredentials[toolName] = encryptedToolCreds;
+        }
+      }
+    }
+    
+    agentData.tool_credentials = encryptedCredentials;
 
     const agent = await createAgent(agentData);
 
@@ -258,7 +285,7 @@ const updateAgentHandler = async (req, res) => {
     const id = req.params.id;
     const validatedData = agentUpdateSchema.parse(req.body);
     // Preserve explicit null for avatar to allow resetting the avatar
-    const { avatar: avatarField, _id, ...rest } = validatedData;
+    const { avatar: avatarField, _id, tool_credentials = {}, ...rest } = validatedData;
     const updateData = removeNullishValues(rest);
     if (avatarField === null) {
       updateData.avatar = avatarField;
@@ -280,6 +307,33 @@ const updateAgentHandler = async (req, res) => {
     }
     if (ocrConversion.tools) {
       updateData.tools = ocrConversion.tools;
+    }
+
+    // Encrypt and store tool credentials if provided
+    if (tool_credentials && Object.keys(tool_credentials).length > 0) {
+      const encryptedCredentials = {};
+      
+      for (const [toolName, credentials] of Object.entries(tool_credentials)) {
+        if (credentials && typeof credentials === 'object') {
+          const encryptedToolCreds = {};
+          for (const [field, value] of Object.entries(credentials)) {
+            if (value && typeof value === 'string') {
+              try {
+                encryptedToolCreds[field] = await encrypt(value);
+              } catch (error) {
+                logger.error(`[updateAgent] Failed to encrypt credential ${field} for tool ${toolName}:`, error);
+              }
+            }
+          }
+          if (Object.keys(encryptedToolCreds).length > 0) {
+            encryptedCredentials[toolName] = encryptedToolCreds;
+          }
+        }
+      }
+      
+      if (Object.keys(encryptedCredentials).length > 0) {
+        updateData.tool_credentials = encryptedCredentials;
+      }
     }
 
     let updatedAgent =

@@ -367,9 +367,10 @@ async function processRequiredActions(client, requiredActions) {
  * @param {AbortSignal} params.signal
  * @param {Pick<Agent, 'id' | 'provider' | 'model' | 'tools'} params.agent - The agent to load tools for.
  * @param {string | undefined} [params.openAIApiKey] - The OpenAI API key.
+ * @param {string | undefined} [params.conversationId] - The conversation ID.
  * @returns {Promise<{ tools?: StructuredTool[]; userMCPAuthMap?: Record<string, Record<string, string>> }>} The agent tools.
  */
-async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIApiKey }) {
+async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIApiKey, conversationId }) {
   if (!agent.tools || agent.tools.length === 0) {
     return {};
   } else if (
@@ -453,7 +454,9 @@ async function loadAgentTools({ req, res, agent, signal, tool_resources, openAIA
       processFileURL,
       uploadImageBuffer,
       returnMetadata: true,
+      conversationId,
       [Tools.web_search]: webSearchCallbacks,
+      agentId: agent.id, // Pass agentId for credential sharing
     },
     webSearch: appConfig.webSearch,
     fileStrategy: appConfig.fileStrategy,
