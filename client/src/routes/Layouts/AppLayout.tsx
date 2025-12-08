@@ -8,6 +8,7 @@ import {
   EditorProvider,
   SidePanelProvider,
   ArtifactsProvider,
+  ArtifactsPanelProvider,
   PromptGroupsProvider,
   AssistantsMapContext,
   AgentsMapContext,
@@ -230,20 +231,22 @@ export default function AppLayout() {
         <AssistantsMapContext.Provider value={assistantsMap}>
           <AgentsMapContext.Provider value={agentsMap}>
             <PromptGroupsProvider>
-              <SidePanelProvider>
-                <div className="relative flex h-full w-full flex-1 overflow-hidden">
-                  <SidePanelGroup
-                    defaultLayout={defaultLayout}
-                    fullPanelCollapse={fullCollapse}
-                    defaultCollapsed={defaultCollapsed}
-                    artifacts={artifactsElement}
-                    hideNavPanel={shouldHideNavPanel}
-                  >
-                    {/* Main content area - child layouts render here */}
-                    <Outlet />
-                  </SidePanelGroup>
-                </div>
-              </SidePanelProvider>
+              <ArtifactsPanelProvider>
+                <SidePanelProvider>
+                  <div className="relative flex h-full w-full flex-1 overflow-hidden">
+                    <SidePanelGroup
+                      defaultLayout={defaultLayout}
+                      fullPanelCollapse={fullCollapse}
+                      defaultCollapsed={defaultCollapsed}
+                      artifacts={artifactsElement}
+                      hideNavPanel={shouldHideNavPanel}
+                    >
+                      {/* Main content area - child layouts render here */}
+                      <Outlet />
+                    </SidePanelGroup>
+                  </div>
+                </SidePanelProvider>
+              </ArtifactsPanelProvider>
             </PromptGroupsProvider>
           </AgentsMapContext.Provider>
         </AssistantsMapContext.Provider>

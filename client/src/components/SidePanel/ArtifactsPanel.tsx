@@ -1,9 +1,12 @@
-import { useRef, useEffect, memo } from 'react';
+import { useRef, useEffect, memo, useCallback } from 'react';
 import { ResizableHandleAlt, ResizablePanel } from '@ranger/client';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 
 interface ArtifactsPanelProps {
-  artifacts: React.ReactNode | null;
+  /** Callback to register the portal target element */
+  onPortalTargetMount: (element: HTMLDivElement | null) => void;
+  /** Whether artifacts are visible (content rendered via portal from Presentation) */
+  hasArtifacts: boolean;
   currentLayout: number[];
   minSizeMain: number;
   shouldRender: boolean;
@@ -12,10 +15,14 @@ interface ArtifactsPanelProps {
 
 /**
  * ArtifactsPanel component - memoized to prevent unnecessary re-renders
- * Only re-renders when artifacts visibility or layout changes
+ * 
+ * This component provides the resizable panel container for artifacts.
+ * The actual artifact content is rendered via React Portal from Presentation
+ * to maintain ChatContext access while displaying in this panel.
  */
 const ArtifactsPanel = memo(function ArtifactsPanel({
-  artifacts,
+  onPortalTargetMount,
+  hasArtifacts,
   currentLayout,
   minSizeMain,
   shouldRender,
@@ -24,7 +31,7 @@ const ArtifactsPanel = memo(function ArtifactsPanel({
   const artifactsPanelRef = useRef<ImperativePanelHandle>(null);
 
   useEffect(() => {
-    if (artifacts != null) {
+    if (hasArtifacts) {
       onRenderChange(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -34,7 +41,12 @@ const ArtifactsPanel = memo(function ArtifactsPanel({
     } else if (shouldRender) {
       onRenderChange(false);
     }
-  }, [artifacts, shouldRender, onRenderChange]);
+  }, [hasArtifacts, shouldRender, onRenderChange]);
+
+  // Callback ref to register/unregister portal target
+  const portalTargetCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    onPortalTargetMount(node);
+  }, [onPortalTargetMount]);
 
   if (!shouldRender) {
     return null;
@@ -42,12 +54,12 @@ const ArtifactsPanel = memo(function ArtifactsPanel({
 
   return (
     <>
-      {artifacts != null && (
+      {hasArtifacts && (
         <ResizableHandleAlt withHandle className="bg-border-medium text-text-primary" />
       )}
       <ResizablePanel
         ref={artifactsPanelRef}
-        defaultSize={artifacts != null ? currentLayout[1] : 0}
+        defaultSize={hasArtifacts ? currentLayout[1] : 0}
         minSize={minSizeMain}
         maxSize={70}
         collapsible={true}
@@ -55,7 +67,11 @@ const ArtifactsPanel = memo(function ArtifactsPanel({
         order={2}
         id="artifacts-panel"
       >
-        <div className="h-full min-w-[400px] overflow-hidden">{artifacts}</div>
+        {/* Portal target - artifacts are rendered here via portal from Presentation */}
+        <div 
+          ref={portalTargetCallbackRef} 
+          className="h-full min-w-[400px] overflow-hidden"
+        />
       </ResizablePanel>
     </>
   );

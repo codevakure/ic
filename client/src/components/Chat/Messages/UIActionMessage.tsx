@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { MousePointerClick } from 'lucide-react';
-import type { TMessage, TConversation } from 'librechat-data-provider';
+import type { TMessage, TConversation } from 'ranger-data-provider';
 import { cn } from '~/utils';
 // eslint-disable-next-line import/no-cycle
 import MultiMessage from './MultiMessage';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UIResourceRenderer } from '@mcp-ui/client';
-import type { UIResource } from 'librechat-data-provider';
+import type { UIResource } from 'ranger-data-provider';
 import type { TAskFunction } from '~/common';
 import { handleUIAction } from '~/utils';
 import { useLocalize } from '~/hooks';

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Monitor } from 'lucide-react';
-import type { UIResource } from 'librechat-data-provider';
+import type { UIResource } from 'ranger-data-provider';
 import type { TAskFunction } from '~/common';
 import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { Watermark } from '~/components/ui/Watermark';

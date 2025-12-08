@@ -11,7 +11,7 @@ import {
   Zap,
   ArrowRight,
 } from 'lucide-react';
-import { Button, Spinner } from '@librechat/client';
+import { Button, Spinner } from '@ranger/client';
 import { dashboardApi, type ToolMetrics, type ToolUsage } from '../services/adminApi';
 import { AdminBarChart, CHART_COLORS } from '../components/Charts';
 

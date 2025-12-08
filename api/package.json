@@ -47,7 +47,7 @@
     "@langchain/google-genai": "^0.2.13",
     "@langchain/google-vertexai": "^0.2.13",
     "@langchain/textsplitters": "^0.1.0",
-    "illuma-agents": "^1.0.10",
+    "illuma-agents": "^1.0.11",
     "@ranger/api": "*",
     "@ranger/data-schemas": "*",
     "@ranger/datadog-llm-observability": "*",

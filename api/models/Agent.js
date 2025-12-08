@@ -5,14 +5,10 @@ const { ResourceType, SystemRoles, Tools, actionDelimiter } = require('ranger-da
 const { GLOBAL_PROJECT_NAME, EPHEMERAL_AGENT_ID, mcp_all, mcp_delimiter } =
   require('ranger-data-provider').Constants;
 const {
-  routeQuery,
+  routeToModel,
   analyzeUploadIntent,
-  Tool,
   UploadIntent,
-  capabilityToTool,
-  toolToCapability,
 } = require('@ranger/intent-analyzer');
-const { llmClassifierFallback } = require('~/server/services/LLMRouter');
 const {
   removeAgentFromAllProjects,
   removeAgentIdsFromProject,
@@ -69,18 +65,23 @@ const getAgent = async (searchParameter) => await Agent.findOne(searchParameter)
 const getAgents = async (searchParameter) => await Agent.find(searchParameter).lean();
 
 /**
- * Load an agent based on the provided ID
+ * Load an ephemeral (session-based) agent with simplified tool selection.
+ * 
+ * SIMPLIFIED ARCHITECTURE (v2.0):
+ * - Tools come from config (toolsAutoEnabled) + UI selection (MCP dropdown)
+ * - Model routing based on query complexity
+ * - No LLM classifier for tool selection
  *
  * @param {Object} params
  * @param {ServerRequest} params.req
  * @param {string} params.spec
  * @param {string} params.agent_id
  * @param {string} params.endpoint
- * @param {import('illuma-agents').ClientOptions} [params.model_parameters]
+ * @param {import('@ranger/agents').ClientOptions} [params.model_parameters]
  * @returns {Promise<Agent|null>} The agent document as a plain object, or null if not found.
  */
 const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_parameters: _m }) => {
-  const { model, ...model_parameters } = _m;
+  const { model, ...model_parameters } = _m || {};
   const modelSpecs = req.config?.modelSpecs?.list;
   /** @type {TModelSpec | null} */
   let modelSpec = null;
@@ -90,7 +91,6 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
 
   // Get agent config from app config
   const agentsConfig = req.config?.endpoints?.agents;
-  const capabilities = agentsConfig?.capabilities ?? [];
   const toolsAutoEnabled = agentsConfig?.toolsAutoEnabled ?? [
     'file_search',
     'execute_code',
@@ -100,7 +100,9 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   /** @type {TEphemeralAgent | null} */
   const ephemeralAgent = req.body.ephemeralAgent;
   const mcpServers = new Set(ephemeralAgent?.mcp);
-  const userId = req.user?.id; // note: userId cannot be undefined at runtime
+  const userId = req.user?.id;
+  
+  // Add MCP servers from modelSpec if configured
   if (modelSpec?.mcpServers) {
     for (const mcpServer of modelSpec.mcpServers) {
       mcpServers.add(mcpServer);
@@ -111,15 +113,11 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   const queryText = req.body.text || '';
   const requestFiles = req.body.files || [];
 
-  // Determine upload intents for attached files (current message)
+  // Determine upload intents for attached files (route files to handlers)
   const uploadIntents = [];
   for (const file of requestFiles) {
-    // Try multiple property names for filename and mimetype
-    // The file object from req.body.files has: file_id, filepath, type
-    // Extract filename from filepath if needed (e.g., "uploads/user123/filename.xlsx" → "filename.xlsx")
     let filename = file.filename || file.name || file.originalname;
     if (!filename && file.filepath) {
-      // Extract filename from filepath (last segment after /)
       const pathParts = file.filepath.split('/');
       filename = pathParts[pathParts.length - 1];
     }
@@ -137,8 +135,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
   }
 
-  // Also check conversation files for tool determination (e.g., xlsx in conversation needs CODE_INTERPRETER)
-  // This ensures follow-up questions about existing files can use the right tools
+  // Also check conversation files for tool determination
   const conversationId = req.body.conversationId;
   if (conversationId && requestFiles.length === 0) {
     try {
@@ -152,12 +149,9 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
               mimetype: file.type || 'application/octet-stream',
               size: file.bytes || file.size,
             });
-            // Add conversation file intents (for follow-up questions about existing files)
             if (!uploadIntents.includes(intentResult.intent)) {
               uploadIntents.push(intentResult.intent);
-              logger.debug(
-                `[loadEphemeralAgent] Added ${intentResult.intent} intent from conversation file: ${file.filename}`,
-              );
+              logger.debug(`[loadEphemeralAgent] Added ${intentResult.intent} intent from conversation file: ${file.filename}`);
             }
           }
         }
@@ -167,93 +161,20 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     }
   }
 
-  // Get intentAnalyzer config - check if autoToolSelection is enabled
-  const intentAnalyzerConfig = req.config?.intentAnalyzer || {};
-  const autoToolSelectionEnabled = intentAnalyzerConfig.autoToolSelection === true;
-
-  // Map auto-enabled capabilities to Tool enum
-  const autoEnabledTools = toolsAutoEnabled
-    .map((cap) => capabilityToTool(cap))
-    .filter((tool) => tool !== null);
-
-  // Map user explicitly selected tools from ephemeralAgent
-  const userSelectedTools = [];
-  if (ephemeralAgent?.web_search === true) {
-    userSelectedTools.push(Tool.WEB_SEARCH);
-  }
-  if (ephemeralAgent?.youtube_video === true) {
-    userSelectedTools.push(Tool.YOUTUBE_VIDEO);
-  }
-  if (ephemeralAgent?.artifacts === true || ephemeralAgent?.artifacts === 'default') {
-    userSelectedTools.push(Tool.ARTIFACTS);
-  }
-
-  // Available tools for intent analyzer = auto-enabled + user-selected ONLY
-  // This ensures intent analyzer can only pick from tools that are either:
-  // 1. Always enabled via toolsAutoEnabled config
-  // 2. Explicitly selected by user in the UI
-  const availableTools = [...new Set([...autoEnabledTools, ...userSelectedTools])];
-
-  // Determine which tools to use based on autoToolSelection config:
-  // - If autoToolSelection: true → Run unified intent analyzer with LLM fallback
-  // - If autoToolSelection: false → Use all toolsAutoEnabled + userSelected tools by default
-  let intentResult;
-  let unifiedResult = null; // Store unified result for model routing
-
-  if (autoToolSelectionEnabled) {
-    // Use conversation history from request (already fetched by buildEndpointOption) or empty array
-    const conversationHistory = req.conversationHistory || [];
-    
-    // Run unified routing - determines both tools AND model in one call
-    // Hierarchy: regex patterns → LLM classifier (if confidence < 0.4) → routing rules
-    unifiedResult = await routeQuery(queryText, {
-      provider: 'bedrock',
-      preset: 'costOptimized',
-      availableTools,
-      autoEnabledTools,
-      userSelectedTools,
-      hasMcpServers: mcpServers.size > 0, // MCP tools require Claude models
-      llmFallback: llmClassifierFallback, // Use Nova Micro when regex confidence is low
-      fallbackThreshold: 0.4, // Trigger LLM if confidence < 40%
-      conversationHistory, // Pass conversation history to help LLM understand follow-ups
-      attachedFiles:
-        uploadIntents.length > 0
-          ? {
-              files: requestFiles.map((f) => {
-                let filename = f.filename || f.name || f.originalname;
-                if (!filename && f.filepath) {
-                  const pathParts = f.filepath.split('/');
-                  filename = pathParts[pathParts.length - 1];
-                }
-                return {
-                  filename: filename || 'unknown',
-                  mimetype: f.type || f.mimetype || f.mimeType || 'application/octet-stream',
-                  size: f.bytes || f.size,
-                };
-              }),
-              uploadIntents,
-            }
-          : undefined,
-    });
-
-    // Extract tool selection result from unified result
-    intentResult = unifiedResult.toolsResult;
-  } else {
-    // autoToolSelection is disabled - use all toolsAutoEnabled + userSelected tools by default
-    intentResult = {
-      tools: availableTools,
-      confidence: 1.0,
-      reasoning: 'autoToolSelection disabled - using all toolsAutoEnabled tools by default',
-      contextPrompts: [],
-    };
-  }
-
+  // ========== TOOL SELECTION (v2.0 - Config Driven) ==========
+  // Core tools: Always from toolsAutoEnabled config
+  // MCP tools: Only when user selects in UI dropdown
+  // No LLM classifier - let the LLM decide which tools to use
+  
+  logger.info('='.repeat(60));
+  logger.info('[Router] ===== REQUEST START =====');
+  logger.info(`[Router] Query: "${queryText.slice(0, 80)}${queryText.length > 80 ? '...' : ''}"`);
+  
   /** @type {string[]} */
   const tools = [];
 
-  // Add tools based on intent analysis (includes auto-enabled tools)
-  for (const tool of intentResult.tools) {
-    const capability = toolToCapability(tool);
+  // 1. Add core tools from toolsAutoEnabled config
+  for (const capability of toolsAutoEnabled) {
     if (capability === 'execute_code' && !tools.includes(Tools.execute_code)) {
       tools.push(Tools.execute_code);
     } else if (capability === 'file_search' && !tools.includes(Tools.file_search)) {
@@ -263,10 +184,21 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     } else if (capability === 'youtube_video' && !tools.includes(Tools.youtube_video)) {
       tools.push(Tools.youtube_video);
     }
-    // artifacts is handled separately via ephemeralAgent.artifacts
+    // artifacts is handled separately
   }
 
-  // Legacy fallback: Also add tools based on modelSpec if not already added
+  // 2. Add tools based on file upload intents
+  for (const intent of uploadIntents) {
+    if (intent === UploadIntent.CODE_INTERPRETER && !tools.includes(Tools.execute_code)) {
+      tools.push(Tools.execute_code);
+      logger.debug('[Router] Added execute_code for file intent');
+    } else if (intent === UploadIntent.FILE_SEARCH && !tools.includes(Tools.file_search)) {
+      tools.push(Tools.file_search);
+      logger.debug('[Router] Added file_search for file intent');
+    }
+  }
+
+  // 3. Legacy fallback: Add tools from modelSpec if configured
   if (modelSpec?.executeCode === true && !tools.includes(Tools.execute_code)) {
     tools.push(Tools.execute_code);
   }
@@ -277,50 +209,76 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     tools.push(Tools.web_search);
   }
 
-  const addedServers = new Set();
-  if (mcpServers.size > 0) {
-    for (const mcpServer of mcpServers) {
-      if (addedServers.has(mcpServer)) {
-        continue;
-      }
-      const serverTools = await getMCPServerTools(userId, mcpServer);
-      if (!serverTools) {
-        tools.push(`${mcp_all}${mcp_delimiter}${mcpServer}`);
-        addedServers.add(mcpServer);
-        continue;
-      }
-      tools.push(...Object.keys(serverTools));
-      addedServers.add(mcpServer);
+  // 4. Add MCP server tools (user-selected from UI dropdown)
+  const addedMcpServers = new Set();
+  for (const mcpServer of mcpServers) {
+    if (addedMcpServers.has(mcpServer)) {
+      continue;
     }
+    const serverTools = await getMCPServerTools(userId, mcpServer);
+    if (!serverTools) {
+      // Fallback: add all tools from server
+      tools.push(`${mcp_all}${mcp_delimiter}${mcpServer}`);
+      addedMcpServers.add(mcpServer);
+      continue;
+    }
+    tools.push(...Object.keys(serverTools));
+    addedMcpServers.add(mcpServer);
   }
+
+  logger.info(`[Router] Core tools (from config): ${JSON.stringify(toolsAutoEnabled)}`);
+  logger.info(`[Router] MCP servers (from UI): ${JSON.stringify([...mcpServers])}`);
+  logger.info(`[Router] Upload intents: ${JSON.stringify(uploadIntents)}`);
+  logger.info(`[Router] Final tools: ${JSON.stringify(tools)}`);
 
   // Build instructions from promptPrefix
   const instructions = req.body.promptPrefix || '';
 
-  // Handle artifacts - check if intent analyzer detected it or user explicitly enabled
-  // Just set the artifacts mode here - initializeAgent will generate the prompt using generateArtifactsPrompt
-  const hasArtifactsIntent = intentResult.tools.some((t) => toolToCapability(t) === 'artifacts');
+  // Handle artifacts
+  const hasArtifactsConfig = toolsAutoEnabled.includes('artifacts');
   const artifactsMode = ephemeralAgent?.artifacts;
 
-  // MODEL ROUTING: Use the model from unified router (already computed with all routing rules)
-  // The router handles: regex → LLM classifier → tool elevation → final model selection
-  // Only use routed model if BOTH autoToolSelection AND modelRouting are enabled
-  let finalModel = model;
-  let actualTier = 'N/A';
+  // ========== MODEL ROUTING (v2.0 - Complexity Based) ==========
+  // Use query complexity to select model tier
+  // No LLM classifier - pure pattern matching
+  
+  const intentAnalyzerConfig = req.config?.intentAnalyzer || {};
   const modelRoutingEnabled = intentAnalyzerConfig.modelRouting === true;
+  
+  let finalModel = model || 'unknown';
+  let tier = 'default';
 
-  // Get routed model from unified result (if BOTH autoToolSelection AND modelRouting are enabled)
-  if (autoToolSelectionEnabled && modelRoutingEnabled && unifiedResult?.model) {
-    finalModel = unifiedResult.model;
-    actualTier = unifiedResult.tier || 'N/A';
-
-    // Update request for cost tracking
-    if (finalModel !== model) {
-      req.body.routedModel = true;
-      req.body.model = finalModel;
-      if (req.body.endpointOption?.model_parameters) {
-        req.body.endpointOption.model_parameters.model = finalModel;
+  if (modelRoutingEnabled) {
+    try {
+      // routeToModel uses regex only, no LLM classifier - defaults to Haiku 4.5
+      const routingResult = routeToModel(queryText, {
+        provider: 'bedrock',
+        preset: intentAnalyzerConfig.preset || 'costOptimized',
+        hasTools: tools.length > 0,
+        hasMcpTools: addedMcpServers.size > 0,
+      });
+      
+      // Only update if routingResult returned valid values
+      if (routingResult?.model) {
+        finalModel = routingResult.model;
       }
+      if (routingResult?.tier) {
+        tier = routingResult.tier;
+      }
+      
+      // Update request for cost tracking
+      if (finalModel !== model && finalModel !== 'unknown') {
+        req.body.routedModel = true;
+        req.body.model = finalModel;
+        if (req.body.endpointOption?.model_parameters) {
+          req.body.endpointOption.model_parameters.model = finalModel;
+        }
+      }
+      
+      const modelShortLog = finalModel?.split('.').pop()?.replace('-v1:0', '') || finalModel;
+      logger.info(`[Router] Model routing: ${tier} → ${modelShortLog}`);
+    } catch (routingError) {
+      logger.warn(`[Router] Model routing failed, using default model: ${routingError.message}`);
     }
   }
 
@@ -333,45 +291,19 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     tools,
   };
 
-  // If clarification is needed, store it on result - initializeAgent will prepend to instructions
-  if (intentResult.clarificationPrompt) {
-    result.clarificationPrompt = intentResult.clarificationPrompt;
-    result.clarificationOptions = intentResult.clarificationOptions || [];
-  }
-
-  // Set artifacts mode on result if enabled
-  if (hasArtifactsIntent || (artifactsMode != null && artifactsMode)) {
+  // Set artifacts mode if enabled
+  if (hasArtifactsConfig || (artifactsMode != null && artifactsMode)) {
     result.artifacts = artifactsMode || 'default';
   }
 
-  // Build classifier cost string if LLM was used
-  let classifierCostStr = '';
-  if (unifiedResult?.classifierUsage) {
-    const { inputTokens, outputTokens, cost } = unifiedResult.classifierUsage;
-    classifierCostStr = ` | Classifier: ${inputTokens}in/${outputTokens}out=$${cost.toFixed(6)}`;
-  }
-
-  // Single consolidated log line with all key info
+  // ========== FINAL SUMMARY ==========
   const toolsStr = tools.join(', ') || 'none';
-  const artifactsStr = result.artifacts ? `, Artifacts: ${result.artifacts}` : '';
-  const method = unifiedResult?.usedLlmFallback ? 'LLM' : 'regex';
-  logger.info(
-    `[Router] Tools: [${toolsStr}] | Model: ${finalModel.split('.').pop()?.replace('-v1:0', '') || finalModel} | Tier: ${actualTier.toUpperCase()} | Method: ${method}${classifierCostStr}${artifactsStr}`,
-  );
-
-  // Debug logging for intent analysis details
-  if (process.env.DEBUG_INTENT_ANALYZER === 'true') {
-    logger.debug(`[Router] Query: "${queryText.slice(0, 100)}${queryText.length > 100 ? '...' : ''}"`);
-    logger.debug(`[Router] Intent Analysis: confidence=${intentResult.confidence?.toFixed(2)}, reasoning="${intentResult.reasoning}"`);
-    if (autoToolSelectionEnabled && unifiedResult) {
-      logger.debug(`[Router] Auto-enabled tools: [${autoEnabledTools.map((t) => toolToCapability(t)).join(', ')}]`);
-      logger.debug(`[Router] User-selected tools: [${userSelectedTools.map((t) => toolToCapability(t)).join(', ')}]`);
-      logger.debug(`[Router] Available tools: [${availableTools.map((t) => toolToCapability(t)).join(', ')}]`);
-      if (unifiedResult.toolsResult?.clarificationPrompt) {
-        logger.debug(`[Router] Clarification needed: "${unifiedResult.toolsResult.clarificationPrompt}"`);
-      }
-    }
-  }
+  const artifactsStr = result.artifacts ? ` + Artifacts(${result.artifacts})` : '';
+  const modelShort = finalModel?.split('.').pop()?.replace('-v1:0', '') || finalModel || 'unknown';
+  
+  logger.info(`[Router] SUMMARY: Model=${modelShort} | Tier=${(tier || 'default').toUpperCase()} | Tools=[${toolsStr}]${artifactsStr}`);
+  logger.info('[Router] ===== REQUEST END =====');
+  logger.info('='.repeat(60));
 
   return result;
 };
@@ -384,7 +316,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
  * @param {string} params.spec
  * @param {string} params.agent_id
  * @param {string} params.endpoint
- * @param {import('illuma-agents').ClientOptions} [params.model_parameters]
+ * @param {import('@ranger/agents').ClientOptions} [params.model_parameters]
  * @returns {Promise<Agent|null>} The agent document as a plain object, or null if not found.
  */
 const loadAgent = async ({ req, spec, agent_id, endpoint, model_parameters }) => {
