@@ -45,6 +45,7 @@ const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { getProviderConfig } = require('~/server/services/Endpoints');
 const { createContextHandlers } = require('~/app/clients/prompts');
 const { generateBrandingPrompt } = require('~/app/clients/prompts/brandingPrompt');
+const { getToolRoutingInstructions } = require('~/app/clients/prompts/toolRouting');
 const { checkCapability } = require('~/server/services/Config');
 const BaseClient = require('~/app/clients/BaseClient');
 const { getRoleByName } = require('~/models/Role');
@@ -310,6 +311,9 @@ class AgentClient extends BaseClient {
       .join('\n')
       .trim();
 
+    // Save original agent instructions for token tracking (before branding, code executor, etc. are added)
+    const originalAgentInstructions = systemContent;
+
     // 🛡️ GUARDRAILS: Use high-level handler from @ranger/guardrails package
     // Extracts guardrail context from message history and provides systemNote for LLM
     // All guardrails logic is centralized in the package for maintainability
@@ -477,11 +481,19 @@ class AgentClient extends BaseClient {
       endpointConfig,
     });
 
-    // Build system content: Branding → Agent Instructions → Code Executor → MCP
+    // Generate tool routing instructions when both artifacts and code executor are available
+    // This provides clear separation rules to prevent overlap
+    const hasArtifacts = Boolean(this.options.agent?.artifacts);
+    let toolRoutingPrompt = null;
+    if (hasCodeExecutor && hasArtifacts) {
+      toolRoutingPrompt = getToolRoutingInstructions();
+    }
+
+    // Build system content: Branding → Tool Routing → Agent Instructions → Code Executor → MCP
     // NOTE: Memory is intentionally NOT included in system message for cache optimization.
     // System message is STATIC and gets cached (5-min TTL per session).
     // Memory changes frequently, so it's injected as a separate user message.
-    const allParts = [brandingPrompt, systemContent, mcpInstructions].filter(Boolean);
+    const allParts = [brandingPrompt, toolRoutingPrompt, systemContent, mcpInstructions].filter(Boolean);
     
     // Fetch memory but store separately - will be injected as user message in chatCompletion()
     // This prevents memory updates from invalidating the cached system prompt
@@ -496,6 +508,23 @@ class AgentClient extends BaseClient {
     systemContent = allParts.join('\n\n');
     
     this.options.agent.instructions = systemContent;
+
+    // Track per-prompt token breakdown for admin reporting
+    // This provides visibility into what's consuming the input token budget
+    if (this.options.agent?.context?.setPromptBreakdown) {
+      const tokenCounter = this.options.agent.context.tokenCounter;
+      if (tokenCounter) {
+        const promptBreakdown = {
+          branding: brandingPrompt ? tokenCounter(brandingPrompt) : 0,
+          toolRouting: toolRoutingPrompt ? tokenCounter(toolRoutingPrompt) : 0,
+          agentInstructions: originalAgentInstructions ? tokenCounter(originalAgentInstructions) : 0,
+          mcpInstructions: mcpInstructions ? tokenCounter(mcpInstructions) : 0,
+          artifacts: 0, // Artifacts prompt is included in agent instructions
+          memory: this.memoryContext ? tokenCounter(this.memoryContext) : 0,
+        };
+        this.options.agent.context.setPromptBreakdown(promptBreakdown);
+      }
+    }
 
     /** @type {Record<string, number> | undefined} */
     let tokenCountMap;

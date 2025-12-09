@@ -37,13 +37,13 @@ export function MCPUIResourceButton({ resource, conversationId, ask }: MCPUIReso
       return;
     }
 
-    // Open the MCP UI resource in the push side panel with 35% width
+    // Open the MCP UI resource in the push side panel with 30% width
     openPanel(
       String(resourceName),
       <MCPUIResourcePanel resource={resource} conversationId={conversationId} ask={ask} />,
       'push',
       null,
-      35,
+      33,
     );
   }, [resource, conversationId, openPanel, closePanel, isPanelOpen, resourceName, ask]);
 

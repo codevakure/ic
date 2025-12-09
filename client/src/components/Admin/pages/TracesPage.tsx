@@ -30,8 +30,13 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { Button, Spinner } from '@ranger/client';
+import { Button } from '@ranger/client';
 import { tracesApi, usersApi, type LLMTrace, type LLMTracesResponse } from '../services/adminApi';
+import { 
+  TracesPageSkeleton, 
+  StatsGridSkeleton, 
+  TracesTableSkeleton 
+} from '../components/Skeletons';
 
 // Drawer component for trace details
 interface TraceDrawerProps {
@@ -662,7 +667,7 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
             <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 bg-purple-500/10 border border-purple-500/20 rounded-md" title={`Cache: ${trace.trace.caching.readTokens?.toLocaleString() || 0} read, ${trace.trace.caching.writeTokens?.toLocaleString() || 0} write | Savings: $${trace.trace.caching.estimatedSavings?.toFixed(4) || '0.0000'}`}>
               <Zap className="h-3 w-3 md:h-3.5 md:w-3.5 text-purple-400" />
               <span className="text-[10px] md:text-xs font-medium text-purple-400">
-                {trace.trace.caching.hitRatio > 0 ? `${trace.trace.caching.hitRatio}% cached` : 'Cached'}
+                {(trace.trace.caching.hitRatio ?? 0) > 0 ? `${trace.trace.caching.hitRatio ?? 0}% cached` : 'Cached'}
               </span>
             </div>
           )}
@@ -719,11 +724,52 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                         Input
                         <span className="relative">
                           <Info className="h-3 w-3 text-blue-400/60 cursor-help" />
-                          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '200px' }}>
+                          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}>
                             {trace.trace?.tokenBreakdown ? (
                               <span className="flex flex-col gap-0.5">
-                                <span className="font-semibold text-white mb-1 text-[11px]">📊 Context Breakdown</span>
-                                {trace.trace.tokenBreakdown.instructions != null && trace.trace.tokenBreakdown.instructions > 0 && (
+                                <span className="font-semibold text-white mb-1 text-[11px]">📊 Input Token Breakdown</span>
+                                
+                                {/* Prompts breakdown - if available */}
+                                {trace.trace.tokenBreakdown.prompts && (
+                                  <>
+                                    <span className="font-medium text-yellow-400 mt-1 mb-0.5 text-[10px] flex items-center gap-1">
+                                      📜 System Prompts
+                                      {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
+                                    </span>
+                                    {trace.trace.tokenBreakdown.prompts.branding > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Branding</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.branding.toLocaleString()}</span></span>
+                                    )}
+                                    {trace.trace.tokenBreakdown.prompts.toolRouting > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Tool Routing</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.toolRouting.toLocaleString()}</span></span>
+                                    )}
+                                    {trace.trace.tokenBreakdown.prompts.agentInstructions > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Agent Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.agentInstructions.toLocaleString()}</span></span>
+                                    )}
+                                    {trace.trace.tokenBreakdown.prompts.mcpInstructions > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-cyan-300">• MCP Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.mcpInstructions.toLocaleString()}</span></span>
+                                    )}
+                                    {trace.trace.tokenBreakdown.prompts.artifacts > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Artifacts</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.artifacts.toLocaleString()}</span></span>
+                                    )}
+                                    {trace.trace.tokenBreakdown.prompts.memory > 0 && (
+                                      <span className="flex justify-between pl-2"><span className="text-purple-300">• Memory</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.memory.toLocaleString()}</span></span>
+                                    )}
+                                    {/* Show total system prompts */}
+                                    {(() => {
+                                      const p = trace.trace.tokenBreakdown.prompts;
+                                      const total = (p.branding || 0) + (p.toolRouting || 0) + (p.agentInstructions || 0) + (p.mcpInstructions || 0) + (p.artifacts || 0) + (p.memory || 0);
+                                      return total > 0 ? (
+                                        <span className="flex justify-between pl-2 pt-0.5 border-t border-gray-600 mt-0.5">
+                                          <span className="text-yellow-300 font-medium">Subtotal</span>
+                                          <span className="text-yellow-300 font-medium">{total.toLocaleString()}</span>
+                                        </span>
+                                      ) : null;
+                                    })()}
+                                  </>
+                                )}
+                                
+                                {/* Legacy instructions display (if prompts not available) */}
+                                {!trace.trace.tokenBreakdown.prompts && trace.trace.tokenBreakdown.instructions != null && trace.trace.tokenBreakdown.instructions > 0 && (
                                   <span className="flex justify-between"><span>📝 Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.instructions.toLocaleString()}</span></span>
                                 )}
                                 {trace.trace.tokenBreakdown.artifacts != null && trace.trace.tokenBreakdown.artifacts > 0 && (
@@ -740,7 +786,10 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                                         <>
                                           {coreTools.length > 0 && (
                                             <>
-                                              <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px]">🔧 Core Tools ({coreTools.length})</span>
+                                              <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px] flex items-center gap-1">
+                                                🔧 Core Tools ({coreTools.length})
+                                                {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
+                                              </span>
                                               {coreTools.map((tool: { name: string; tokens: number }, idx: number) => (
                                                 <span key={idx} className="flex justify-between pl-2"><span className="text-gray-300">• {tool.name}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
                                               ))}
@@ -748,7 +797,10 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                                           )}
                                           {mcpTools.length > 0 && (
                                             <>
-                                              <span className="font-medium text-cyan-400 mt-1.5 mb-0.5 text-[10px]">🔌 MCP Tools ({mcpTools.length})</span>
+                                              <span className="font-medium text-cyan-400 mt-1.5 mb-0.5 text-[10px] flex items-center gap-1">
+                                                🔌 MCP Tools ({mcpTools.length})
+                                                {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
+                                              </span>
                                               {mcpTools.map((tool: { name: string; tokens: number }, idx: number) => (
                                                 <span key={idx} className="flex justify-between pl-2"><span className="text-cyan-300">• {tool.name.replace('_mcp_', ' → ')}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
                                               ))}
@@ -770,14 +822,32 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                                 )}
                                 <span className="border-t border-gray-600 pt-1.5 mt-1.5 flex flex-col gap-0.5">
                                   <span className="flex justify-between font-medium"><span className="text-gray-300">Tracked</span><span className="text-white">{(trace.trace.tokenBreakdown.total || 0).toLocaleString()}</span></span>
-                                  <span className="flex justify-between text-gray-400"><span>Other (system, history, formatting)</span><span>{((trace.trace?.inputTokens || 0) - (trace.trace.tokenBreakdown.total || 0)).toLocaleString()}</span></span>
-                                  <span className="text-[9px] text-gray-500 pl-2 flex flex-col gap-0">
-                                    <span>• System prompt (persona, instructions)</span>
-                                    <span>• Conversation history</span>
-                                    <span>• User message & formatting</span>
-                                  </span>
+                                  <span className="flex justify-between text-gray-400"><span>Other (history, formatting)</span><span>{((trace.trace?.inputTokens || 0) - (trace.trace.tokenBreakdown.total || 0)).toLocaleString()}</span></span>
                                   <span className="flex justify-between font-semibold text-blue-400"><span>Total Input</span><span>{(trace.trace?.inputTokens || 0).toLocaleString()}</span></span>
                                 </span>
+                                
+                                {/* Cache Summary - if caching is enabled */}
+                                {trace.trace.caching?.enabled && (
+                                  <span className="border-t border-purple-500/50 pt-1.5 mt-1.5 flex flex-col gap-0.5">
+                                    <span className="font-medium text-purple-400 text-[10px] mb-0.5">⚡ Cache Summary</span>
+                                    <span className="flex justify-between pl-2">
+                                      <span className="text-purple-300">Read (from cache)</span>
+                                      <span className="text-green-400">{(trace.trace.caching.readTokens || 0).toLocaleString()}</span>
+                                    </span>
+                                    <span className="flex justify-between pl-2">
+                                      <span className="text-purple-300">Write (to cache)</span>
+                                      <span className="text-yellow-400">{(trace.trace.caching.writeTokens || 0).toLocaleString()}</span>
+                                    </span>
+                                    {trace.trace.caching.readTokens > 0 && (
+                                      <span className="flex justify-between pl-2 pt-0.5 border-t border-gray-600 mt-0.5">
+                                        <span className="text-green-400">Cache Hit Rate</span>
+                                        <span className="text-green-400">
+                                          {Math.round((trace.trace.caching.readTokens / (trace.trace.inputTokens + trace.trace.caching.readTokens)) * 100)}%
+                                        </span>
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
                               </span>
                             ) : (
                               <span>Tokens sent to the model</span>
@@ -798,8 +868,19 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                             Cache Write
                             <span className="relative">
                               <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
-                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[var(--surface-tertiary)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-[10px] text-[var(--text-secondary)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                                Tokens written to cache for reuse in future requests
+                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '220px' }}>
+                                <span className="flex flex-col gap-1">
+                                  <span className="font-semibold text-white text-[11px]">💾 Cache Write</span>
+                                  <span className="text-gray-400">New tokens written to cache (1.25x input cost)</span>
+                                  <span className="border-t border-gray-600 pt-1 mt-1">
+                                    <span className="text-purple-300">Typically includes:</span>
+                                    <span className="flex flex-col gap-0.5 pl-2 mt-0.5">
+                                      <span className="text-gray-400">• New conversation turns</span>
+                                      <span className="text-gray-400">• Updated tool outputs</span>
+                                      <span className="text-gray-400">• First-time system prompts</span>
+                                    </span>
+                                  </span>
+                                </span>
                               </span>
                             </span>
                           </span>
@@ -810,8 +891,26 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
                             Cache Read
                             <span className="relative">
                               <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
-                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-[var(--surface-tertiary)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-[10px] text-[var(--text-secondary)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                                Tokens served from cache (not re-processed)
+                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '220px' }}>
+                                <span className="flex flex-col gap-1">
+                                  <span className="font-semibold text-white text-[11px]">⚡ Cache Read (Savings!)</span>
+                                  <span className="text-gray-400">Tokens served from cache (0.1x input cost = 90% savings)</span>
+                                  <span className="border-t border-gray-600 pt-1 mt-1">
+                                    <span className="text-purple-300">What gets cached (5-min TTL):</span>
+                                    <span className="flex flex-col gap-0.5 pl-2 mt-0.5">
+                                      <span className="text-gray-400">• System prompts (branding, routing, instructions)</span>
+                                      <span className="text-gray-400">• Tool definitions & schemas</span>
+                                      <span className="text-gray-400">• Prior conversation history</span>
+                                    </span>
+                                  </span>
+                                  {trace.trace.caching.readTokens > 0 && trace.trace.inputTokens > 0 && (
+                                    <span className="border-t border-gray-600 pt-1 mt-1">
+                                      <span className="text-green-400">
+                                        📈 {Math.round((trace.trace.caching.readTokens / (trace.trace.inputTokens + trace.trace.caching.readTokens)) * 100)}% of context served from cache
+                                      </span>
+                                    </span>
+                                  )}
+                                </span>
                               </span>
                             </span>
                           </span>
@@ -952,7 +1051,7 @@ export function TracesPage() {
       setLoading(true);
       const response = await tracesApi.getTraces({
         page,
-        limit: 50,
+        limit: 25,
         model: selectedModel || undefined,
         userId: selectedUserId || undefined,
         conversationId: conversationIdFilter || undefined,
@@ -1053,6 +1152,11 @@ export function TracesPage() {
 
   const hasActiveFilters = selectedModel || selectedUserId || conversationIdFilter || searchQuery || selectedAgent || guardrailsFilter || toolNameFilter;
 
+  // Show full page skeleton on initial load
+  if (loading && !data) {
+    return <TracesPageSkeleton />;
+  }
+
   return (
     <div className="space-y-4 p-4 md:p-5">
       {/* Header */}
@@ -1078,7 +1182,9 @@ export function TracesPage() {
       </div>
 
       {/* Summary Stats */}
-      {data && (
+      {loading ? (
+        <StatsGridSkeleton count={4} />
+      ) : data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
             <div className="flex items-center gap-2">
@@ -1236,10 +1342,8 @@ export function TracesPage() {
       </div>
 
       {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Spinner className="text-blue-600" />
-        </div>
+      {loading && !data ? (
+        <TracesTableSkeleton rows={10} />
       ) : error ? (
         <div className="text-center text-red-400 py-8">{error}</div>
       ) : (
@@ -1263,7 +1367,45 @@ export function TracesPage() {
 
               {/* Traces */}
               <div className="divide-y divide-[var(--border-light)] min-w-[900px]">
-                {filteredTraces.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="px-3 py-3 grid grid-cols-12 gap-3 items-center animate-pulse">
+                      <div className="col-span-2 flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-surface-tertiary" />
+                        <div className="flex-1">
+                          <div className="h-4 w-20 rounded bg-surface-tertiary mb-1" />
+                          <div className="h-3 w-24 rounded bg-surface-tertiary" />
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="h-4 w-24 rounded bg-surface-tertiary mb-1" />
+                        <div className="h-3 w-20 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-3">
+                        <div className="h-3 w-full rounded bg-surface-tertiary mb-2" />
+                        <div className="h-3 w-3/4 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        <div className="h-5 w-16 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-1 flex flex-col items-end">
+                        <div className="h-4 w-12 rounded bg-surface-tertiary mb-1" />
+                        <div className="h-3 w-16 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-1 flex flex-col items-end">
+                        <div className="h-4 w-14 rounded bg-surface-tertiary mb-1" />
+                        <div className="h-3 w-16 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-1">
+                        <div className="h-5 w-8 rounded bg-surface-tertiary" />
+                      </div>
+                      <div className="col-span-1 flex flex-col items-end">
+                        <div className="h-4 w-16 rounded bg-surface-tertiary mb-1" />
+                        <div className="h-3 w-14 rounded bg-surface-tertiary" />
+                      </div>
+                    </div>
+                  ))
+                ) : filteredTraces.length === 0 ? (
                   <div className="text-center text-[var(--text-tertiary)] py-12">
                     No traces found
                   </div>
@@ -1338,7 +1480,7 @@ export function TracesPage() {
                         {/* Show cache indicator if caching active */}
                         {trace.trace?.caching?.enabled && (
                           <span className="text-purple-400 ml-1" title={`Cache: ${trace.trace.caching.readTokens?.toLocaleString() || 0} read, ${trace.trace.caching.writeTokens?.toLocaleString() || 0} write`}>
-                            ⚡{trace.trace.caching.hitRatio > 0 ? `${trace.trace.caching.hitRatio}%` : ''}
+                            ⚡{(trace.trace.caching.hitRatio ?? 0) > 0 ? `${trace.trace.caching.hitRatio ?? 0}%` : ''}
                           </span>
                         )}
                       </p>

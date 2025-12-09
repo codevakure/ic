@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { dashboardApi, type CostsMetrics } from '../services/adminApi';
+import { CostsPageSkeleton, StatsGridSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 interface ModelCost {
@@ -318,6 +319,11 @@ function CostsPage() {
       },
     ];
   }, [costsData, modelCosts]);
+
+  // Show full skeleton on initial load
+  if (loading && !costsData) {
+    return <CostsPageSkeleton />;
+  }
 
   return (
     <div className="space-y-4 p-4 md:p-6">

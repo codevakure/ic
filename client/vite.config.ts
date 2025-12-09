@@ -46,8 +46,6 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: [
           '**/*.{js,css,html}',
-          'assets/icon-dark.svg',
-          'manifest.webmanifest',
         ],
         globIgnores: ['images/**/*', '**/*.map', 'index.html'],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,

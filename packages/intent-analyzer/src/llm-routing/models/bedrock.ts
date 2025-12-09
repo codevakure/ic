@@ -116,18 +116,18 @@ export const BedrockModels: Record<string, ModelConfig> = {
  * Target Distribution: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
  * 
  * Score Range → Tier → Model
- * 0.85+ → expert   → Opus 4.5     ($15/$75)     - Deep analysis, architecture, research
+ * 0.85+ → expert   → Sonnet 4.5   ($3/$15)      - Deep analysis, architecture, research
  * 0.55+ → complex  → Sonnet 4.5   ($3/$15)      - Debugging, detailed analysis
  * 0.10+ → moderate → Haiku 4.5    ($1/$5)       - Most tasks, tool usage, standard code
  * 0.00+ → simple   → Nova Micro   ($0.035/$0.14) - Greetings, text-only simple responses
  */
 export const BedrockRoutingPairs: Record<BedrockPresetTier, ModelPair> = {
   /**
-   * Premium: Full 4-tier with Opus 4.5 at top
+   * Premium: Full 4-tier with Sonnet 4.5 at top
    * Best for: Production, customer-facing, quality-critical
    */
   premium: {
-    expert: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
+    expert: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     complex: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     moderate: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
     simple: 'us.amazon.nova-micro-v1:0',

@@ -43,6 +43,7 @@ import {
 } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
 import { AdminAreaChart as AreaChart, AdminBarChart as BarChart } from '../components/Charts';
+import { UserDetailPageSkeleton, StatsGridSkeleton, TableSkeleton } from '../components/Skeletons';
 import { usersApi, userDetailApi, type UserUsageResponse, type UserConversation, type UserConversationsResponse } from '../services/adminApi';
 
 interface UserDetail {
@@ -315,6 +316,12 @@ export function UserDetailPage() {
   const [selectedConversation, setSelectedConversation] = useState<UserConversation | null>(null);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Individual section loading states for progressive loading
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'conversations' | 'sessions' | 'transactions' | 'usage'>('overview');
 
@@ -331,7 +338,15 @@ export function UserDetailPage() {
     
     try {
       setLoading(true);
-      const [userResponse, statsResponse, sessionsResponse, transactionsResponse, usageResponse, conversationsResponse] = await Promise.all([
+      // Reset section loading states
+      setStatsLoading(true);
+      setSessionsLoading(true);
+      setTransactionsLoading(true);
+      setUsageLoading(true);
+      setConversationsLoading(true);
+      
+      // Use Promise.allSettled for progressive loading - show data as it arrives
+      const [userResponse, statsResponse, sessionsResponse, transactionsResponse, usageResponse, conversationsResponse] = await Promise.allSettled([
         usersApi.getUser(userId),
         userDetailApi.getUserStats(userId),
         userDetailApi.getUserSessions(userId),
@@ -340,24 +355,62 @@ export function UserDetailPage() {
         userDetailApi.getUserConversations(userId, 1, 20),
       ]);
       
-      setUser(userResponse as unknown as UserDetail);
-      setStats(statsResponse as unknown as UserStats);
-      setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
-      setTransactions(transactionsResponse.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
-      setUsageData(usageResponse);
-      setConversations(conversationsResponse.conversations || []);
-      setConversationsPagination({
-        page: conversationsResponse.pagination?.page || 1,
-        total: conversationsResponse.pagination?.total || 0,
-        hasNext: conversationsResponse.pagination?.hasNext || false,
-      });
-      setSelectedRole(userResponse.role);
+      // Process user data first (required for page to render)
+      if (userResponse.status === 'fulfilled') {
+        setUser(userResponse.value as unknown as UserDetail);
+        setSelectedRole(userResponse.value.role);
+        setLoading(false); // Page can render once we have user
+      } else {
+        setError('Failed to load user details');
+        setLoading(false);
+        return;
+      }
+      
+      // Process stats
+      if (statsResponse.status === 'fulfilled') {
+        setStats(statsResponse.value as unknown as UserStats);
+      }
+      setStatsLoading(false);
+      
+      // Process sessions
+      if (sessionsResponse.status === 'fulfilled') {
+        setSessions(sessionsResponse.value.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
+      }
+      setSessionsLoading(false);
+      
+      // Process transactions
+      if (transactionsResponse.status === 'fulfilled') {
+        setTransactions(transactionsResponse.value.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
+      }
+      setTransactionsLoading(false);
+      
+      // Process usage
+      if (usageResponse.status === 'fulfilled') {
+        setUsageData(usageResponse.value);
+      }
+      setUsageLoading(false);
+      
+      // Process conversations
+      if (conversationsResponse.status === 'fulfilled') {
+        setConversations(conversationsResponse.value.conversations || []);
+        setConversationsPagination({
+          page: conversationsResponse.value.pagination?.page || 1,
+          total: conversationsResponse.value.pagination?.total || 0,
+          hasNext: conversationsResponse.value.pagination?.hasNext || false,
+        });
+      }
+      setConversationsLoading(false);
+      
       setError(null);
     } catch (err) {
       setError('Failed to load user details');
       console.error('Error fetching user details:', err);
-    } finally {
       setLoading(false);
+      setStatsLoading(false);
+      setSessionsLoading(false);
+      setTransactionsLoading(false);
+      setUsageLoading(false);
+      setConversationsLoading(false);
     }
   }, [userId]);
 
@@ -417,11 +470,7 @@ export function UserDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <UserDetailPageSkeleton />;
   }
 
   if (error || !user) {
@@ -612,20 +661,24 @@ export function UserDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {overviewStats.map((stat) => {
-          const IconComponent = stat.icon;
-          return (
-            <StatsCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              icon={<IconComponent className="h-5 w-5 text-blue-500" />}
-              info={stat.info}
-            />
-          );
-        })}
-      </div>
+      {statsLoading || usageLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {overviewStats.map((stat) => {
+            const IconComponent = stat.icon;
+            return (
+              <StatsCard
+                key={stat.title}
+                title={stat.title}
+                value={stat.value}
+                icon={<IconComponent className="h-5 w-5 text-blue-500" />}
+                info={stat.info}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabs - Horizontally scrollable on mobile */}
       <div className="border-b border-[var(--border-light)] overflow-x-auto scrollbar-hide">
@@ -784,12 +837,16 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
             <h3 className="text-sm md:text-base font-medium text-[var(--text-primary)]">
-              Conversations ({conversationsPagination.total})
+              Conversations ({conversationsLoading ? '...' : conversationsPagination.total})
             </h3>
             <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] mt-0.5">Click on a conversation to view messages</p>
           </div>
           
-          {conversations.length === 0 ? (
+          {conversationsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={5} columns={2} showHeader={false} />
+            </div>
+          ) : conversations.length === 0 ? (
             <div className="text-center py-8 md:py-12 text-[var(--text-secondary)] text-sm">
               No conversations found
             </div>
@@ -853,6 +910,27 @@ export function UserDetailPage() {
 
       {activeTab === 'usage' && (
         <div className="space-y-4 md:space-y-6">
+          {usageLoading ? (
+            <>
+              {/* Usage Summary Cards Skeleton */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-3 md:p-6">
+                    <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-[var(--surface-primary-alt)] animate-pulse" />
+                      <div className="h-4 w-12 bg-[var(--surface-primary-alt)] rounded animate-pulse" />
+                    </div>
+                    <div className="h-8 w-16 bg-[var(--surface-primary-alt)] rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+              {/* Model Breakdown Table Skeleton */}
+              <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden p-4">
+                <TableSkeleton rows={5} columns={6} />
+              </div>
+            </>
+          ) : (
+            <>
           {/* Usage Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-3 md:p-6">
@@ -988,6 +1066,8 @@ export function UserDetailPage() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       )}
 
@@ -995,10 +1075,14 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] flex items-center justify-between">
             <h3 className="font-medium md:font-semibold text-sm md:text-base text-[var(--text-primary)]">
-              Sessions ({sessions.length})
+              Sessions ({sessionsLoading ? '...' : sessions.length})
             </h3>
           </div>
-          {sessions.length === 0 ? (
+          {sessionsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={3} columns={3} showHeader={false} />
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="p-6 md:p-8 text-center text-[var(--text-secondary)] text-sm">
               No session history available
             </div>
@@ -1054,14 +1138,18 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] flex items-center justify-between">
             <h3 className="font-medium md:font-semibold text-sm md:text-base text-[var(--text-primary)]">
-              Transactions ({transactions.length})
+              Transactions ({transactionsLoading ? '...' : transactions.length})
             </h3>
             <Button variant="outline" size="sm" className="text-[var(--text-secondary)] text-xs">
               <Download className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
               <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
-          {transactions.length === 0 ? (
+          {transactionsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={4} columns={3} showHeader={false} />
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="p-6 md:p-8 text-center text-[var(--text-secondary)] text-sm">
               No transaction history available
             </div>

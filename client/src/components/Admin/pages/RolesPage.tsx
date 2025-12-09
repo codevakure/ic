@@ -22,6 +22,7 @@ import {
   DialogTemplate,
 } from '@ranger/client';
 import { rolesApi, type Role, type RolePermissions } from '../services/adminApi';
+import { RolesPageSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 // Permission categories with their sub-permissions
@@ -226,14 +227,7 @@ function RolesPage() {
   const isSystemRole = (roleName: string) => systemRoles.includes(roleName);
 
   if (loading && roles.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="flex items-center gap-3 text-text-secondary">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span>Loading roles...</span>
-        </div>
-      </div>
-    );
+    return <RolesPageSkeleton />;
   }
 
   return (

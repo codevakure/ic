@@ -151,6 +151,21 @@ const userSchema = new Schema<IUser>(
       type: [String],
       default: [],
     },
+    /** Whether the user is banned from the platform */
+    banned: {
+      type: Boolean,
+      default: false,
+    },
+    /** Reason for the ban, if applicable */
+    banReason: {
+      type: String,
+      default: '',
+    },
+    /** Timestamp when the user was banned */
+    bannedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

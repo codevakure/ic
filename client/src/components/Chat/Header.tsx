@@ -18,7 +18,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 const defaultInterface = getConfigDefaults().interface;
 
 export default function Header() {
-  const { data: startupConfig } = useGetStartupConfig();
+  const { data: startupConfig, isLoading: isConfigLoading } = useGetStartupConfig();
   const { navVisible, setNavVisible } = useOutletContext<ContextType>();
 
   const interfaceConfig = useMemo(
@@ -27,13 +27,18 @@ export default function Header() {
   );
 
   // Check if Intent Analyzer model routing is enabled (Auto Mode)
+  // When config is loading, assume auto mode is enabled to prevent model selector flash
   const isAutoModeEnabled = useMemo(() => {
+    // If config is still loading, default to hiding the model selector to prevent flash
+    if (isConfigLoading || !startupConfig) {
+      return true;
+    }
     const intentAnalyzer = startupConfig?.intentAnalyzer;
     // Auto mode is enabled when modelRouting is true AND at least one endpoint is enabled
     const hasEnabledEndpoint = intentAnalyzer?.endpoints && 
       Object.values(intentAnalyzer.endpoints).some(ep => (ep as { enabled?: boolean })?.enabled === true);
     return intentAnalyzer?.modelRouting === true && hasEnabledEndpoint;
-  }, [startupConfig]);
+  }, [startupConfig, isConfigLoading]);
 
   const hasAccessToBookmarks = useHasAccess({
     permissionType: PermissionTypes.BOOKMARKS,

@@ -14,8 +14,9 @@ import {
   Zap,
   ArrowUpRight,
 } from 'lucide-react';
-import { Button, Input, Spinner } from '@ranger/client';
+import { Button, Input } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
+import { ActiveUsersPageSkeleton } from '../components/Skeletons';
 import { activeUsersApi } from '../services/adminApi';
 
 interface Session {
@@ -151,11 +152,7 @@ export function ActiveUsersPage() {
   }) || [];
 
   if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <ActiveUsersPageSkeleton />;
   }
 
   if (error && !data) {

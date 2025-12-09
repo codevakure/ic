@@ -11,9 +11,10 @@ import {
   Zap,
   ArrowRight,
 } from 'lucide-react';
-import { Button, Spinner } from '@ranger/client';
+import { Button } from '@ranger/client';
 import { dashboardApi, type ToolMetrics, type ToolUsage } from '../services/adminApi';
 import { AdminBarChart, CHART_COLORS } from '../components/Charts';
+import { ToolsPageSkeleton, StatsGridSkeleton, ChartSkeleton } from '../components/Skeletons';
 
 function ToolsPage() {
   const navigate = useNavigate();
@@ -57,12 +58,9 @@ function ToolsPage() {
     navigate(`/admin/traces?${params.toString()}`);
   };
 
+  // Show full skeleton on initial load
   if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner className="text-orange-600" />
-      </div>
-    );
+    return <ToolsPageSkeleton />;
   }
 
   if (error) {

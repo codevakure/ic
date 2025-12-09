@@ -29,7 +29,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
     provider: 'openid',
     openidId: 'cognito-user-123',
     federatedTokens: {
-      access_token: 'cognito-access-token-123',
+      access_token: 'mock-access-token-valid',
       id_token: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjb2duaXRvLXVzZXItMTIzIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIiwibmFtZSI6IlRlc3QgVXNlciIsImV4cCI6MTcwMDAwMDAwMH0.fake-signature',
       expires_at: Math.floor(Date.now() / 1000) + 3600, // Expires in 1 hour
     },
@@ -38,8 +38,8 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
   const mockExpiredCognitoUser: Partial<IUser> = {
     ...mockCognitoUser,
     federatedTokens: {
-      access_token: 'expired-cognito-token',
-      id_token: 'expired-cognito-id-token',
+      access_token: 'mock-access-token-expired',
+      id_token: 'mock-id-token-expired',
       expires_at: Math.floor(Date.now() / 1000) - 3600, // Expired 1 hour ago
     },
   };
@@ -52,8 +52,8 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
     provider: 'openid',
     openidId: 'alt-user-456',
     openidTokens: {
-      access_token: 'alt-access-token-456',
-      id_token: 'alt-id-token-789',
+      access_token: 'mock-access-token-alt',
+      id_token: 'mock-id-token-alt',
       expires_at: Math.floor(Date.now() / 1000) + 3600,
     },
   };
@@ -67,7 +67,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
       const tokenInfo = extractOpenIDTokenInfo(mockCognitoUser as IUser);
 
       expect(tokenInfo).toEqual({
-        accessToken: 'cognito-access-token-123',
+        accessToken: 'mock-access-token-valid',
         idToken: expect.stringContaining('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9'),
         expiresAt: expect.any(Number),
         userId: 'cognito-user-123',
@@ -85,8 +85,8 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
       const tokenInfo = extractOpenIDTokenInfo(mockOpenIDTokensUser as IUser);
 
       expect(tokenInfo).toEqual({
-        accessToken: 'alt-access-token-456',
-        idToken: 'alt-id-token-789',
+        accessToken: 'mock-access-token-alt',
+        idToken: 'mock-id-token-alt',
         expiresAt: expect.any(Number),
         userId: 'alt-user-456',
         userEmail: 'alt@example.com',
@@ -154,18 +154,18 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
 
   describe('processOpenIDPlaceholders', () => {
     const tokenInfo: OpenIDTokenInfo = {
-      accessToken: 'cognito-access-token-123',
-      idToken: 'cognito-id-token-456',
-      userId: 'cognito-user-789',
-      userEmail: 'cognito@example.com',
-      userName: 'Cognito User',
+      accessToken: 'mock-token-valid',
+      idToken: 'mock-id-token-valid',
+      userId: 'mock-user-123',
+      userEmail: 'test@example.com',
+      userName: 'Test User',
       expiresAt: 1700000000,
     };
 
     it('should replace OpenID Connect token placeholders', () => {
       const template = 'Bearer {{RANGER_OPENID_TOKEN}}';
       const result = processOpenIDPlaceholders(template, tokenInfo);
-      expect(result).toBe('Bearer cognito-access-token-123');
+      expect(result).toBe('Bearer mock-token-valid');
     });
 
     it('should replace specific OpenID Connect placeholders', () => {
@@ -180,11 +180,11 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
 
       const result = processOpenIDPlaceholders(template, tokenInfo);
 
-      expect(result).toContain('Access: cognito-access-token-123');
-      expect(result).toContain('ID: cognito-id-token-456');
-      expect(result).toContain('User: cognito-user-789');
-      expect(result).toContain('Email: cognito@example.com');
-      expect(result).toContain('Name: Cognito User');
+      expect(result).toContain('Access: mock-token-valid');
+      expect(result).toContain('ID: mock-id-token-valid');
+      expect(result).toContain('User: mock-user-123');
+      expect(result).toContain('Email: test@example.com');
+      expect(result).toContain('Name: Test User');
       expect(result).toContain('Expires: 1700000000');
     });
 
@@ -210,11 +210,11 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
   describe('createBearerAuthHeader', () => {
     it('should create proper Bearer header with Cognito token', () => {
       const tokenInfo: OpenIDTokenInfo = {
-        accessToken: 'cognito-test-token-123',
+        accessToken: 'mock-test-token',
       };
 
       const header = createBearerAuthHeader(tokenInfo);
-      expect(header).toBe('Bearer cognito-test-token-123');
+      expect(header).toBe('Bearer mock-test-token');
     });
 
     it('should return empty string for null token info', () => {
@@ -282,7 +282,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(resolvedHeaders['Authorization']).toBe('cognito-access-token-123');
+      expect(resolvedHeaders['Authorization']).toBe('mock-access-token-valid');
       expect(resolvedHeaders['X-User-ID']).toBe('cognito-user-123');
       expect(resolvedHeaders['X-User-Email']).toBe('test@example.com');
     });
@@ -297,7 +297,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(resolvedHeaders['Authorization']).toBe('Bearer cognito-access-token-123');
+      expect(resolvedHeaders['Authorization']).toBe('Bearer mock-access-token-valid');
     });
 
     it('should work with specific access token placeholder', () => {
@@ -311,7 +311,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(resolvedHeaders['Authorization']).toBe('Bearer cognito-access-token-123');
+      expect(resolvedHeaders['Authorization']).toBe('Bearer mock-access-token-valid');
       expect(resolvedHeaders['X-Cognito-ID-Token']).toContain('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9');
     });
   });
@@ -333,7 +333,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(processedOptions.env?.['COGNITO_ACCESS_TOKEN']).toBe('cognito-access-token-123');
+      expect(processedOptions.env?.['COGNITO_ACCESS_TOKEN']).toBe('mock-access-token-valid');
       expect(processedOptions.env?.['USER_ID']).toBe('cognito-user-123');
       expect(processedOptions.env?.['USER_EMAIL']).toBe('test@example.com');
     });
@@ -354,7 +354,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(processedOptions.headers?.['Authorization']).toBe('Bearer cognito-access-token-123');
+      expect(processedOptions.headers?.['Authorization']).toBe('Bearer mock-access-token-valid');
       expect(processedOptions.headers?.['X-Cognito-User-Info']).toBe('test@example.com');
       expect(processedOptions.headers?.['X-Cognito-ID-Token']).toContain('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9');
     });
@@ -375,7 +375,7 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         user: mockCognitoUser as TUser,
       });
 
-      expect(processedOptions.env?.['AWS_COGNITO_TOKEN']).toBe('cognito-access-token-123');
+      expect(processedOptions.env?.['AWS_COGNITO_TOKEN']).toBe('mock-access-token-valid');
       expect(processedOptions.env?.['AWS_COGNITO_ID_TOKEN']).toContain('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9');
       expect(processedOptions.env?.['COGNITO_USER_SUB']).toBe('cognito-user-123');
     });
@@ -421,12 +421,12 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
       const template = '{{RANGER_OPENID_TOKEN}}-{{RANGER_OPENID_TOKEN}}-{{RANGER_OPENID_USER_ID}}';
 
       const tokenInfo: OpenIDTokenInfo = {
-        accessToken: 'cognito-token123',
-        userId: 'cognito-user456',
+        accessToken: 'mock-token-valid',
+        userId: 'mock-user-456',
       };
 
       const result = processOpenIDPlaceholders(template, tokenInfo);
-      expect(result).toBe('cognito-token123-cognito-token123-cognito-user456');
+      expect(result).toBe('mock-token-valid-mock-token-valid-mock-user-456');
     });
 
     it('should handle users without federated tokens storage', () => {
@@ -457,17 +457,17 @@ describe('OpenID Connect Federated Provider Token Integration', () => {
         provider: 'openid',
         openidId: 'priority-user',
         federatedTokens: {
-          access_token: 'federated-priority-token',
+          access_token: 'mock-federated-token',
           expires_at: Math.floor(Date.now() / 1000) + 3600,
         },
         openidTokens: {
-          access_token: 'openid-fallback-token',
+          access_token: 'mock-openid-fallback-token',
           expires_at: Math.floor(Date.now() / 1000) + 3600,
         },
       };
 
       const tokenInfo = extractOpenIDTokenInfo(userWithBothTokens as IUser);
-      expect(tokenInfo?.accessToken).toBe('federated-priority-token');
+      expect(tokenInfo?.accessToken).toBe('mock-federated-token');
     });
   });
 });

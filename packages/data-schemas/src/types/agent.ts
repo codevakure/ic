@@ -39,5 +39,6 @@ export interface IAgent extends Omit<Document, 'model'> {
   versions?: Omit<IAgent, 'versions'>[];
   category: string;
   support_contact?: ISupportContact;
+  tool_credentials?: Record<string, Record<string, string>>; // { toolName: { authField: "encrypted_value" } }
   is_promoted?: boolean;
 }

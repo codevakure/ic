@@ -1,12 +1,12 @@
 import React, { memo } from 'react';
 import { CheckboxButton, VectorIcon } from '@ranger/client';
-import { PermissionTypes, Permissions } from 'ranger-data-provider';
+import { PermissionTypes, Permissions, AgentCapabilities } from 'ranger-data-provider';
 import { useLocalize, useHasAccess } from '~/hooks';
 import { useBadgeRowContext } from '~/Providers';
 
 function FileSearch() {
   const localize = useLocalize();
-  const { fileSearch } = useBadgeRowContext();
+  const { fileSearch, isAutoEnabled } = useBadgeRowContext();
   const { toggleState: fileSearchEnabled, debouncedChange, isPinned } = fileSearch;
 
   const canUseFileSearch = useHasAccess({
@@ -14,7 +14,8 @@ function FileSearch() {
     permission: Permissions.USE,
   });
 
-  if (!canUseFileSearch) {
+  // Don't show badge if tool is auto-enabled (handled by backend intent analyzer)
+  if (!canUseFileSearch || isAutoEnabled(AgentCapabilities.file_search)) {
     return null;
   }
 

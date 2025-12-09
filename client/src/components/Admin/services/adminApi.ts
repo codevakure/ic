@@ -645,6 +645,9 @@ export interface GuardrailOutcomeData {
   violations: GuardrailViolation[];
   reason: string;
   timestamp?: string;
+  originalContent?: string;
+  modifiedContent?: string;
+  assessments?: unknown[];
 }
 
 export interface GuardrailsData {
@@ -697,6 +700,8 @@ export interface LLMTrace {
       readTokens: number;
       writeCost: number;
       readCost: number;
+      hitRatio?: number;
+      estimatedSavings?: number;
     };
     /** Detailed token breakdown by component (what's in the context) */
     tokenBreakdown?: {
@@ -710,6 +715,15 @@ export interface LLMTrace {
       // Detailed per-tool breakdown
       toolsDetail?: Array<{ name: string; tokens: number }>;
       toolContextDetail?: Array<{ name: string; tokens: number }>;
+      // Per-prompt token breakdown (branding, tool routing, etc.)
+      prompts?: {
+        branding: number;
+        toolRouting: number;
+        agentInstructions: number;
+        mcpInstructions: number;
+        artifacts: number;
+        memory: number;
+      };
     };
   };
   guardrails: GuardrailsData | null;

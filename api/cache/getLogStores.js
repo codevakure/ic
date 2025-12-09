@@ -31,8 +31,10 @@ const namespaces = {
     ttl: cacheConfig.BAN_DURATION,
   }),
 
-  [CacheKeys.OPENID_SESSION]: sessionCache(CacheKeys.OPENID_SESSION),
-  [CacheKeys.SAML_SESSION]: sessionCache(CacheKeys.SAML_SESSION),
+  // Session caches for OAuth login flow - 30 min TTL since these are only needed during the
+  // brief OAuth callback dance. After login, users receive JWT tokens and sessions can expire.
+  [CacheKeys.OPENID_SESSION]: sessionCache(CacheKeys.OPENID_SESSION, Time.THIRTY_MINUTES),
+  [CacheKeys.SAML_SESSION]: sessionCache(CacheKeys.SAML_SESSION, Time.THIRTY_MINUTES),
 
   [CacheKeys.ROLES]: standardCache(CacheKeys.ROLES),
   [CacheKeys.APP_CONFIG]: standardCache(CacheKeys.APP_CONFIG),

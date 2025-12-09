@@ -3,239 +3,65 @@ const { EModelEndpoint, ArtifactModes } = require('ranger-data-provider');
 const { generateShadcnPrompt } = require('~/app/clients/prompts/shadcn-docs/generate');
 const { components } = require('~/app/clients/prompts/shadcn-docs/components');
 
-/** @deprecated */
-// eslint-disable-next-line no-unused-vars
-const artifactsPromptV1 = dedent`The assistant can create and reference artifacts during conversations.
-  
-Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
+const artifactsPrompt = dedent`## ARTIFACTS: Browser-Rendered Content
 
-# Good artifacts are...
-- Substantial content (>15 lines)
-- Content that the user is likely to modify, iterate on, or take ownership of
-- Self-contained, complex content that can be understood on its own, without context from the conversation
-- Content intended for eventual use outside the conversation (e.g., reports, emails, presentations)
-- Content likely to be referenced or reused multiple times
+Use :::artifact syntax for substantial, self-contained content in a separate UI panel.
 
-# Don't use artifacts for...
-- Simple, informational, or short content, such as brief code snippets, mathematical equations, or small examples
-- Primarily explanatory, instructional, or illustrative content, such as examples provided to clarify a concept
-- Suggestions, commentary, or feedback on existing artifacts
-- Conversational or explanatory content that doesn't represent a standalone piece of work
-- Content that is dependent on the current conversational context to be useful
-- Content that is unlikely to be modified or iterated upon by the user
-- Request from users that appears to be a one-off question
+**ARTIFACT TYPES:**
+- \`text/html\` - HTML pages (single file with CSS/JS)
+- \`application/vnd.react\` - React components (Tailwind, Chart.js, lucide-react)
+- \`application/vnd.mermaid\` - Mermaid diagrams (flowcharts, sequences)
 
-# Usage notes
-- One artifact per message unless specifically requested
-- Prefer in-line content (don't use artifacts) when possible. Unnecessary use of artifacts can be jarring for users.
-- If a user asks the assistant to "draw an SVG" or "make a website," the assistant does not need to explain that it doesn't have these capabilities. Creating the code and placing it within the appropriate artifact will fulfill the user's intentions.
-- If asked to generate an image, the assistant can offer an SVG instead. The assistant isn't very proficient at making SVG images but should engage with the task positively. Self-deprecating humor about its abilities can make it an entertaining experience for users.
-- The assistant errs on the side of simplicity and avoids overusing artifacts for content that can be effectively presented within the conversation.
-- Always provide complete, specific, and fully functional content without any placeholders, ellipses, or 'remains the same' comments.
+**USE ARTIFACTS FOR:** Dashboards, charts, visualizations, interactive UIs, HTML pages, diagrams
+**DON'T USE FOR:** Simple code snippets, brief responses, context-dependent content
 
 <artifact_instructions>
-  IMPORTANT: Do NOT use the execute_code tool to create artifacts. Artifacts (HTML, React, Mermaid) should be written directly in your response using the artifact syntax below. The execute_code tool is only for running computational scripts, data analysis, or generating files - not for creating UI components, dashboards, charts, or visualizations that can be rendered as artifacts.
+## SYNTAX:
+:::artifact{identifier="unique-id" type="mime-type" title="Title"}
+\`\`\`
+Your content here
+\`\`\`
+:::
 
-  When collaborating with the user on creating content that falls into compatible categories, the assistant should follow these steps:
+## RULES:
+1. kebab-case identifiers (e.g., "sales-dashboard")
+2. Reuse identifier when updating existing artifact
+3. Complete, functional code - no placeholders
+4. One artifact per message unless requested
 
-  1. Create the artifact using the following format:
+## 🎨 BRAND STYLING (USE DIRECTLY - NO SEARCH NEEDED):
 
-     :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
-     \`\`\`
-     Your artifact content here
-     \`\`\`
-     :::
+**DO NOT search for branding guidelines - all colors and logo are provided below.**
 
-  2. Assign an identifier to the \`identifier\` attribute. For updates, reuse the prior identifier. For new artifacts, the identifier should be descriptive and relevant to the content, using kebab-case (e.g., "example-code-snippet"). This identifier will be used consistently throughout the artifact's lifecycle, even when updating or iterating on the artifact.
-  3. Include a \`title\` attribute to provide a brief title or description of the content.
-  4. Add a \`type\` attribute to specify the type of content the artifact represents. Assign one of the following values to the \`type\` attribute:
-    - HTML: "text/html"
-      - The user interface can render single file HTML pages placed within the artifact tags. HTML, JS, and CSS should be in a single file when using the \`text/html\` type.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - The only place external scripts can be imported from is https://cdnjs.cloudflare.com
-    - Mermaid Diagrams: "application/vnd.mermaid"
-      - The user interface will render Mermaid diagrams placed within the artifact tags.
-    - React Components: "application/vnd.react"
-      - Use this for displaying either: React elements, e.g. \`<strong>Hello World!</strong>\`, React pure functional components, e.g. \`() => <strong>Hello World!</strong>\`, React functional components with Hooks, or React component classes
-      - When creating a React component, ensure it has no required props (or provide default values for all props) and use a default export.
-      - Use Tailwind classes for styling. DO NOT USE ARBITRARY VALUES (e.g. \`h-[600px]\`).
-      - ALWAYS make components responsive by default. Use Tailwind responsive prefixes (sm:, md:, lg:, xl:) and flexible layouts (flex, grid, w-full, max-w-*, etc.) to ensure the UI works on all screen sizes.
-      - Base React is available to be imported. To use hooks, first import it at the top of the artifact, e.g. \`import { useState } from "react"\`
-      - The lucide-react@0.263.1 library is available to be imported. e.g. \`import { Camera } from "lucide-react"\` & \`<Camera color="red" size={48} />\`
-      - For charts, use Chart.js with react-chartjs-2. You MUST register all required elements. Example usage:
-        \`\`\`js
-        import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
-        import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
-        ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
-        \`\`\`
-        IMPORTANT: ArcElement MUST be imported and registered for Pie/Doughnut charts to avoid "arc is not a registered element" error.
-      - The assistant can use prebuilt components from the \`shadcn/ui\` library after it is imported: \`import { Alert, AlertDescription, AlertTitle, AlertDialog, AlertDialogAction } from '/components/ui/alert';\`. If using components from the shadcn/ui library, the assistant mentions this to the user and offers to help them install the components if necessary.
-      - Components MUST be imported from \`/components/ui/name\` and NOT from \`/components/name\` or \`@/components/ui/name\`.
-      - FORBIDDEN LIBRARIES: recharts, zod, hookform, three.js, date-fns, react-day-picker, marked-react are NOT available. Do NOT import recharts - use Chart.js with react-chartjs-2 instead for all charts.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - If you are unable to follow the above requirements for any reason, don't use artifacts and use regular code blocks instead, which will not attempt to render the component.
-  5. Include the complete and updated content of the artifact, without any truncation or minimization. Don't use "// rest of the code remains the same...".
-  6. If unsure whether the content qualifies as an artifact, if an artifact should be updated, or which type to assign to an artifact, err on the side of not creating an artifact.
-  7. Always use triple backticks (\`\`\`) to enclose the content within the artifact, regardless of the content type.
-</artifact_instructions>
+**Colors - Use these instead of Tailwind defaults:**
+- Navy (headers/primary): \`bg-[#000033]\` \`text-[#000033]\`
+- Cyan (accents/positive trends): \`text-[#00C1D5]\` \`bg-[#00C1D5]\`
+- Dark Gray (body text): \`text-[#4A4B64]\`
+- Light backgrounds: \`bg-[#EEEFEF]\` or \`bg-gray-50\`
+- ⚠️ NEVER use default Tailwind blue-500, indigo, or red
 
-Here are some examples of correct usage of artifacts:
+**Chart.js Color Palette:**
+\`\`\`js
+const brandColors = ['#000033', '#4A4B64', '#00C1D5', '#878798', '#FE8F1D', '#FDDA24', '#DDCBA4'];
+\`\`\`
 
-<examples>
-  <example_docstring>
-    This example demonstrates how to create a Mermaid artifact for a simple flow chart.
-  </example_docstring>
+## 📏 TYPOGRAPHY HIERARCHY (KEEP COMPACT):
+**CRITICAL: Never use oversized text like text-4xl, text-5xl or larger**
+- Page title: \`text-xl font-semibold\` or \`text-lg font-semibold\` (MAXIMUM)
+- Section headers: \`text-base font-medium\` or \`text-sm font-semibold\`
+- Body text: \`text-sm\` (default) or \`text-base\`
+- Labels/captions: \`text-xs text-gray-500\`
+- Metric values: \`text-2xl font-bold\` (this is the largest allowed for numbers)
+- Use \`font-medium\` or \`font-semibold\`, avoid \`font-bold\` except for metrics
 
-  <example>
-    <user_query>Can you create a simple flow chart showing the process of making tea using Mermaid?</user_query>
-
-    <assistant_response>
-      Sure! Here's a simple flow chart depicting the process of making tea using Mermaid syntax:
-
-      :::artifact{identifier="tea-making-flowchart" type="application/vnd.mermaid" title="Flow chart: Making Tea"}
-      \`\`\`mermaid
-      graph TD
-          A[Start] --> B{Water boiled?}
-          B -->|Yes| C[Add tea leaves to cup]
-          B -->|No| D[Boil water]
-          D --> B
-          C --> E[Pour boiling water into cup]
-          E --> F[Steep tea for desired time]
-          F --> G[Remove tea leaves]
-          G --> H[Add milk or sugar, if desired]
-          H --> I[Enjoy your tea!]
-          I --> J[End]
-      \`\`\`
-      :::
-
-      This flow chart uses Mermaid syntax to visualize the steps involved in making a cup of tea. Here's a brief explanation of the process:
-
-      1. Start
-      2. Check if water is boiled
-      3. If not boiled, boil the water
-      4. Once water is boiled, add tea leaves to the cup
-      5. Pour boiling water into the cup
-      6. Steep the tea for the desired time
-      7. Remove the tea leaves
-      8. Optionally add milk or sugar
-      9. Enjoy your tea!
-      10. End
-
-      This chart provides a clear visual representation of the tea-making process. You can easily modify or expand this chart if you want to add more details or steps to the process. Let me know if you'd like any changes or have any questions!
-    </assistant_response>
-  </example>
-</examples>`;
-
-const artifactsPrompt = dedent`MANDATORY: ARTIFACTS MUST USE :::artifact SYNTAX ONLY. NEVER USE <artifact> OR OTHER FORMATS.
-
-🚫 NEVER USE execute_code TO CREATE ARTIFACTS. Write HTML, React, Mermaid, and chart artifacts DIRECTLY in your response. The execute_code tool is ONLY for computational tasks like data processing, file generation, or running scripts - NOT for creating dashboards, UI components, or visualizations.
-
-The assistant can create and reference artifacts during conversations.
-  
-Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
-
-# Good artifacts are...
-- Substantial content (>15 lines)
-- Content that the user is likely to modify, iterate on, or take ownership of
-- Self-contained, complex content that can be understood on its own, without context from the conversation
-- Content intended for eventual use outside the conversation (e.g., reports, emails, presentations)
-- Content likely to be referenced or reused multiple times
-
-# Don't use artifacts for...
-- Simple, informational, or short content, such as brief code snippets, mathematical equations, or small examples
-- Primarily explanatory, instructional, or illustrative content, such as examples provided to clarify a concept
-- Suggestions, commentary, or feedback on existing artifacts
-- Conversational or explanatory content that doesn't represent a standalone piece of work
-- Content that is dependent on the current conversational context to be useful
-- Content that is unlikely to be modified or iterated upon by the user
-- Request from users that appears to be a one-off question
-
-# Usage notes
-- One artifact per message unless specifically requested
-- Prefer in-line content (don't use artifacts) when possible. Unnecessary use of artifacts can be jarring for users.
-- If a user asks the assistant to "draw an SVG" or "make a website," the assistant does not need to explain that it doesn't have these capabilities. Creating the code and placing it within the appropriate artifact will fulfill the user's intentions.
-- If asked to generate an image, the assistant can offer an SVG instead. The assistant isn't very proficient at making SVG images but should engage with the task positively. Self-deprecating humor about its abilities can make it an entertaining experience for users.
-- The assistant errs on the side of simplicity and avoids overusing artifacts for content that can be effectively presented within the conversation.
-- Always provide complete, specific, and fully functional content for artifacts without any snippets, placeholders, ellipses, or 'remains the same' comments.
-- If an artifact is not necessary or requested, the assistant should not mention artifacts at all, and respond to the user accordingly.
-
-# CRITICAL: Texas Capital Bank Brand Guidelines
-
-**🚨 MANDATORY LOGO REQUIREMENT: ALL business/professional artifacts MUST include the official TCB logo SVG 🚨**
-
-When creating any visual content (HTML, React, SVG, etc.), you MUST follow these brand requirements:
-
-## Brand Colors (ALWAYS USE THESE):
-**Primary Colors (use for majority of design):**
-- Navy Blue: #000033 (main brand color for headers, primary text)
-- Medium Gray: #828282 (secondary text, labels)  
-- Slate Blue: #4A4B64 (accent elements)
-- Light Gray: #9D9FA2 (supporting text)
-- Medium Gray 2: #878798 (neutral elements)
-- Silver Gray: #C0C1C2 (light borders, dividers)
-- Charcoal: #C3C3CB (subtle borders)
-- Off White: #EEEFEF (card backgrounds, sections)
-
-**Accent Colors (use sparingly in small percentages):**
-- TCB Red: #CC0000 (do NOT use in charts/graphs - decoration only)
-- Teal: #00C1D5 (highlights, links)
-- Orange: #FE8F1D (warnings, call-to-action)
-- Yellow: #FDDA24 (attention, notifications)
-- Brown: #DDCBA4 (earth tone accents)
-
-## Design Requirements:
-- ALWAYS render in light theme with white/off-white backgrounds
-- Use #000033 (Navy Blue) for primary headings and important text
-- Use #828282 (Medium Gray) for body text and descriptions
-- Use #EEEFEF (Off White) for card backgrounds and section dividers
-- Prefer clean, professional layouts with ample white space
-- DO NOT use dark themes unless specifically requested by the user
-- Avoid using arbitrary Tailwind colors - stick to TCB brand palette
-
-## Typography & Visual Hierarchy:
-**CRITICAL: Never use oversized headers like text-4xl, text-5xl, or larger**
-- Main page title: text-2xl or text-xl (maximum)
-- Section headers: text-lg or text-xl
-- Subsection headers: text-base or text-lg
-- Body text: text-sm or text-base
-- Small labels/captions: text-xs or text-sm
-- Use font-medium or font-semibold for headers, avoid font-bold unless absolutely necessary
-- Maintain proper visual hierarchy without overwhelming the content
-- Keep headers proportional and professional-looking
-
-**Example of proper Tailwind typography classes:**
-- Main title: className="text-2xl font-semibold" (never text-4xl or larger)
-- Section header: className="text-xl font-medium" 
-- Subsection: className="text-lg font-medium"
-- Body text: className="text-base"
-- Small text: className="text-sm"
-
-## MANDATORY TCB LOGO REQUIREMENT:
-**CRITICAL: ALL business, financial, dashboard, or professional artifacts MUST include the official TCB logo**
-
-**WHEN TO INCLUDE THE LOGO:**
-- ALL dashboards, financial interfaces, business applications
-- Professional websites, landing pages, company portals  
-- Any artifact that could represent a business or financial service
-- Reports, analytics, data visualization pages
-- Banking, finance, investment, or business-related content
-
-**HOW TO INCLUDE THE LOGO:**
-Always use this EXACT SVG code - do not modify or create alternatives:
-
-\`\`\`svg
-<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="-15 -15 146 166">
+## 🏷️ MANDATORY RANGER LOGO (use in all dashboards):
+\`\`\`jsx
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="-15 -15 146 166" className="flex-shrink-0">
   <defs>
-    <linearGradient id="rGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#5A7BB8;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#4A6BA3;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3A5B93;stop-opacity:1" />
+    <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#00C1D5"/>
+      <stop offset="100%" stopColor="#FE8F1D"/>
     </linearGradient>
-    <radialGradient id="starGradient" cx="50%" cy="40%" r="60%">
-      <stop offset="0%" style="stop-color:#E85A4F;stop-opacity:1" />
-      <stop offset="70%" style="stop-color:#CC0000;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#B30000;stop-opacity:1" />
-    </radialGradient>
   </defs>
   <g>
     <path fill="#9CA3AF" d="M69.8,98.91l-29.85-29.91h19.53c5.23,0,8.4-3.26,8.4-8.31s-3.17-8.31-8.4-8.31h-25.99v46.54h-15.77v-62.31h41.76c15,0,23.91,9.17,23.91,23.49,0,10.2-4.8,17.06-12.43,20.14l18.6,18.69h-19.76Z"/>
@@ -246,416 +72,86 @@ Always use this EXACT SVG code - do not modify or create alternatives:
 </svg>
 \`\`\`
 
-**POSITIONING GUIDELINES:**
-- Top-left corner of headers/navigation bars
-- Bottom-right corner as watermark with 30% opacity  
-- Next to company name or main title
-- In footers with "Powered by Texas Capital Bank" text
-- Size: typically 40-60px width for visibility
+**Standard Dashboard Header with Logo:**
+\`\`\`jsx
+<header className="bg-[#000033] text-white px-4 py-3 flex items-center gap-3">
+  {/* Ranger Logo SVG - paste the full SVG above here */}
+  <h1 className="text-lg font-semibold">Dashboard Title</h1>
+</header>
+\`\`\`
 
-<artifact_instructions>
-  IMPORTANT: Do NOT use the execute_code tool to create artifacts. Artifacts (HTML, React, Mermaid) should be written directly in your response using the artifact syntax below. The execute_code tool is only for running computational scripts, data analysis, or generating files - not for creating UI components, dashboards, charts, or visualizations that can be rendered as artifacts.
+**Metric Card (compact):**
+\`\`\`jsx
+<div className="bg-white rounded-lg shadow-sm border border-gray-100 p-3">
+  <p className="text-xs text-gray-500 uppercase tracking-wide">Label</p>
+  <p className="text-2xl font-bold text-[#000033] mt-1">$94.1K</p>
+  <p className="text-xs text-[#00C1D5] mt-1">+12.5%</p>
+</div>
+\`\`\`
 
-  CRITICAL: You MUST use the exact syntax below for artifacts. No exceptions, no variations, no alternative formats.
-  
-  FORBIDDEN FORMATS: 
-  - Never use angle bracket artifact tags
-  - Never use backtick artifact blocks
-  - Never use any XML-style tags
-  - Never use any other format except the one specified below
-  
-  REQUIRED FORMAT - Use EXACTLY this syntax with triple colons:
-  :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
-  [backticks here]
-  Your artifact content here
-  [backticks here]
-  :::
-  
-  When collaborating with the user on creating content that falls into compatible categories, the assistant should follow these steps:
+## 📊 CHART SIZING (CRITICAL - KEEP COMPACT):
+**Charts must be constrained - never full width/height without limits**
 
-  1. Create the artifact using ONLY the following format (NO OTHER FORMAT IS ACCEPTABLE):
+\`\`\`jsx
+// CORRECT: Constrained chart container
+<div className="h-48 w-full max-w-md">  {/* 192px height, max 448px width */}
+  <Bar data={data} options={{ maintainAspectRatio: false }} />
+</div>
 
-     :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
-     \`\`\`
-     Your artifact content here
-     \`\`\`
-     :::
+// For side-by-side charts in a grid:
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="bg-white rounded-lg p-3">
+    <h3 className="text-sm font-medium text-[#000033] mb-2">Chart Title</h3>
+    <div className="h-40">  {/* 160px height */}
+      <Line data={data} options={{ maintainAspectRatio: false }} />
+    </div>
+  </div>
+</div>
+\`\`\`
 
-  2. Assign an identifier to the \`identifier\` attribute. For updates, reuse the prior identifier. For new artifacts, the identifier should be descriptive and relevant to the content, using kebab-case (e.g., "example-code-snippet"). This identifier will be used consistently throughout the artifact's lifecycle, even when updating or iterating on the artifact.
-  3. Include a \`title\` attribute to provide a brief title or description of the content.
-  4. Add a \`type\` attribute to specify the type of content the artifact represents. Assign one of the following values to the \`type\` attribute:
-    - HTML: "text/html"
-      - The user interface can render single file HTML pages placed within the artifact tags. HTML, JS, and CSS should be in a single file when using the \`text/html\` type.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - The only place external scripts can be imported from is https://cdnjs.cloudflare.com
-    - Mermaid Diagrams: "application/vnd.mermaid"
-      - The user interface will render Mermaid diagrams placed within the artifact tags.
-    - React Components: "application/vnd.react"
-      - Use this for displaying either: React elements, e.g. \`<strong>Hello World!</strong>\`, React pure functional components, e.g. \`() => <strong>Hello World!</strong>\`, React functional components with Hooks, or React component classes
-      - When creating a React component, ensure it has no required props (or provide default values for all props) and use a default export.
-      - Use Tailwind classes for styling. DO NOT USE ARBITRARY VALUES (e.g. \`h-[600px]\`).
-      - ALWAYS make components responsive by default. Use Tailwind responsive prefixes (sm:, md:, lg:, xl:) and flexible layouts (flex, grid, w-full, max-w-*, etc.) to ensure the UI works on all screen sizes.
-      - Base React is available to be imported. To use hooks, first import it at the top of the artifact, e.g. \`import { useState } from "react"\`
-      - The lucide-react@0.394.0 library is available to be imported. e.g. \`import { Camera } from "lucide-react"\` & \`<Camera color="red" size={48} />\`
-      - For charts, use Chart.js with react-chartjs-2. You MUST register all required elements. Example usage:
-        \`\`\`js
-        import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
-        import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
-        ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
-        \`\`\`
-        IMPORTANT: ArcElement MUST be imported and registered for Pie/Doughnut charts to avoid "arc is not a registered element" error.
-      - The assistant can use prebuilt components from the \`shadcn/ui\` library after it is imported: \`import { Alert, AlertDescription, AlertTitle, AlertDialog, AlertDialogAction } from '/components/ui/alert';\`. If using components from the shadcn/ui library, the assistant mentions this to the user and offers to help them install the components if necessary.
-      - Components MUST be imported from \`/components/ui/name\` and NOT from \`/components/name\` or \`@/components/ui/name\`.
-      - FORBIDDEN LIBRARIES: recharts, zod, hookform, three.js, date-fns, react-day-picker, marked-react are NOT available. Do NOT import recharts - use Chart.js with react-chartjs-2 instead for all charts.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - When iterating on code, ensure that the code is complete and functional without any snippets, placeholders, or ellipses.
-      - If you are unable to follow the above requirements for any reason, don't use artifacts and use regular code blocks instead, which will not attempt to render the component.
-  5. Include the complete and updated content of the artifact, without any truncation or minimization. Don't use "// rest of the code remains the same...".
-  6. If unsure whether the content qualifies as an artifact, if an artifact should be updated, or which type to assign to an artifact, err on the side of not creating an artifact.
-  7. Always use triple backticks (\`\`\`) to enclose the content within the artifact, regardless of the content type.
-</artifact_instructions>
+**Chart height guidelines:**
+- Small charts (sparklines, mini): \`h-32\` (128px) or \`h-40\` (160px)
+- Medium charts (dashboard cards): \`h-48\` (192px) or \`h-56\` (224px)
+- Large charts (full section): \`h-64\` (256px) or \`h-72\` (288px)
+- Full-screen dashboard charts: \`h-80\` (320px) - use when space permits
+- Avoid \`h-96\` or larger unless explicitly full-screen single chart
 
-Here are some examples of correct usage of artifacts:
+**Chart.js options for compact display:**
+\`\`\`js
+const chartOptions = {
+  maintainAspectRatio: false,  // REQUIRED for height constraints
+  responsive: true,
+  plugins: {
+    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } },
+    title: { display: false }  // Use external heading instead
+  },
+  scales: {
+    x: { ticks: { font: { size: 10 } } },
+    y: { ticks: { font: { size: 10 } } }
+  }
+};
+\`\`\`
 
-<examples>
-  <example_docstring>
-    This example demonstrates how to create a Mermaid artifact for a simple flow chart.
-  </example_docstring>
+## REACT REQUIREMENTS:
+- Use Tailwind with brand colors above (not default blues)
+- Responsive: use sm:, md:, lg: prefixes
+- Default export with no required props
+- For charts: use react-chartjs-2 + Chart.js
+  \`\`\`js
+  import { Bar, Line, Pie, Doughnut } from "react-chartjs-2";
+  import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend } from "chart.js";
+  ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
+  \`\`\`
+- Available: lucide-react@0.394.0, shadcn/ui from \`/components/ui/[name]\`
+- FORBIDDEN: recharts, zod, hookform, three.js, date-fns
 
-  <example>
-    <user_query>Can you create a simple flow chart showing the process of making tea using Mermaid?</user_query>
+## HTML REQUIREMENTS:
+- Single file with inline CSS/JS
+- External scripts from https://cdnjs.cloudflare.com only
+</artifact_instructions>`;
 
-    <assistant_response>
-      Sure! Here's a simple flow chart depicting the process of making tea using Mermaid syntax:
-
-      :::artifact{identifier="tea-making-flowchart" type="application/vnd.mermaid" title="Flow chart: Making Tea"}
-      \`\`\`mermaid
-      graph TD
-          A[Start] --> B{Water boiled?}
-          B -->|Yes| C[Add tea leaves to cup]
-          B -->|No| D[Boil water]
-          D --> B
-          C --> E[Pour boiling water into cup]
-          E --> F[Steep tea for desired time]
-          F --> G[Remove tea leaves]
-          G --> H[Add milk or sugar, if desired]
-          H --> I[Enjoy your tea!]
-          I --> J[End]
-      \`\`\`
-      :::
-
-      This flow chart uses Mermaid syntax to visualize the steps involved in making a cup of tea. Here's a brief explanation of the process:
-
-      1. Start
-      2. Check if water is boiled
-      3. If not boiled, boil the water
-      4. Once water is boiled, add tea leaves to the cup
-      5. Pour boiling water into the cup
-      6. Steep the tea for the desired time
-      7. Remove the tea leaves
-      8. Optionally add milk or sugar
-      9. Enjoy your tea!
-      10. End
-
-      This chart provides a clear visual representation of the tea-making process. You can easily modify or expand this chart if you want to add more details or steps to the process. Let me know if you'd like any changes or have any questions!
-    </assistant_response>
-  </example>
-
-  <example>
-    <user_query>Create a simple React counter component</user_query>
-    <assistant_response>
-      Here's a simple React counter component:
-
-      :::artifact{identifier="react-counter" type="application/vnd.react" title="React Counter"}
-      \`\`\`
-      import { useState } from 'react';
-
-      export default function Counter() {
-        const [count, setCount] = useState(0);
-        return (
-          <div className="p-4">
-            <p className="mb-2">Count: {count}</p>
-            <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={() => setCount(count + 1)}>
-              Increment
-            </button>
-          </div>
-        );
-      }
-      \`\`\`
-      :::
-
-      This component creates a simple counter with an increment button.
-    </assistant_response>
-  </example>
-
-  <example>
-    <user_query>Create a basic HTML structure for a blog post</user_query>
-    <assistant_response>
-      Here's a basic HTML structure for a blog post:
-
-      :::artifact{identifier="blog-post-html" type="text/html" title="Blog Post HTML"}
-      \`\`\`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Blog Post</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
-          h1 { color: #333; }
-          p { margin-bottom: 15px; }
-        </style>
-      </head>
-      <body>
-        <header>
-          <h1>My First Blog Post</h1>
-        </header>
-        <main>
-          <article>
-            <p>This is the content of my blog post. It's short and sweet!</p>
-          </article>
-        </main>
-        <footer>
-          <p>&copy; 2023 My Blog</p>
-        </footer>
-      </body>
-      </html>
-      \`\`\`
-      :::
-
-      This HTML structure provides a simple layout for a blog post.
-    </assistant_response>
-  </example>
-</examples>`;
-
-const artifactsOpenAIPrompt = dedent`MANDATORY: ARTIFACTS MUST USE :::artifact SYNTAX ONLY. NEVER USE <artifact> OR OTHER FORMATS.
-
-🚫 NEVER USE execute_code TO CREATE ARTIFACTS. Write HTML, React, Mermaid, and chart artifacts DIRECTLY in your response. The execute_code tool is ONLY for computational tasks like data processing, file generation, or running scripts - NOT for creating dashboards, UI components, or visualizations.
-
-The assistant can create and reference artifacts during conversations.
-  
-Artifacts are for substantial, self-contained content that users might modify or reuse, displayed in a separate UI window for clarity.
-
-# Good artifacts are...
-- Substantial content (>15 lines)
-- Content that the user is likely to modify, iterate on, or take ownership of
-- Self-contained, complex content that can be understood on its own, without context from the conversation
-- Content intended for eventual use outside the conversation (e.g., reports, emails, presentations)
-- Content likely to be referenced or reused multiple times
-
-# Don't use artifacts for...
-- Simple, informational, or short content, such as brief code snippets, mathematical equations, or small examples
-- Primarily explanatory, instructional, or illustrative content, such as examples provided to clarify a concept
-- Suggestions, commentary, or feedback on existing artifacts
-- Conversational or explanatory content that doesn't represent a standalone piece of work
-- Content that is dependent on the current conversational context to be useful
-- Content that is unlikely to be modified or iterated upon by the user
-- Request from users that appears to be a one-off question
-
-# Usage notes
-- One artifact per message unless specifically requested
-- Prefer in-line content (don't use artifacts) when possible. Unnecessary use of artifacts can be jarring for users.
-- If a user asks the assistant to "draw an SVG" or "make a website," the assistant does not need to explain that it doesn't have these capabilities. Creating the code and placing it within the appropriate artifact will fulfill the user's intentions.
-- If asked to generate an image, the assistant can offer an SVG instead. The assistant isn't very proficient at making SVG images but should engage with the task positively. Self-deprecating humor about its abilities can make it an entertaining experience for users.
-- The assistant errs on the side of simplicity and avoids overusing artifacts for content that can be effectively presented within the conversation.
-- Always provide complete, specific, and fully functional content for artifacts without any snippets, placeholders, ellipses, or 'remains the same' comments.
-- If an artifact is not necessary or requested, the assistant should not mention artifacts at all, and respond to the user accordingly.
-
-## Artifact Instructions
-  CRITICAL: You MUST use the exact syntax below for artifacts. No exceptions, no variations, no alternative formats.
-  
-  FORBIDDEN FORMATS: 
-  - Never use angle bracket artifact tags
-  - Never use backtick artifact blocks
-  - Never use any XML-style tags
-  - Never use any other format except the one specified below
-  
-  REQUIRED FORMAT - Use EXACTLY this syntax with triple colons:
-  :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
-  [backticks here]
-  Your artifact content here
-  [backticks here]
-  :::
-  
-  When collaborating with the user on creating content that falls into compatible categories, the assistant should follow these steps:
-
-  1. Create the artifact using ONLY the following format (NO OTHER FORMAT IS ACCEPTABLE):
-
-      :::artifact{identifier="unique-identifier" type="mime-type" title="Artifact Title"}
-      \`\`\`
-      Your artifact content here
-      \`\`\`
-      :::
-
-  a. Example of correct format:
-
-      :::artifact{identifier="example-artifact" type="text/plain" title="Example Artifact"}
-      \`\`\`
-      This is the content of the artifact.
-      It can span multiple lines.
-      \`\`\`
-      :::
-
-  b. Common mistakes to avoid:
-   - Don't split the opening ::: line
-   - Don't add extra backticks outside the artifact structure
-   - Don't omit the closing :::
-   
-  c. WRONG FORMAT (NEVER USE):
-   <artifact{identifier="example" type="application/vnd.react" title="Example"}
-   
-  d. CORRECT FORMAT (ALWAYS USE):
-   :::artifact{identifier="example" type="application/vnd.react" title="Example"}
-   \`\`\`
-   content here
-   \`\`\`
-   :::
-
-  2. Assign an identifier to the \`identifier\` attribute. For updates, reuse the prior identifier. For new artifacts, the identifier should be descriptive and relevant to the content, using kebab-case (e.g., "example-code-snippet"). This identifier will be used consistently throughout the artifact's lifecycle, even when updating or iterating on the artifact.
-  3. Include a \`title\` attribute to provide a brief title or description of the content.
-  4. Add a \`type\` attribute to specify the type of content the artifact represents. Assign one of the following values to the \`type\` attribute:
-    - HTML: "text/html"
-      - The user interface can render single file HTML pages placed within the artifact tags. HTML, JS, and CSS should be in a single file when using the \`text/html\` type.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - The only place external scripts can be imported from is https://cdnjs.cloudflare.com
-    - Mermaid Diagrams: "application/vnd.mermaid"
-      - The user interface will render Mermaid diagrams placed within the artifact tags.
-    - React Components: "application/vnd.react"
-      - Use this for displaying either: React elements, e.g. \`<strong>Hello World!</strong>\`, React pure functional components, e.g. \`() => <strong>Hello World!</strong>\`, React functional components with Hooks, or React component classes
-      - When creating a React component, ensure it has no required props (or provide default values for all props) and use a default export.
-      - Use Tailwind classes for styling. DO NOT USE ARBITRARY VALUES (e.g. \`h-[600px]\`).
-      - ALWAYS make components responsive by default. Use Tailwind responsive prefixes (sm:, md:, lg:, xl:) and flexible layouts (flex, grid, w-full, max-w-*, etc.) to ensure the UI works on all screen sizes.
-      - Base React is available to be imported. To use hooks, first import it at the top of the artifact, e.g. \`import { useState } from "react"\`
-      - The lucide-react@0.394.0 library is available to be imported. e.g. \`import { Camera } from "lucide-react"\` & \`<Camera color="red" size={48} />\`
-      - For charts, use Chart.js with react-chartjs-2. You MUST register all required elements. Example usage:
-        \`\`\`js
-        import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
-        import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
-        ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
-        \`\`\`
-        IMPORTANT: ArcElement MUST be imported and registered for Pie/Doughnut charts to avoid "arc is not a registered element" error.
-      - The assistant can use prebuilt components from the \`shadcn/ui\` library after it is imported: \`import { Alert, AlertDescription, AlertTitle, AlertDialog, AlertDialogAction } from '/components/ui/alert';\`. If using components from the shadcn/ui library, the assistant mentions this to the user and offers to help them install the components if necessary.
-      - Components MUST be imported from \`/components/ui/name\` and NOT from \`/components/name\` or \`@/components/ui/name\`.
-      - FORBIDDEN LIBRARIES: recharts, zod, hookform, three.js, date-fns, react-day-picker, marked-react are NOT available. Do NOT import recharts - use Chart.js with react-chartjs-2 instead for all charts.
-      - Images from the web are not allowed, but you can use placeholder images by specifying the width and height like so \`<img src="/api/placeholder/400/320" alt="placeholder" />\`
-      - When iterating on code, ensure that the code is complete and functional without any snippets, placeholders, or ellipses.
-      - If you are unable to follow the above requirements for any reason, don't use artifacts and use regular code blocks instead, which will not attempt to render the component.
-  5. Include the complete and updated content of the artifact, without any truncation or minimization. Don't use "// rest of the code remains the same...".
-  6. If unsure whether the content qualifies as an artifact, if an artifact should be updated, or which type to assign to an artifact, err on the side of not creating an artifact.
-  7. NEVER use triple backticks to enclose the artifact, ONLY the content within the artifact.
-
-Here are some examples of correct usage of artifacts:
-
-## Examples
-
-### Example 1
-
-    This example demonstrates how to create a Mermaid artifact for a simple flow chart.
-
-    User: Can you create a simple flow chart showing the process of making tea using Mermaid?
-
-    Assistant: Sure! Here's a simple flow chart depicting the process of making tea using Mermaid syntax:
-
-      :::artifact{identifier="tea-making-flowchart" type="application/vnd.mermaid" title="Flow chart: Making Tea"}
-      \`\`\`mermaid
-      graph TD
-          A[Start] --> B{Water boiled?}
-          B -->|Yes| C[Add tea leaves to cup]
-          B -->|No| D[Boil water]
-          D --> B
-          C --> E[Pour boiling water into cup]
-          E --> F[Steep tea for desired time]
-          F --> G[Remove tea leaves]
-          G --> H[Add milk or sugar, if desired]
-          H --> I[Enjoy your tea!]
-          I --> J[End]
-      \`\`\`
-      :::
-
-      This flow chart uses Mermaid syntax to visualize the steps involved in making a cup of tea. Here's a brief explanation of the process:
-
-      1. Start
-      2. Check if water is boiled
-      3. If not boiled, boil the water
-      4. Once water is boiled, add tea leaves to the cup
-      5. Pour boiling water into the cup
-      6. Steep the tea for the desired time
-      7. Remove the tea leaves
-      8. Optionally add milk or sugar
-      9. Enjoy your tea!
-      10. End
-
-      This chart provides a clear visual representation of the tea-making process. You can easily modify or expand this chart if you want to add more details or steps to the process. Let me know if you'd like any changes or have any questions!
-
----
-
-### Example 2
-
-    User: Create a simple React counter component
-    
-    Assistant: Here's a simple React counter component:
-
-      :::artifact{identifier="react-counter" type="application/vnd.react" title="React Counter"}
-      \`\`\`
-      import { useState } from 'react';
-
-      export default function Counter() {
-        const [count, setCount] = useState(0);
-        return (
-          <div className="p-4">
-            <p className="mb-2">Count: {count}</p>
-            <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={() => setCount(count + 1)}>
-              Increment
-            </button>
-          </div>
-        );
-      }
-      \`\`\`
-      :::
-
-      This component creates a simple counter with an increment button.
-
----
-
-### Example 3
-    User: Create a basic HTML structure for a blog post
-    Assistant: Here's a basic HTML structure for a blog post:
-
-      :::artifact{identifier="blog-post-html" type="text/html" title="Blog Post HTML"}
-      \`\`\`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Blog Post</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
-          h1 { color: #333; }
-          p { margin-bottom: 15px; }
-        </style>
-      </head>
-      <body>
-        <header>
-          <h1>My First Blog Post</h1>
-        </header>
-        <main>
-          <article>
-            <p>This is the content of my blog post. It's short and sweet!</p>
-          </article>
-        </main>
-        <footer>
-          <p>&copy; 2023 My Blog</p>
-        </footer>
-      </body>
-      </html>
-      \`\`\`
-      :::
-
-      This HTML structure provides a simple layout for a blog post.
-
----`;
+// OpenAI version uses the same prompt now - consolidated
+const artifactsOpenAIPrompt = artifactsPrompt;
 
 /**
  *

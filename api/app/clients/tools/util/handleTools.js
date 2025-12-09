@@ -220,7 +220,7 @@ const loadTools = async ({
   const customConstructors = {
     youtube: async (_toolContextMap) => {
       const authFields = getAuthFields('youtube');
-      const authValues = await loadAuthValues({ userId: user, authFields });
+      const authValues = await loadAuthValues({ userId: user, authFields, agentId: options.agentId, toolKey: 'youtube' });
       return createYouTubeTools(authValues);
     },
     youtube_video: async (toolContextMap) => {
@@ -243,7 +243,7 @@ Returns: Video title, description, author, and full transcript text.`;
     },
     image_gen_oai: async (toolContextMap) => {
       const authFields = getAuthFields('image_gen_oai');
-      const authValues = await loadAuthValues({ userId: user, authFields });
+      const authValues = await loadAuthValues({ userId: user, authFields, agentId: options.agentId, toolKey: 'image_gen_oai' });
       const imageFiles = options.tool_resources?.[EToolResources.image_edit]?.files ?? [];
       let toolContext = '';
       for (let i = 0; i < imageFiles.length; i++) {
@@ -306,6 +306,8 @@ Returns: Video title, description, author, and full transcript text.`;
         const authValues = await loadAuthValues({
           userId: user,
           authFields: [EnvVar.CODE_API_KEY],
+          agentId: options.agentId,
+          toolKey: Tools.execute_code,
         });
         const codeApiKey = authValues[EnvVar.CODE_API_KEY];
         const { files, toolContext } = await primeCodeFiles(
@@ -374,9 +376,17 @@ Returns: Video title, description, author, and full transcript text.`;
       };
       continue;
     } else if (tool === Tools.web_search) {
+      // Wrap loadAuthValues to include agentId and toolKey for agent-embedded credentials
+      const wrappedLoadAuthValues = async (params) => {
+        return loadAuthValues({
+          ...params,
+          agentId: options.agentId,
+          toolKey: Tools.web_search,
+        });
+      };
       const result = await loadWebSearchAuth({
         userId: user,
-        loadAuthValues,
+        loadAuthValues: wrappedLoadAuthValues,
         webSearchConfig: webSearch,
       });
       const { onSearchResults, onGetHighlights } = options?.[Tools.web_search] ?? {};
@@ -437,12 +447,12 @@ Returns: Video title, description, author, and full transcript text.`;
     }
 
     if (toolConstructors[tool]) {
-      const options = toolOptions[tool] || {};
+      const toolSpecificOptions = toolOptions[tool] || {};
       const toolInstance = loadToolWithAuth(
         user,
         getAuthFields(tool),
         toolConstructors[tool],
-        options,
+        { ...toolSpecificOptions, agentId: options.agentId, toolKey: tool },
       );
       requestedTools[tool] = toolInstance;
       continue;

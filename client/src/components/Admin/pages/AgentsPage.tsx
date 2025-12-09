@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { dashboardApi, type AgentMetrics } from '../services/adminApi';
+import { AgentsPageSkeleton, StatsGridSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 interface AgentData {
@@ -222,6 +223,11 @@ function AgentsPage() {
       },
     ];
   }, [agents, totals]);
+
+  // Show full skeleton on initial load
+  if (loading && !agentsData) {
+    return <AgentsPageSkeleton />;
+  }
 
   return (
     <div className="space-y-4 p-4 md:p-6">

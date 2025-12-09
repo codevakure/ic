@@ -145,6 +145,55 @@ const findMatchingPricing = (model) => {
 };
 
 /**
+ * Check if a string looks like a valid model ID (not an agent ID)
+ * Agent IDs are typically UUIDs or MongoDB ObjectIds, while model IDs contain
+ * provider and model name patterns like 'anthropic', 'claude', 'nova', 'amazon', etc.
+ * @param {string} modelOrId - The string to check
+ * @returns {boolean} True if it looks like a model ID
+ */
+const isValidModelId = (modelOrId) => {
+  if (!modelOrId) return false;
+  const lower = modelOrId.toLowerCase();
+  
+  // Check for common model patterns
+  const modelPatterns = [
+    'anthropic', 'claude', 'sonnet', 'haiku', 'opus',
+    'amazon', 'nova', 'gpt', 'openai', 'bedrock',
+    'mistral', 'llama', 'titan', 'cohere', 'ai21'
+  ];
+  
+  return modelPatterns.some(pattern => lower.includes(pattern));
+};
+
+/**
+ * Resolve the actual model ID for a message, handling the case where
+ * agent messages may have agent_id stored in the model field (legacy behavior).
+ * Falls back to transaction model if the message model doesn't look like a real model.
+ * @param {Object} aiMsg - The AI message document
+ * @param {Array} transactions - Associated transactions for this message
+ * @returns {string} The resolved model ID
+ */
+const resolveModelId = (aiMsg, transactions = []) => {
+  // If the message model looks like a valid model, use it
+  if (isValidModelId(aiMsg.model)) {
+    return aiMsg.model;
+  }
+  
+  // Fall back to transaction model (transactions always have the correct model)
+  if (transactions.length > 0) {
+    // Prefer the first transaction with a valid model
+    for (const tx of transactions) {
+      if (isValidModelId(tx.model)) {
+        return tx.model;
+      }
+    }
+  }
+  
+  // If all else fails, return whatever we have (could be agent_id or null)
+  return aiMsg.model || 'unknown';
+};
+
+/**
  * Extract guardrails data from user and AI messages
  * Checks both messages for tracking metadata
  * @param {Object} userMessage - User message object
@@ -266,7 +315,7 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
     
     // Parse date range or default to current month
     let startDate, endDate;
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -526,7 +575,7 @@ const getUserMetrics = async (startDateStr, endDateStr) => {
     // Parse date range or default to current month
     let startDate, endDate;
     const now = new Date();
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -545,28 +594,23 @@ const getUserMetrics = async (startDateStr, endDateStr) => {
         },
       },
       {
+        $addFields: {
+          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        },
+      },
+      {
         $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
-          },
+          _id: '$dateStr',
           count: { $sum: 1 },
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
+        $sort: { '_id': 1 },
       },
       {
         $project: {
           _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
-          },
+          date: { $toDate: '$_id' },
           count: 1,
         },
       },
@@ -600,28 +644,23 @@ const getUserMetrics = async (startDateStr, endDateStr) => {
         },
       },
       {
+        $addFields: {
+          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt', timezone: 'UTC' } },
+        },
+      },
+      {
         $group: {
-          _id: {
-            year: { $year: '$updatedAt' },
-            month: { $month: '$updatedAt' },
-            day: { $dayOfMonth: '$updatedAt' },
-          },
+          _id: '$dateStr',
           count: { $sum: 1 },
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
+        $sort: { '_id': 1 },
       },
       {
         $project: {
           _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
-          },
+          date: { $toDate: '$_id' },
           count: 1,
         },
       },
@@ -662,7 +701,7 @@ const getConversationMetrics = async (startDateStr, endDateStr) => {
     // Parse date range or default to current month
     let startDate, endDate;
     const now = new Date();
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -681,28 +720,23 @@ const getConversationMetrics = async (startDateStr, endDateStr) => {
         },
       },
       {
+        $addFields: {
+          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        },
+      },
+      {
         $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
-          },
+          _id: '$dateStr',
           count: { $sum: 1 },
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
+        $sort: { '_id': 1 },
       },
       {
         $project: {
           _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
-          },
+          date: { $toDate: '$_id' },
           count: 1,
         },
       },
@@ -800,7 +834,7 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
     // Parse date range or default to current month
     let startDate, endDate;
     const now = new Date();
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -942,12 +976,13 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
         },
       },
       {
+        $addFields: {
+          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        },
+      },
+      {
         $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
-          },
+          _id: '$dateStr',
           inputTokens: { 
             $sum: { 
               $cond: [{ $eq: ['$tokenType', 'prompt'] }, { $abs: '$rawAmount' }, 0] 
@@ -962,18 +997,12 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
+        $sort: { '_id': 1 },
       },
       {
         $project: {
           _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
-          },
+          date: { $toDate: '$_id' },
           inputTokens: 1,
           outputTokens: 1,
           transactions: '$count',
@@ -1094,7 +1123,7 @@ const getModelMetrics = async (startDateStr, endDateStr) => {
     // Parse date range or default to current month
     let startDate, endDate;
     const now = new Date();
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -1250,10 +1279,14 @@ const getModelMetrics = async (startDateStr, endDateStr) => {
  */
 const getAgentMetrics = async (startDateStr, endDateStr) => {
   try {
+    // Validate that the date strings are actual strings (not arrays or other types)
+    if ((startDateStr && typeof startDateStr !== 'string') || (endDateStr && typeof endDateStr !== 'string')) {
+      throw new Error('Invalid date parameters: must be strings');
+    }
     // Parse date range or default to current month
     let startDate, endDate;
     const now = new Date();
-    if (startDateStr && endDateStr) {
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
       // Handle both YYYY-MM-DD and full ISO strings
       const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
       const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
@@ -2193,6 +2226,9 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
           }));
         }
 
+        // Resolve the actual model ID (handles legacy case where agent_id was stored in model field)
+        const resolvedModel = resolveModelId(aiMsg, transactions);
+
         return {
           id: aiMsg._id.toString(),
           messageId: aiMsg.messageId,
@@ -2215,8 +2251,8 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
           },
           // Trace details
           trace: {
-            model: aiMsg.model,
-            modelName: MODEL_PRICING[aiMsg.model]?.name || findMatchingPricing(aiMsg.model)?.name || aiMsg.model,
+            model: resolvedModel,
+            modelName: MODEL_PRICING[resolvedModel]?.name || findMatchingPricing(resolvedModel)?.name || resolvedModel,
             endpoint: aiMsg.endpoint,
             sender: aiMsg.sender,
             // Tokens - full breakdown including cache
@@ -2238,7 +2274,7 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
                 : 0,
               // Estimated savings from cache reads (90% discount on cached tokens)
               estimatedSavings: parseFloat((cacheReadTokens > 0 
-                ? (cacheReadTokens / 1000000) * ((MODEL_PRICING[aiMsg.model]?.input || 1) * 0.9)
+                ? (cacheReadTokens / 1000000) * ((MODEL_PRICING[resolvedModel]?.input || findMatchingPricing(resolvedModel)?.input || 1) * 0.9)
                 : 0).toFixed(6)),
             },
             // Context breakdown - what's in those tokens (system prompt, artifacts, tools, etc.)
@@ -2253,6 +2289,8 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
               // Detailed per-tool breakdown
               toolsDetail: contextBreakdown.toolsDetail || [],
               toolContextDetail: contextBreakdown.toolContextDetail || [],
+              // Per-prompt token breakdown (branding, tool routing, etc.)
+              prompts: contextBreakdown.prompts || null,
             } : null,
             // Costs - accurate with cache token rates
             inputCost: parseFloat(inputCost.toFixed(6)),

@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut, User } from 'lucide-react';
+import { FileText, LogOut, User, HelpCircle } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator, Avatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
@@ -78,7 +78,16 @@ function AccountSettings() {
           <FileText className="icon-md" aria-hidden="true" />
           {localize('com_nav_my_files')}
         </Select.SelectItem>
-        {startupConfig?.helpAndFaqURL !== '/' && (
+        <Select.SelectItem
+          value=""
+          onClick={() => window.open('/docs', '_blank')}
+          className="select-item text-sm"
+        >
+          <HelpCircle className="icon-md" aria-hidden="true" />
+          {localize('com_nav_help_documentation')}
+        </Select.SelectItem>
+        {/* Help/FAQ intentionally hidden per customization request */}
+        {false && startupConfig?.helpAndFaqURL !== '/' && (
           <Select.SelectItem
             value=""
             onClick={() => window.open(startupConfig?.helpAndFaqURL, '_blank')}

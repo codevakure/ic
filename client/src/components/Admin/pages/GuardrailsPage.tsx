@@ -21,6 +21,7 @@ import {
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { AdminMultiBarChart, CHART_COLORS } from '../components/Charts';
 import { dashboardApi, type GuardrailsMetrics } from '../services/adminApi';
+import { GuardrailsPageSkeleton, StatsGridSkeleton, ChartSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 interface ViolationRow {
@@ -184,6 +185,11 @@ function GuardrailsPage() {
       onClick: () => navigate('/admin/traces?guardrails=anonymized'),
     },
   ];
+
+  // Show full skeleton on initial load
+  if (loading && !guardrailsData) {
+    return <GuardrailsPageSkeleton />;
+  }
 
   return (
     <div className="space-y-6 p-6">

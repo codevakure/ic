@@ -49,9 +49,10 @@
     "build:guardrails": "cd packages/guardrails && npm run build",
     "build:doc-viewer": "cd packages/doc-viewer && npm run build",
     "build:datadog": "cd packages/datadog-llm-observability && npm run build",
+    "build:triggers": "cd packages/triggers && npm run build",
     "build:docs": "cd docs && npm run build",
-    "build:packages": "npm run build:data-provider && npm run build:data-schemas && npm run build:api && npm run build:intent-analyzer && npm run build:guardrails && npm run build:doc-viewer && npm run build:datadog && npm run build:client-package",
-    "frontend": "npm run build:data-provider && npm run build:data-schemas && npm run build:api && npm run build:intent-analyzer && npm run build:guardrails && npm run build:doc-viewer && npm run build:datadog && npm run build:client-package && cd client && npm run build && cd .. && npm run build:docs",
+    "build:packages": "npm run build:data-provider && npm run build:data-schemas && npm run build:api && npm run build:intent-analyzer && npm run build:guardrails && npm run build:doc-viewer && npm run build:datadog && npm run build:triggers && npm run build:client-package",
+    "frontend": "npm run build:data-provider && npm run build:data-schemas && npm run build:api && npm run build:intent-analyzer && npm run build:guardrails && npm run build:doc-viewer && npm run build:datadog && npm run build:triggers && npm run build:client-package && cd client && npm run build && cd .. && npm run build:docs",
     "frontend:ci": "npm run build:data-provider && npm run build:client-package && cd client && npm run build:ci",
     "frontend:dev": "cd client && npm run dev",
     "e2e": "playwright test --config=e2e/playwright.config.local.ts",
@@ -160,5 +161,9 @@
       "admin/",
       "packages/"
     ]
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.947.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.947.0"
   }
 }

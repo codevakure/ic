@@ -34,6 +34,7 @@ import {
 import {
   dashboardApi,
   systemApi,
+  usersApi,
   type DashboardOverview,
   type TokenMetrics,
   type HourlyActivity,
@@ -43,6 +44,12 @@ import {
   type ToolMetrics,
   type GuardrailsMetrics,
 } from '../services/adminApi';
+import { 
+  DashboardPageSkeleton,
+  StatCardSkeleton,
+  ChartSkeleton,
+  StatsGridSkeleton,
+} from '../components/Skeletons';
 import { cn } from '~/utils';
 
 // Date range presets
@@ -247,13 +254,10 @@ function DashboardPage() {
       if (toolsRes.status === 'fulfilled') setToolMetrics(toolsRes.value);
       if (guardrailsRes.status === 'fulfilled') setGuardrailsMetrics(guardrailsRes.value);
 
-      // Fetch banned users count
+      // Fetch banned users count using proper API
       try {
-        const response = await fetch('/api/admin/users?status=banned&limit=1');
-        if (response.ok) {
-          const data = await response.json();
-          setBannedCount(data.pagination?.total || 0);
-        }
+        const bannedData = await usersApi.list({ status: 'banned', limit: 1 });
+        setBannedCount(bannedData.pagination?.total || 0);
       } catch {
         // Ignore error for banned count
       }
@@ -381,15 +385,9 @@ function DashboardPage() {
     return DATE_PRESETS.find(p => p.value === datePreset)?.label || 'Today';
   }, [datePreset, customStartDate, customEndDate]);
 
+  // Show full skeleton on initial load
   if (loading && !overview) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="flex items-center gap-3 text-text-secondary">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
+    return <DashboardPageSkeleton />;
   }
 
   return (
@@ -501,7 +499,9 @@ function DashboardPage() {
               <span className="text-xs font-medium text-text-secondary">Live</span>
             </div>
           </div>
-          {hourlyData.length > 0 ? (
+          {loading && !hourlyActivity ? (
+            <div className="h-[220px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : hourlyData.length > 0 ? (
             <AdminAreaChart
               data={hourlyData}
               dataKey="value"
@@ -551,7 +551,7 @@ function DashboardPage() {
           <MetricCard
             title="Cost"
             value={formatCurrency(tokenMetrics?.summary?.totalCost ?? 0)}
-            subtitle={tokenMetrics?.summary?.cacheSavings ? `Saved ${formatCurrency(tokenMetrics.summary.cacheSavings)} from cache` : (datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`)}
+            subtitle={tokenMetrics?.summary?.totalCacheSavings ? `Saved ${formatCurrency(tokenMetrics.summary.totalCacheSavings)} from cache` : (datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`)}
             icon={<Coins className="h-4 w-4" />}
             iconColor="text-orange-600 dark:text-orange-400"
             iconBg="bg-orange-500/10"
@@ -613,7 +613,9 @@ function DashboardPage() {
             </div>
             <Zap className="h-4 w-4 text-text-tertiary" />
           </div>
-          {modelUsageData.length > 0 ? (
+          {loading && !tokenMetrics ? (
+            <div className="h-[200px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : modelUsageData.length > 0 ? (
             <AdminBarChart
               data={modelUsageData}
               height={200}
@@ -646,7 +648,9 @@ function DashboardPage() {
               </div>
             </div>
           </div>
-          {dailyLLMData.length > 0 ? (
+          {loading && !tokenMetrics ? (
+            <div className="h-[200px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : dailyLLMData.length > 0 ? (
             <AdminMultiBarChart
               data={dailyLLMData}
               dataKeys={[
@@ -676,7 +680,9 @@ function DashboardPage() {
             </div>
             <Activity className="h-4 w-4 text-text-tertiary" />
           </div>
-          {endpointData.length > 0 ? (
+          {loading && !conversationMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : endpointData.length > 0 ? (
             <AdminBarChart
               data={endpointData}
               height={160}
@@ -700,7 +706,9 @@ function DashboardPage() {
             </div>
             <Bot className="h-4 w-4 text-text-tertiary" />
           </div>
-          {conversationsByModelData.length > 0 ? (
+          {loading && !conversationMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : conversationsByModelData.length > 0 ? (
             <AdminBarChart
               data={conversationsByModelData}
               height={160}
@@ -732,7 +740,9 @@ function DashboardPage() {
             </div>
             <Wrench className="h-4 w-4 text-text-tertiary" />
           </div>
-          {toolsUsageData.length > 0 ? (
+          {loading && !toolMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : toolsUsageData.length > 0 ? (
             <AdminAreaChart
               data={toolsUsageData}
               dataKey="value"
@@ -761,7 +771,9 @@ function DashboardPage() {
             </div>
             <Shield className="h-4 w-4 text-text-tertiary" />
           </div>
-          {guardrailsData.length > 0 ? (
+          {loading && !guardrailsMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : guardrailsData.length > 0 ? (
             <AdminMultiBarChart
               data={guardrailsData}
               dataKeys={[
@@ -850,6 +862,7 @@ function DashboardPage() {
       {/* ROW 6: 4 Static Metrics (don't change with filter) */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <MetricCard
+          key="active-sessions"
           title="Active Sessions"
           value={overview?.activeSessions ?? 0}
           subtitle="Currently online"
@@ -859,6 +872,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-messages"
           title="Total Messages"
           value={overview?.messages.total ?? 0}
           subtitle={`${overview?.messages.today ?? 0} today`}
@@ -868,6 +882,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-users"
           title="Total Users"
           value={overview?.users.total ?? 0}
           subtitle={`${overview?.users.thisMonth ?? 0} this month`}
@@ -878,6 +893,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-conversations"
           title="Total Conversations"
           value={conversationMetrics?.summary?.total ?? overview?.conversations.total ?? 0}
           subtitle="All time"
@@ -887,6 +903,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="agents"
           title="Agents"
           value={overview?.agents?.total ?? 0}
           subtitle="Custom assistants"
@@ -896,6 +913,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="banned-users"
           title="Banned Users"
           value={bannedCount}
           subtitle="Access restricted"

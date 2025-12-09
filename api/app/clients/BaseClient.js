@@ -99,11 +99,16 @@ class BaseClient {
   }
 
   /**
+   * Returns the model name for the response message.
+   * For agents, returns the actual LLM model from model_parameters, not the agent ID.
+   * The agent_id is stored separately in saveOptions and conversation metadata.
    * @returns {string}
    */
   getResponseModel() {
-    if (isAgentsEndpoint(this.options.endpoint) && this.options.agent && this.options.agent.id) {
-      return this.options.agent.id;
+    // For agents, return the actual LLM model used, not the agent ID
+    // This ensures proper model tracking for costs and traces
+    if (isAgentsEndpoint(this.options.endpoint) && this.options.agent) {
+      return this.options.agent.model_parameters?.model ?? this.model;
     }
 
     return this.modelOptions?.model ?? this.model;

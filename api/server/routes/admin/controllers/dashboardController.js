@@ -13,7 +13,14 @@ const adminService = require('../services/adminService');
  */
 const getOverview = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
+    // Type coercion and validation: accept string, else pick first from array, else undefined
+    startDate = typeof startDate === 'string' ? startDate
+               : Array.isArray(startDate) && typeof startDate[0] === 'string' ? startDate[0]
+               : undefined;
+    endDate = typeof endDate === 'string' ? endDate
+               : Array.isArray(endDate) && typeof endDate[0] === 'string' ? endDate[0]
+               : undefined;
     const overview = await adminService.getOverviewMetrics(startDate, endDate);
     res.status(200).json(overview);
   } catch (error) {
@@ -31,7 +38,13 @@ const getOverview = async (req, res) => {
  */
 const getUserMetrics = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
+    startDate = typeof startDate === 'string' ? startDate
+               : Array.isArray(startDate) && typeof startDate[0] === 'string' ? startDate[0]
+               : undefined;
+    endDate = typeof endDate === 'string' ? endDate
+               : Array.isArray(endDate) && typeof endDate[0] === 'string' ? endDate[0]
+               : undefined;
     const metrics = await adminService.getUserMetrics(startDate, endDate);
     res.status(200).json(metrics);
   } catch (error) {
@@ -49,7 +62,13 @@ const getUserMetrics = async (req, res) => {
  */
 const getConversationMetrics = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
+    startDate = typeof startDate === 'string' ? startDate
+               : Array.isArray(startDate) && typeof startDate[0] === 'string' ? startDate[0]
+               : undefined;
+    endDate = typeof endDate === 'string' ? endDate
+               : Array.isArray(endDate) && typeof endDate[0] === 'string' ? endDate[0]
+               : undefined;
     const metrics = await adminService.getConversationMetrics(startDate, endDate);
     res.status(200).json(metrics);
   } catch (error) {
@@ -67,7 +86,13 @@ const getConversationMetrics = async (req, res) => {
  */
 const getTokenMetrics = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
+    startDate = typeof startDate === 'string' ? startDate
+               : Array.isArray(startDate) && typeof startDate[0] === 'string' ? startDate[0]
+               : undefined;
+    endDate = typeof endDate === 'string' ? endDate
+               : Array.isArray(endDate) && typeof endDate[0] === 'string' ? endDate[0]
+               : undefined;
     const metrics = await adminService.getTokenMetrics(startDate, endDate);
     res.status(200).json(metrics);
   } catch (error) {

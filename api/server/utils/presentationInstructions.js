@@ -258,6 +258,121 @@ save_document("report.docx")
 }
 
 /**
+ * Get spreadsheet and data analysis instructions
+ * @returns {string} Efficient spreadsheet handling instructions
+ */
+function getSpreadsheetAnalysisInstructions() {
+  return `
+# 📊 SPREADSHEET & DATA ANALYSIS - EFFICIENCY GUIDELINES
+
+## ⚠️ CRITICAL: AVOID PROCESSING ENTIRE LARGE DATASETS
+
+For large files (Excel, CSV with many rows), **DO NOT** iterate through all rows unless the user explicitly requests a specific analysis that requires it.
+
+### 🔍 SMART SUMMARIZATION APPROACH (Default for "summarize" or general questions)
+
+**STEP 1: Quick Data Inspection (ALWAYS DO FIRST)**
+\`\`\`python
+import pandas as pd
+
+# Load only metadata first
+df = pd.read_excel("file.xlsx")  # or pd.read_csv("file.csv")
+
+# Quick stats (runs instantly regardless of file size)
+row_count = len(df)
+col_count = len(df.columns)
+columns = df.columns.tolist()
+dtypes = df.dtypes.to_dict()
+
+print(f"📊 Dataset Overview:")
+print(f"   • Rows: {row_count:,}")
+print(f"   • Columns: {col_count}")
+print(f"   • Column Names: {columns}")
+print(f"   • Data Types: {dtypes}")
+\`\`\`
+
+**STEP 2: Sample First Few Rows (Understand Structure)**
+\`\`\`python
+# Show first 5-10 rows to understand content
+print("\\n📋 Sample Data (First 5 rows):")
+print(df.head())
+
+# Show last few rows if helpful
+print("\\n📋 Last 5 rows:")
+print(df.tail())
+\`\`\`
+
+**STEP 3: Quick Statistical Summary (No iteration needed)**
+\`\`\`python
+# For numeric columns - instant summary
+print("\\n📈 Numeric Column Statistics:")
+print(df.describe())
+
+# For categorical columns - value counts (sample)
+for col in df.select_dtypes(include=['object']).columns[:3]:  # Limit to first 3
+    print(f"\\n{col} - Top 5 values:")
+    print(df[col].value_counts().head())
+\`\`\`
+
+## ❌ NEVER DO THIS FOR SIMPLE SUMMARIES:
+\`\`\`python
+# ❌ WRONG - Iterates through millions of rows
+for index, row in df.iterrows():
+    # process each row...
+
+# ❌ WRONG - Expensive operations without need
+df.apply(lambda x: complex_function(x), axis=1)
+\`\`\`
+
+## ✅ WHEN TO PROCESS ALL DATA:
+Only iterate through all rows when user explicitly requests:
+- "Calculate total of column X for all rows"
+- "Find all rows where condition Y"
+- "Transform/clean the entire dataset"
+- "Export filtered data to new file"
+- Specific aggregations that require full data scan
+
+## 📌 RESPONSE FORMAT FOR SUMMARIES:
+When summarizing a spreadsheet, always provide:
+
+1. **Dataset Size**: Row count and column count
+2. **Column Headers**: List all column names
+3. **Data Types**: What kind of data each column contains
+4. **Sample Preview**: First few rows showing actual data
+5. **Key Insights**: Any obvious patterns from the sample
+
+**Example Response:**
+> 📊 **File Summary: sales_data.xlsx**
+> 
+> | Metric | Value |
+> |--------|-------|
+> | Total Rows | 2,450,000 |
+> | Total Columns | 15 |
+> 
+> **Columns:** Date, Customer_ID, Product, Category, Region, Sales_Amount, Quantity, ...
+> 
+> **Sample Data (First 5 rows):**
+> [Show table preview]
+> 
+> **Observations:**
+> - Data spans from 2020-01-01 to 2024-12-01
+> - 5 unique regions identified
+> - Sales_Amount ranges from $10 to $50,000
+>
+> Would you like me to perform a specific analysis on this data?
+
+## 🚀 PERFORMANCE TIPS:
+- Use \`df.head()\`, \`df.tail()\`, \`df.sample()\` for quick previews
+- Use \`df.describe()\` for instant numeric statistics  
+- Use \`df.info()\` for memory usage and data types
+- Use \`df['col'].nunique()\` to count unique values (fast)
+- Use \`df['col'].value_counts().head(10)\` for top categories
+- Avoid \`.iterrows()\` and \`.apply()\` unless absolutely necessary
+- For large files, consider \`nrows\` parameter: \`pd.read_excel("file.xlsx", nrows=1000)\`
+`;
+}
+
+/**
  * Get available Python packages information
  * @returns {string} List of available packages
  */
@@ -330,24 +445,7 @@ function getPowerPointInstructions() {
  */
 function getCodeExecutorInstructions() {
   return `
-# ⛔ CODE EXECUTOR USAGE RESTRICTIONS ⛔
-
-**DO NOT USE CODE EXECUTOR FOR:**
-- Dashboards → Use Artifacts (React components)
-- Charts/Visualizations for display → Use Artifacts
-- Interactive UI components → Use Artifacts
-- Mock/sample data generation for visuals → Use Artifacts with inline data
-- Any visual output the user will see directly → Use Artifacts
-
-**ONLY USE CODE EXECUTOR FOR:**
-- Creating downloadable FILES: PowerPoint (.pptx), Word (.docx), PDF (.pdf), Excel (.xlsx)
-- Processing uploaded files (CSV, Excel, PDF parsing)
-- Heavy data computation/transformation
-- Generating images to EMBED in documents
-
-**CRITICAL: If user asks for a "dashboard", "chart", or "visualization" WITHOUT mentioning a file format, CREATE AN ARTIFACT INSTEAD. Do NOT run Python code.**
-
----
+${getSpreadsheetAnalysisInstructions()}
 
 ${getAvailablePackages()}
 
@@ -414,5 +512,6 @@ module.exports = {
   getWordDocumentInstructions,
   getPDFDocumentInstructions,
   getAvailablePackages,
+  getSpreadsheetAnalysisInstructions,
   getCodeExecutorInstructions,
 };

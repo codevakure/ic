@@ -4,7 +4,10 @@
  * Service for user management operations.
  */
 
+const { Keyv } = require('keyv');
 const { logger } = require('@ranger/data-schemas');
+const { isEnabled, keyvMongo } = require('@ranger/api');
+const { ViolationTypes } = require('ranger-data-provider');
 const {
   User,
   Conversation,
@@ -19,6 +22,10 @@ const {
   deleteConvos,
   deleteFiles,
 } = require('~/models');
+const { getLogStores } = require('~/cache');
+
+// Ban cache for clearing on unban
+const banCache = new Keyv({ store: keyvMongo, namespace: ViolationTypes.BAN, ttl: 0 });
 
 /**
  * Model pricing per MILLION tokens (AWS Bedrock pricing)
@@ -257,6 +264,28 @@ const toggleUserBan = async (userId, banned, reason = '') => {
         await deleteAllUserSessions(userId);
       } catch (error) {
         logger.warn('[Admin UserService] Could not delete user sessions:', error.message);
+      }
+    }
+
+    // If unbanning, clear the ban cache and ban logs
+    if (!banned && user) {
+      try {
+        // Clear ban cache (both Redis key format and direct key format)
+        const userKey = isEnabled(process.env.USE_REDIS) ? `ban_cache:user:${userId}` : userId;
+        await banCache.delete(userKey);
+        
+        // Also try to delete the raw userId key in case it was stored that way
+        if (isEnabled(process.env.USE_REDIS)) {
+          await banCache.delete(userId);
+        }
+        
+        // Clear ban logs
+        const banLogs = getLogStores(ViolationTypes.BAN);
+        await banLogs.delete(userId);
+        
+        logger.info(`[Admin UserService] Cleared ban cache and logs for user ${userId}`);
+      } catch (error) {
+        logger.warn('[Admin UserService] Could not clear ban cache/logs:', error.message);
       }
     }
 
@@ -597,28 +626,23 @@ const getUserStats = async (userId) => {
         },
       },
       {
+        $addFields: {
+          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        },
+      },
+      {
         $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
-          },
+          _id: '$dateStr',
           count: { $sum: 1 },
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
+        $sort: { '_id': 1 },
       },
       {
         $project: {
           _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
-          },
+          date: { $toDate: '$_id' },
           count: 1,
         },
       },

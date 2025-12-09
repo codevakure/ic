@@ -18,6 +18,11 @@ const { decrypt } = require('@ranger/api');
 const loadAuthValues = async ({ userId, authFields, agentId, toolKey, optional, throwError = true }) => {
   const authValues = {};
 
+  // Debug logging for agent credential resolution
+  if (agentId && toolKey) {
+    console.log(`[AGENT CREDENTIALS] Looking for credentials - agentId: ${agentId}, toolKey: ${toolKey}, authFields: ${JSON.stringify(authFields)}`);
+  }
+
   for (const authField of authFields) {
     let value = null;
 
@@ -39,10 +44,16 @@ const loadAuthValues = async ({ userId, authFields, agentId, toolKey, optional, 
           const { getAgent } = require('~/models/Agent');
           const agent = await getAgent({ id: agentId });
           
+          console.log(`[AGENT CREDENTIALS] Agent found: ${agent?.name}, has tool_credentials: ${!!agent?.tool_credentials}, toolKey in credentials: ${!!agent?.tool_credentials?.[toolKey]}`);
+          if (agent?.tool_credentials) {
+            console.log(`[AGENT CREDENTIALS] Available tool keys: ${Object.keys(agent.tool_credentials).join(', ')}`);
+          }
+          
           if (agent?.tool_credentials?.[toolKey]?.[field]) {
             // Decrypt the credential value
             value = await decrypt(agent.tool_credentials[toolKey][field]);
             if (value !== null && value !== undefined) {
+              console.log(`[AGENT CREDENTIALS] Found credential for ${toolKey}.${field}`);
               authValues[field] = value;
               break;
             }

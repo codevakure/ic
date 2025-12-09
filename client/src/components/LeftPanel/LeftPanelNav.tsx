@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard, HelpCircle } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
 import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator, ThemeSelector, useAvatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
@@ -210,7 +210,16 @@ const LeftPanelNav = memo(() => {
             <User className="icon-md" aria-hidden="true" />
             {localize('com_nav_profile')}
           </Select.SelectItem>
-          {startupConfig?.helpAndFaqURL !== '/' && (
+          <Select.SelectItem
+            value=""
+            onClick={() => window.open('/docs', '_blank')}
+            className="select-item text-sm"
+          >
+            <HelpCircle className="icon-md" aria-hidden="true" />
+            {localize('com_nav_help_documentation')}
+          </Select.SelectItem>
+          {/* Help/FAQ intentionally hidden per customization request */}
+          {false && startupConfig?.helpAndFaqURL !== '/' && (
             <Select.SelectItem
               value=""
               onClick={() => window.open(startupConfig?.helpAndFaqURL, '_blank')}

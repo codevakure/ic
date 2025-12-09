@@ -1,13 +1,13 @@
 import React, { memo } from 'react';
 import { Globe } from 'lucide-react';
 import { CheckboxButton } from '@ranger/client';
-import { Permissions, PermissionTypes } from 'ranger-data-provider';
+import { Permissions, PermissionTypes, AgentCapabilities } from 'ranger-data-provider';
 import { useLocalize, useHasAccess } from '~/hooks';
 import { useBadgeRowContext } from '~/Providers';
 
 function WebSearch() {
   const localize = useLocalize();
-  const { webSearch: webSearchData, searchApiKeyForm } = useBadgeRowContext();
+  const { webSearch: webSearchData, searchApiKeyForm, isAutoEnabled } = useBadgeRowContext();
   const { toggleState: webSearch, debouncedChange, isPinned, authData } = webSearchData;
   const { badgeTriggerRef } = searchApiKeyForm;
 
@@ -16,7 +16,8 @@ function WebSearch() {
     permission: Permissions.USE,
   });
 
-  if (!canUseWebSearch) {
+  // Don't show badge if tool is auto-enabled (handled by backend intent analyzer)
+  if (!canUseWebSearch || isAutoEnabled(AgentCapabilities.web_search)) {
     return null;
   }
 

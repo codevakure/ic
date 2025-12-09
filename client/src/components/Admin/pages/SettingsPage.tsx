@@ -18,10 +18,10 @@ import {
   Button,
   Input,
   Label,
-  Spinner,
   Switch,
 } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
+import { SettingsPageSkeleton } from '../components/Skeletons';
 import { systemApi, usersApi } from '../services/adminApi';
 
 interface SystemHealth {
@@ -169,11 +169,7 @@ export function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   return (
