@@ -2083,6 +2083,9 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
   try {
     const mongoose = require('mongoose');
     
+    // Enforce maximum limit of 50 to prevent performance issues
+    const effectiveLimit = Math.min(limit || 50, 50);
+    
     // Build match conditions
     const matchConditions = { isCreatedByUser: false }; // Get AI responses (they link to user messages via parentMessageId)
     
@@ -2116,8 +2119,8 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
     // Get AI messages with pagination (these contain the model, tokenCount, content)
     const aiMessages = await Message.find(matchConditions)
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
+      .skip((page - 1) * effectiveLimit)
+      .limit(effectiveLimit)
       .lean();
 
     // For each AI message, get the corresponding user message (input) via parentMessageId
@@ -2325,10 +2328,10 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
       },
       pagination: {
         page,
-        limit,
+        limit: effectiveLimit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page * limit < total,
+        totalPages: Math.ceil(total / effectiveLimit),
+        hasNext: page * effectiveLimit < total,
         hasPrev: page > 1,
       },
       summary: {

@@ -70,6 +70,9 @@ router.get('/dashboard/guardrails', dashboardController.getGuardrailsMetrics);
 // GET /api/admin/users/active/sessions - Get live session data for active users page
 router.get('/users/active/sessions', usersController.getActiveSessions);
 
+// GET /api/admin/users/active/microsoft - Get Microsoft 365 OAuth sessions
+router.get('/users/active/microsoft', usersController.getMicrosoftSessions);
+
 // GET /api/admin/users/active - Get users with active sessions
 router.get('/users/active', usersController.getActiveUsers);
 

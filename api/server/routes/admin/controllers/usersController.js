@@ -331,6 +331,23 @@ const getUserConversations = async (req, res) => {
   }
 };
 
+/**
+ * Get Microsoft 365 OAuth sessions
+ * Returns users with active MCP OAuth tokens for MS365
+ */
+const getMicrosoftSessions = async (req, res) => {
+  try {
+    const result = await userService.getMicrosoftSessions();
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error('[Admin] Error fetching Microsoft 365 sessions:', error);
+    res.status(500).json({ 
+      message: 'Error fetching Microsoft 365 sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   listUsers,
   getUserDetails,
@@ -345,4 +362,5 @@ module.exports = {
   getUserTransactions,
   getUserUsage,
   getUserConversations,
+  getMicrosoftSessions,
 };

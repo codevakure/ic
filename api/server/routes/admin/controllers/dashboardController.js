@@ -224,9 +224,12 @@ const getLLMTraces = async (req, res) => {
   try {
     const { page = 1, limit = 50, userId, conversationId, model, startDate, endDate, toolName } = req.query;
     
+    // Enforce maximum limit of 50 to prevent performance issues
+    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 50);
+    
     const traces = await adminService.getLLMTraces({
       page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      limit: parsedLimit,
       userId,
       conversationId,
       model,

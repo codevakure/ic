@@ -573,14 +573,33 @@ export const activeUsersApi = {
       conversationCount?: number;
       messageCount?: number;
       sessionCount?: number; // Number of active sessions for this user
+      sessionsCreatedToday?: number; // Sessions created today for this user
       isOnline?: boolean;
     }>;
     summary: {
       totalActiveSessions: number;
       uniqueActiveUsers: number;
       averageSessionDuration?: number;
+      sessionsToday?: number; // Sessions created today
     };
   }>('/users/active/sessions'),
+  
+  getMicrosoftSessions: () => adminFetch<{
+    sessions: Array<{
+      tokenId: string;
+      userId: string;
+      user: { id: string; name: string; email: string; username?: string; avatar?: string };
+      serverName: string;
+      createdAt: string;
+      expiresAt: string;
+      isActive: boolean;
+    }>;
+    summary: {
+      totalActiveSessions: number;
+      uniqueConnectedUsers: number;
+      sessionsToday: number;
+    };
+  }>('/users/active/microsoft'),
 };
 
 // User Conversation types

@@ -4,6 +4,7 @@ export interface ISession extends Document {
   refreshTokenHash: string;
   expiration: Date;
   user: Types.ObjectId;
+  createdAt?: Date;
 }
 
 export interface CreateSessionOptions {

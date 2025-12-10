@@ -13,6 +13,8 @@ import {
   MessageSquare,
   Zap,
   ArrowUpRight,
+  Cloud,
+  Calendar,
 } from 'lucide-react';
 import { Button, Input } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
@@ -44,15 +46,35 @@ interface Session {
   sessionCount?: number; // Number of active sessions for this user (grouped by backend)
 }
 
+interface MicrosoftSession {
+  tokenId: string;
+  userId: string;
+  user: { id: string; name: string; email: string; username?: string; avatar?: string };
+  serverName: string;
+  createdAt: string;
+  expiresAt: string;
+  isActive: boolean;
+}
+
 interface ActiveUsersData {
   sessions: Session[];
   summary: {
     totalActiveSessions: number;
     uniqueActiveUsers: number;
     averageSessionDuration?: number;
+    sessionsToday?: number;
   };
   byDevice?: Record<string, number>;
   byLocation?: Record<string, number>;
+}
+
+interface MicrosoftSessionsData {
+  sessions: MicrosoftSession[];
+  summary: {
+    totalActiveSessions: number;
+    uniqueConnectedUsers: number;
+    sessionsToday: number;
+  };
 }
 
 function getTimeAgo(dateString: string): string {
@@ -75,6 +97,23 @@ function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   return `${hours}h ${mins}m`;
+}
+
+function formatDateTime(dateString: string | undefined | null): string {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return 'Unknown';
+  }
 }
 
 function parseUserAgent(ua?: string): { device: string; browser: string; os: string } {
@@ -104,16 +143,22 @@ function parseUserAgent(ua?: string): { device: string; browser: string; os: str
 export function ActiveUsersPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<ActiveUsersData | null>(null);
+  const [microsoftData, setMicrosoftData] = useState<MicrosoftSessionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [activeTab, setActiveTab] = useState<'sessions' | 'microsoft'>('sessions');
 
   const fetchData = useCallback(async () => {
     try {
-      const response = await activeUsersApi.getActiveUsers();
-      setData(response);
+      const [sessionsResponse, microsoftResponse] = await Promise.all([
+        activeUsersApi.getActiveUsers(),
+        activeUsersApi.getMicrosoftSessions(),
+      ]);
+      setData(sessionsResponse);
+      setMicrosoftData(microsoftResponse);
       setLastRefresh(new Date());
       setError(null);
     } catch (err) {
@@ -193,13 +238,25 @@ export function ActiveUsersPage() {
     },
     {
       title: 'Sessions Today',
-      value: data?.summary?.totalActiveSessions || 0,
+      value: data?.summary?.sessionsToday ?? 0,
       icon: Zap,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
-      info: 'Total number of sessions today',
+      info: 'New sessions created today (excludes legacy sessions without creation date)',
     },
   ];
+
+  // Filter Microsoft sessions based on search
+  const filteredMicrosoftSessions = microsoftData?.sessions?.filter((session) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      session.user.name?.toLowerCase().includes(query) ||
+      session.user.email?.toLowerCase().includes(query) ||
+      session.user.username?.toLowerCase().includes(query) ||
+      session.serverName?.toLowerCase().includes(query)
+    );
+  }) || [];
 
   return (
     <div className="space-y-6 p-6 md:p-8">
@@ -251,18 +308,65 @@ export function ActiveUsersPage() {
         })}
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-[var(--border-light)]">
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'sessions'
+              ? 'text-blue-500'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Sessions
+            {data?.summary?.totalActiveSessions ? (
+              <span className="px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded">
+                {data.summary.totalActiveSessions}
+              </span>
+            ) : null}
+          </div>
+          {activeTab === 'sessions' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('microsoft')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'microsoft'
+              ? 'text-blue-500'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4" />
+            Microsoft 365
+            {microsoftData?.summary?.totalActiveSessions ? (
+              <span className="px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded">
+                {microsoftData.summary.totalActiveSessions}
+              </span>
+            ) : null}
+          </div>
+          {activeTab === 'microsoft' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+          )}
+        </button>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-secondary)]" />
         <Input
-          placeholder="Search by name, email, or IP..."
+          placeholder={activeTab === 'sessions' ? "Search by name, email, or IP..." : "Search by name, email, or server..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10 bg-[var(--surface-primary)] border-[var(--border-light)]"
         />
       </div>
 
-      {/* Sessions List - Grouped by User (backend groups by user) */}
+      {/* Sessions Tab Content */}
+      {activeTab === 'sessions' && (
       <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
         <div className="p-4 border-b border-[var(--border-light)]">
           <h2 className="font-semibold text-[var(--text-primary)]">
@@ -330,9 +434,15 @@ export function ActiveUsersPage() {
                           {session.user.email}
                         </p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                          {session.startTime && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Created {formatDateTime(session.startTime)}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {getTimeAgo(session.lastActivity)}
+                            Expires {formatDateTime(session.lastActivity)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Monitor className="h-3 w-3" />
@@ -386,9 +496,112 @@ export function ActiveUsersPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Microsoft 365 Tab Content */}
+      {activeTab === 'microsoft' && (
+        <div className="space-y-4">
+          {/* Microsoft Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatsCard
+              title="Connected Users"
+              value={microsoftData?.summary?.uniqueConnectedUsers || 0}
+              icon={<Users className="h-5 w-5 text-cyan-500" />}
+              info="Users with active Microsoft 365 OAuth connections"
+            />
+            <StatsCard
+              title="Active Connections"
+              value={microsoftData?.summary?.totalActiveSessions || 0}
+              icon={<Cloud className="h-5 w-5 text-blue-500" />}
+              info="Total active OAuth tokens (90-minute duration)"
+            />
+            <StatsCard
+              title="Connections Today"
+              value={microsoftData?.summary?.sessionsToday || 0}
+              icon={<Zap className="h-5 w-5 text-yellow-500" />}
+              info="New Microsoft 365 connections established today"
+            />
+          </div>
+
+          {/* Microsoft Sessions List */}
+          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-light)]">
+              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-cyan-400" />
+                Microsoft 365 Connections ({filteredMicrosoftSessions.length})
+              </h2>
+            </div>
+
+            {filteredMicrosoftSessions.length === 0 ? (
+              <div className="p-8 text-center text-[var(--text-secondary)]">
+                {searchQuery ? 'No users match your search' : 'No active Microsoft 365 connections'}
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border-light)]">
+                {filteredMicrosoftSessions.map((session) => (
+                  <div
+                    key={session.tokenId}
+                    className="p-4 hover:bg-[var(--surface-primary-alt)] cursor-pointer transition-colors"
+                    onClick={() => navigate(`/admin/users/${session.userId}`)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {/* Avatar with online indicator */}
+                        <div className="relative">
+                          {session.user.avatar ? (
+                            <img
+                              src={session.user.avatar}
+                              alt={session.user.name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-cyan-600 flex items-center justify-center text-white font-semibold">
+                              {session.user.name?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--surface-primary)] bg-green-500" />
+                        </div>
+
+                        {/* User info */}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {session.user.name}
+                            </span>
+                            <span className="px-1.5 py-0.5 text-xs font-medium bg-cyan-500/20 text-cyan-400 rounded">
+                              {session.serverName}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            {session.user.email}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Connected {formatDateTime(session.createdAt)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Expires {formatDateTime(session.expiresAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300">
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Device & Location Distribution */}
-      {(data?.byDevice || data?.byLocation) && (
+      {activeTab === 'sessions' && (data?.byDevice || data?.byLocation) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.byDevice && Object.keys(data.byDevice).length > 0 && (
             <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-6">

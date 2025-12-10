@@ -113,6 +113,7 @@ interface Session {
   id?: string;
   sessionId?: string;
   startTime?: string;
+  createdAt?: string;
   expiration?: string;
   lastActivity?: string;
   ipAddress?: string;
@@ -1105,13 +1106,16 @@ export function UserDetailPage() {
                           <Globe className="h-2.5 w-2.5 md:h-3 md:w-3" />
                           {session.ipAddress || 'Unknown IP'}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                          {session.startTime ? `Started ${formatDateTime(session.startTime)}` : session.expiration ? `Expires ${formatDateTime(session.expiration)}` : 'Unknown'}
-                        </span>
-                        {session.isActive && session.lastActivity && (
-                          <span className="flex items-center gap-1 text-green-400">
-                            Last active {getTimeAgo(session.lastActivity)}
+                        {(session.createdAt || session.startTime) && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Created {formatDateTime(session.createdAt || session.startTime || '')}
+                          </span>
+                        )}
+                        {session.expiration && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Expires {formatDateTime(session.expiration)}
                           </span>
                         )}
                       </div>

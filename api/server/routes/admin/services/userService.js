@@ -15,6 +15,7 @@ const {
   Transaction,
   Balance,
   Session,
+  Token,
 } = require('~/db/models');
 const {
   deleteAllUserSessions,
@@ -441,6 +442,7 @@ const getUserSessions = async (userId) => {
     return {
       activeSessions: activeSessions.map(s => ({
         id: s._id,
+        createdAt: s.createdAt || null,
         expiration: s.expiration,
         isActive: true,
       })),
@@ -686,10 +688,18 @@ const getUserStats = async (userId) => {
 /**
  * Get active sessions with full session data for live monitoring
  * Groups sessions by user - each user appears once with aggregated session data
+ * Tracks sessions by created date, not expiry
  */
 const getActiveSessions = async () => {
   try {
     const now = new Date();
+    // Create start of today date - use ISO string for DocumentDB compatibility
+    const startOfToday = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ));
 
     // Get all active sessions grouped by user
     const groupedUsers = await Session.aggregate([
@@ -702,12 +712,28 @@ const getActiveSessions = async () => {
           sessionCount: { $sum: 1 },
           latestActivity: { $max: '$expiration' },
           earliestSession: { $min: '$createdAt' },
+          // Count sessions created today - ONLY count if createdAt exists and is today
+          // Sessions without createdAt are legacy and not counted in "today"
+          sessionsCreatedToday: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ['$createdAt', null] },
+                    { $gte: ['$createdAt', startOfToday] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
           // Collect session details for reference
           sessions: {
             $push: {
               sessionId: '$_id',
-              startTime: '$createdAt',
-              lastActivity: '$expiration',
+              createdAt: '$createdAt',
+              expiration: '$expiration',
               ipAddress: '$payload.ip',
               userAgent: '$payload.userAgent',
             },
@@ -742,6 +768,7 @@ const getActiveSessions = async () => {
           ipAddress: { $arrayElemAt: ['$sessions.ipAddress', 0] },
           userAgent: { $arrayElemAt: ['$sessions.userAgent', 0] },
           sessionCount: 1,
+          sessionsCreatedToday: 1,
           isOnline: { $literal: true },
         },
       },
@@ -750,7 +777,9 @@ const getActiveSessions = async () => {
     ]);
 
     // Total number of individual sessions (for stats)
-    const totalSessions = groupedUsers.reduce((sum, user) => sum + user.sessionCount, 0);
+    const totalSessions = groupedUsers.reduce((sum, user) => sum + (user.sessionCount || 0), 0);
+    // Total sessions created today - only count sessions that have createdAt field set
+    const sessionsToday = groupedUsers.reduce((sum, user) => sum + (user.sessionsCreatedToday || 0), 0);
 
     return {
       sessions: groupedUsers,
@@ -758,6 +787,7 @@ const getActiveSessions = async () => {
         totalActiveSessions: totalSessions,
         uniqueActiveUsers: groupedUsers.length,
         averageSessionDuration: 0, // Can calculate if needed
+        sessionsToday: sessionsToday,
       },
     };
   } catch (error) {
@@ -840,6 +870,87 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
   }
 };
 
+/**
+ * Get Microsoft 365 OAuth sessions
+ * Returns users with active MCP OAuth tokens (type: 'mcp_oauth' with identifier containing 'ms365' or 'microsoft')
+ */
+const getMicrosoftSessions = async () => {
+  try {
+    const now = new Date();
+
+    // Find all active MCP OAuth tokens for Microsoft 365
+    const m365Tokens = await Token.aggregate([
+      {
+        $match: {
+          type: 'mcp_oauth',
+          expiresAt: { $gt: now },
+          // Match MS365/Microsoft MCP server identifiers
+          identifier: { $regex: /mcp:(ms365|microsoft|m365)/i }
+        }
+      },
+      // Lookup user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+      { $unwind: '$userDetails' },
+      // Project fields
+      {
+        $project: {
+          tokenId: '$_id',
+          userId: '$userId',
+          user: {
+            id: '$userDetails._id',
+            name: '$userDetails.name',
+            email: '$userDetails.email',
+            username: '$userDetails.username',
+            avatar: '$userDetails.avatar',
+          },
+          serverName: { $arrayElemAt: [{ $split: ['$identifier', ':'] }, 1] },
+          createdAt: '$createdAt',
+          expiresAt: '$expiresAt',
+          isActive: { $literal: true },
+        },
+      },
+      // Sort by most recent first
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    // Get count of tokens created today - use UTC for DocumentDB compatibility
+    const startOfToday = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ));
+    
+    const tokensCreatedToday = m365Tokens.filter(t => {
+      if (!t.createdAt) return false;
+      const tokenDate = new Date(t.createdAt);
+      return !isNaN(tokenDate.getTime()) && tokenDate >= startOfToday;
+    }).length;
+
+    // Group by user for unique user count
+    const uniqueUsers = new Set(m365Tokens.map(t => t.userId?.toString()).filter(Boolean));
+
+    return {
+      sessions: m365Tokens || [],
+      summary: {
+        totalActiveSessions: m365Tokens?.length || 0,
+        uniqueConnectedUsers: uniqueUsers.size || 0,
+        sessionsToday: tokensCreatedToday || 0,
+      },
+    };
+  } catch (error) {
+    logger.error('[Admin UserService] Error getting Microsoft 365 sessions:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   listUsers,
   getUserById,
@@ -853,4 +964,5 @@ module.exports = {
   getUserSessions,
   getUserTransactions,
   getUserConversations,
+  getMicrosoftSessions,
 };
