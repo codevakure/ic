@@ -700,6 +700,8 @@ export type TStartupConfig = {
   passwordResetEnabled: boolean;
   emailEnabled: boolean;
   showBirthdayIcon: boolean;
+  /** Enable holiday theme animations (snow, Santa, etc.) */
+  allowHolidayTheme: boolean;
   helpAndFaqURL: string;
   customFooter?: string;
   modelSpecs?: TSpecsConfig;
@@ -899,17 +901,16 @@ export const intentAnalyzerSchema = z.object({
   autoToolSelection: z.boolean().optional().default(false),
   
   /**
-   * Enable 5-tier model routing based on query complexity.
+   * Enable 3-tier model routing based on query complexity.
    * Routes simple queries to cheap models, complex queries to powerful models.
    * 
-   * Tiers: TRIVIAL (Nova Lite) → SIMPLE (Nova Pro) → MODERATE (Haiku) 
-   *        → COMPLEX (Sonnet) → EXPERT (Opus)
+   * Tiers: SIMPLE (Nova Micro) → MODERATE (Haiku 4.5) → COMPLEX/EXPERT (Sonnet 4.5)
    */
   modelRouting: z.boolean().optional().default(false),
   
   /** 
    * Preset determines the maximum model tier for routing:
-   * - 'premium': Routes up to Opus 4.5 (most capable, highest cost)
+   * - 'premium': Routes up to Sonnet 4.5 (most capable for routing)
    * - 'costOptimized': Routes up to Sonnet 4.5 (balanced)  
    * - 'ultraCheap': Routes up to Haiku 4.5 (cheapest)
    */

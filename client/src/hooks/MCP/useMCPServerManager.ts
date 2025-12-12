@@ -55,6 +55,12 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
     );
   }, [startupConfig?.mcpServers]);
 
+  // Helper to get display name for a server (title if available, otherwise serverName)
+  const getServerDisplayName = useCallback(
+    (serverName: string) => serverTitles[serverName] || serverName,
+    [serverTitles],
+  );
+
   const serverIcons = useMemo(() => {
     if (!startupConfig?.mcpServers) return {};
     return Object.entries(startupConfig.mcpServers).reduce(
@@ -177,7 +183,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
               `[MCP Manager] OAuth timeout for ${serverName} after ${(elapsedTime / 1000).toFixed(0)}s (attempt ${pollAttempts})`,
             );
             showToast({
-              message: localize('com_ui_mcp_oauth_timeout', { 0: serverName }),
+              message: localize('com_ui_mcp_oauth_timeout', { 0: getServerDisplayName(serverName) }),
               status: 'error',
             });
             if (timeoutId) {
@@ -202,7 +208,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
             }
 
             showToast({
-              message: localize('com_ui_mcp_authenticated_success', { 0: serverName }),
+              message: localize('com_ui_mcp_authenticated_success', { 0: getServerDisplayName(serverName) }),
               status: 'success',
             });
 
@@ -224,7 +230,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
           // Check for OAuth timeout (should align with maxAttempts)
           if (state?.oauthStartTime && Date.now() - state.oauthStartTime > OAUTH_TIMEOUT_MS) {
             showToast({
-              message: localize('com_ui_mcp_oauth_timeout', { 0: serverName }),
+              message: localize('com_ui_mcp_oauth_timeout', { 0: getServerDisplayName(serverName) }),
               status: 'error',
             });
             if (timeoutId) {
@@ -280,6 +286,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
       setMCPValues,
       cleanupServerState,
       updateServerState,
+      getServerDisplayName,
     ],
   );
 
@@ -290,7 +297,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
         const response = await reinitializeMutation.mutateAsync(serverName);
         if (!response.success) {
           showToast({
-            message: localize('com_ui_mcp_init_failed', { 0: serverName }),
+            message: localize('com_ui_mcp_init_failed', { 0: getServerDisplayName(serverName) }),
             status: 'error',
           });
           cleanupServerState(serverName);
@@ -314,7 +321,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
           await queryClient.invalidateQueries([QueryKeys.mcpConnectionStatus]);
 
           showToast({
-            message: localize('com_ui_mcp_initialized_success', { 0: serverName }),
+            message: localize('com_ui_mcp_initialized_success', { 0: getServerDisplayName(serverName) }),
             status: 'success',
           });
 
@@ -329,7 +336,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
       } catch (error) {
         console.error(`[MCP Manager] Failed to initialize ${serverName}:`, error);
         showToast({
-          message: localize('com_ui_mcp_init_failed', { 0: serverName }),
+          message: localize('com_ui_mcp_init_failed', { 0: getServerDisplayName(serverName) }),
           status: 'error',
         });
         cleanupServerState(serverName);
@@ -345,6 +352,7 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
       mcpValues,
       cleanupServerState,
       setMCPValues,
+      getServerDisplayName,
     ],
   );
 
@@ -356,20 +364,20 @@ export function useMCPServerManager({ conversationId }: { conversationId?: strin
           queryClient.invalidateQueries([QueryKeys.mcpConnectionStatus]);
 
           showToast({
-            message: localize('com_ui_mcp_oauth_cancelled', { 0: serverName }),
+            message: localize('com_ui_mcp_oauth_cancelled', { 0: getServerDisplayName(serverName) }),
             status: 'warning',
           });
         },
         onError: (error) => {
           console.error(`[MCP Manager] Failed to cancel OAuth for ${serverName}:`, error);
           showToast({
-            message: localize('com_ui_mcp_init_failed', { 0: serverName }),
+            message: localize('com_ui_mcp_init_failed', { 0: getServerDisplayName(serverName) }),
             status: 'error',
           });
         },
       });
     },
-    [queryClient, cleanupServerState, showToast, localize, cancelOAuthMutation],
+    [queryClient, cleanupServerState, showToast, localize, cancelOAuthMutation, getServerDisplayName],
   );
 
   const isInitializing = useCallback(

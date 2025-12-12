@@ -296,6 +296,7 @@ export function useSourcesPanel() {
       mode: SourcesPanelMode = 'overlay',
       headerActions?: React.ReactNode,
       width: number = 30,
+      displayTitle?: string,
     ) => {
       // Close artifacts panel when opening sources panel
       setArtifactsVisible(false);
@@ -303,6 +304,7 @@ export function useSourcesPanel() {
       setPanelState({
         isOpen: true,
         title,
+        displayTitle,
         content,
         mode,
         headerActions: headerActions ?? null,
@@ -332,6 +334,7 @@ export function useSourcesPanel() {
   return {
     isOpen: panelState.isOpen,
     title: panelState.title,
+    displayTitle: panelState.displayTitle,
     content: panelState.content,
     mode: panelState.mode,
     headerActions: panelState.headerActions,
@@ -374,7 +377,7 @@ export function useSidePanel(initialOpen = false) {
  * push panel functionality as the chat view.
  */
 export function GlobalSourcesPanel() {
-  const { isOpen, title, content, mode, headerActions, closePanel } = useSourcesPanel();
+  const { isOpen, title, displayTitle, content, mode, headerActions, closePanel } = useSourcesPanel();
   const isInsideSidePanelGroup = useIsInsideSidePanelGroup();
   const isMobile = useMediaQuery('(max-width: 868px)');
   const [isVisible, setIsVisible] = useState(false);
@@ -560,7 +563,7 @@ export function GlobalSourcesPanel() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <h3 className="max-w-[200px] truncate text-sm font-medium text-text-primary">{title}</h3>
+              <h3 className="max-w-[200px] truncate text-sm font-medium text-text-primary">{displayTitle ?? title}</h3>
             </div>
             <button
               className="flex-shrink-0 rounded-full p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
@@ -608,7 +611,7 @@ export function GlobalSourcesPanel() {
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{title}</h3>
+            <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{displayTitle ?? title}</h3>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1">
             {headerActions}

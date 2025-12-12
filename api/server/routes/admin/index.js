@@ -40,8 +40,11 @@ router.get('/dashboard/tokens', dashboardController.getTokenMetrics);
 // GET /api/admin/dashboard/models - Get model usage metrics
 router.get('/dashboard/models', dashboardController.getModelMetrics);
 
-// GET /api/admin/dashboard/agents - Get agent usage metrics
+// GET /api/admin/dashboard/agents - Get agent usage metrics (full)
 router.get('/dashboard/agents', dashboardController.getAgentMetrics);
+
+// GET /api/admin/dashboard/agents/summary - Get agent summary only (fast)
+router.get('/dashboard/agents/summary', dashboardController.getAgentSummary);
 
 // GET /api/admin/dashboard/activity - Get activity timeline
 router.get('/dashboard/activity', dashboardController.getActivityTimeline);
@@ -58,11 +61,17 @@ router.get('/dashboard/costs', dashboardController.getCostsMetrics);
 // GET /api/admin/dashboard/traces - Get LLM traces for observability
 router.get('/dashboard/traces', dashboardController.getLLMTraces);
 
-// GET /api/admin/dashboard/tools - Get tool usage metrics
+// GET /api/admin/dashboard/tools - Get tool usage metrics (full)
 router.get('/dashboard/tools', dashboardController.getToolMetrics);
 
-// GET /api/admin/dashboard/guardrails - Get guardrails metrics
+// GET /api/admin/dashboard/tools/summary - Get tools summary only (fast)
+router.get('/dashboard/tools/summary', dashboardController.getToolSummary);
+
+// GET /api/admin/dashboard/guardrails - Get guardrails metrics (full)
 router.get('/dashboard/guardrails', dashboardController.getGuardrailsMetrics);
+
+// GET /api/admin/dashboard/guardrails/summary - Get guardrails summary only (fast)
+router.get('/dashboard/guardrails/summary', dashboardController.getGuardrailsSummary);
 
 /**
  * User Management
@@ -99,6 +108,9 @@ router.get('/users/:userId/stats', usersController.getUserStats);
 
 // GET /api/admin/users/:userId/sessions - Get user sessions
 router.get('/users/:userId/sessions', usersController.getUserSessions);
+
+// DELETE /api/admin/users/:userId/sessions/:sessionId - Terminate a specific session
+router.delete('/users/:userId/sessions/:sessionId', usersController.terminateSession);
 
 // GET /api/admin/users/:userId/transactions - Get user transactions
 router.get('/users/:userId/transactions', usersController.getUserTransactions);

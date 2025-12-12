@@ -8,6 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Toast, ThemeProvider, ToastProvider } from '@ranger/client';
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 import { ScreenshotProvider, useApiErrorBoundary, useThemeColors } from './hooks';
+import { HolidayOverlay } from './components/HolidayEffects';
 import WakeLockManager from '~/components/System/WakeLockManager';
 import { getThemeFromEnv } from './utils/getThemeFromEnv';
 import { initializeFontSize } from '~/store/fontSize';
@@ -77,6 +78,8 @@ const App = () => {
 
 export default () => (
   <ScreenshotProvider>
+    {/* Holiday animation - shows immediately, checks config internally */}
+    <HolidayOverlay duration={8000} particleCount={15} />
     <App />
     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
     <audio

@@ -213,36 +213,36 @@ export function ActiveUsersPage() {
 
   const stats = [
     {
-      title: 'Active Sessions',
-      value: data?.summary?.totalActiveSessions || 0,
-      icon: Activity,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      info: 'Total number of active sessions across all users',
-    },
-    {
-      title: 'Unique Users',
+      title: 'Active Users Today',
       value: data?.summary?.uniqueActiveUsers || data?.sessions?.length || 0,
       icon: Users,
-      color: 'text-blue-500',
+      color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
-      info: 'Distinct users with active sessions',
+      info: 'Unique users with active sessions today',
     },
     {
-      title: 'Avg Session Duration',
+      title: 'Logins Today',
+      value: data?.summary?.sessionsToday ?? 0,
+      icon: Activity,
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      info: 'New login sessions created today',
+    },
+    {
+      title: 'Avg Login Duration',
       value: formatDuration(data?.summary?.averageSessionDuration || 0),
       icon: Clock,
-      color: 'text-purple-500',
+      color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      info: 'Average length of current active sessions',
+      info: 'Average duration of login sessions',
     },
     {
-      title: 'Sessions Today',
-      value: data?.summary?.sessionsToday ?? 0,
-      icon: Zap,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10',
-      info: 'New sessions created today (excludes legacy sessions without creation date)',
+      title: 'M365 Logins',
+      value: microsoftData?.summary?.totalActiveSessions || 0,
+      icon: Cloud,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+      info: 'Active Microsoft 365 connections',
     },
   ];
 
@@ -259,63 +259,69 @@ export function ActiveUsersPage() {
   }) || [];
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 md:p-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Active Users</h1>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">
+          <h1 className="text-xl font-bold text-text-primary">Active Users</h1>
+          <p className="text-sm text-text-secondary">
             Monitor currently active sessions in real-time
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-[var(--text-secondary)]">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-tertiary">
             Last updated: {lastRefresh.toLocaleTimeString()}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={autoRefresh ? 'border-green-500 text-green-500' : ''}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              autoRefresh 
+                ? 'border-green-500/50 bg-green-500/10 text-green-400' 
+                : 'border-border-light bg-surface-secondary text-text-secondary hover:bg-surface-hover'
+            }`}
           >
-            <Circle className={`h-2 w-2 mr-2 ${autoRefresh ? 'fill-green-500 text-green-500' : ''}`} />
+            <Circle className={`h-2 w-2 ${autoRefresh ? 'fill-green-500 text-green-500' : ''}`} />
             {autoRefresh ? 'Live' : 'Paused'}
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((stat) => {
           const IconComponent = stat.icon;
           return (
-            <StatsCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              icon={<IconComponent className={`h-5 w-5 ${stat.color}`} />}
-              info={stat.info}
-            />
+            <div key={stat.title} className="rounded-lg border border-border-light bg-surface-secondary p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary">{stat.title}</span>
+                <div className={`rounded-lg p-1.5 ${stat.bgColor}`}>
+                  <IconComponent className={`h-3.5 w-3.5 ${stat.color}`} />
+                </div>
+              </div>
+              <p className="mt-1 text-xl font-bold text-text-primary">
+                {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+              </p>
+            </div>
           );
         })}
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--border-light)]">
+      <div className="flex items-center gap-1 border-b border-border-light">
         <button
           onClick={() => setActiveTab('sessions')}
           className={`px-4 py-2 text-sm font-medium transition-colors relative ${
             activeTab === 'sessions'
-              ? 'text-blue-500'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              ? 'text-blue-400'
+              : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -335,8 +341,8 @@ export function ActiveUsersPage() {
           onClick={() => setActiveTab('microsoft')}
           className={`px-4 py-2 text-sm font-medium transition-colors relative ${
             activeTab === 'microsoft'
-              ? 'text-blue-500'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              ? 'text-blue-400'
+              : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           <div className="flex items-center gap-2">

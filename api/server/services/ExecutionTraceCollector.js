@@ -97,11 +97,11 @@ class ExecutionTraceCollector {
    * @param {Object} params - Step parameters
    * @returns {Promise<Object>} Created trace document
    */
-  async createStep({ stepType, stepName, input, metadata }) {
+  async createStep({ stepType, stepName, input, metadata, contextAnalytics }) {
     if (!this.enabled) return null;
 
     try {
-      const trace = await ExecutionTrace.create({
+      const traceData = {
         executionId: this.executionId,
         parentId: this.getCurrentParentId(),
         sequence: this.nextSequence(),
@@ -111,7 +111,14 @@ class ExecutionTraceCollector {
         startedAt: new Date(),
         input: truncateData(input),
         metadata: truncateData(metadata),
-      });
+      };
+
+      // Add context analytics if provided (for LLM steps)
+      if (contextAnalytics) {
+        traceData.contextAnalytics = contextAnalytics;
+      }
+
+      const trace = await ExecutionTrace.create(traceData);
       return trace;
     } catch (error) {
       console.error('[ExecutionTraceCollector] Failed to create step:', error.message);
@@ -163,14 +170,18 @@ class ExecutionTraceCollector {
    */
   async handleChatModelStart(event, data, metadata) {
     const modelName = extractModelName(data, metadata);
+    
+    // Build metadata
+    const stepMetadata = {
+      provider: metadata?.provider,
+      runId: metadata?.run_id,
+    };
+
     const trace = await this.createStep({
       stepType: 'llm',
       stepName: modelName,
       input: truncateData(data?.messages || data?.input),
-      metadata: {
-        provider: metadata?.provider,
-        runId: metadata?.run_id,
-      },
+      metadata: stepMetadata,
     });
 
     if (trace) {

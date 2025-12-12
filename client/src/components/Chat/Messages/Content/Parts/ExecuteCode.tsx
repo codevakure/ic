@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai';
 import type { TAttachment } from 'ranger-data-provider';
 import ProgressText from '~/components/Chat/Messages/Content/ProgressText';
 import MarkdownLite from '~/components/Chat/Messages/Content/MarkdownLite';
+import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import { showCodeOutputAtom } from '~/store/showCodeOutput';
 import { useProgress, useLocalize } from '~/hooks';
 import { AttachmentGroup } from './Attachment';
@@ -52,12 +53,14 @@ export default function ExecuteCode({
   args,
   output = '',
   attachments,
+  isLast,
 }: {
   initialProgress: number;
   isSubmitting: boolean;
   args?: string;
   output?: string;
   attachments?: TAttachment[];
+  isLast?: boolean;
 }) {
   const localize = useLocalize();
   const hasOutput = output.length > 0;
@@ -226,6 +229,12 @@ export default function ExecuteCode({
           )}
         </div>
       </div>
+      {/* Show streaming loader after code execution completes but model is still processing */}
+      {isLast && isSubmitting && progress >= 1 && !cancelled && (
+        <div className="mt-2">
+          <StreamingLoader />
+        </div>
+      )}
       {attachments && attachments.length > 0 && <AttachmentGroup attachments={attachments} />}
     </>
   );

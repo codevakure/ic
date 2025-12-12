@@ -1,26 +1,20 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { useToastContext } from '@ranger/client';
 import { NativeTypes } from 'react-dnd-html5-backend';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import {
-  Tools,
   QueryKeys,
   Constants,
   EToolResources,
-  EModelEndpoint,
   mergeFileConfig,
-  AgentCapabilities,
-  isAssistantsEndpoint,
   getEndpointFileConfig,
-  defaultAgentCapabilities,
 } from 'ranger-data-provider';
 import type { DropTargetMonitor } from 'react-dnd';
 import type * as t from 'ranger-data-provider';
 import store, { ephemeralAgentByConvoId } from '~/store';
 import useFileHandling from './useFileHandling';
-import { isEphemeralAgent } from '~/common';
 import useLocalize from '../useLocalize';
 
 export default function useDragHelpers() {
@@ -34,13 +28,9 @@ export default function useDragHelpers() {
     ephemeralAgentByConvoId(conversation?.conversationId ?? Constants.NEW_CONVO),
   );
 
-  const isAssistants = useMemo(
-    () => isAssistantsEndpoint(conversation?.endpoint),
-    [conversation?.endpoint],
-  );
-
   const { handleFiles } = useFileHandling();
 
+  // Keep handleOptionSelect for backward compatibility (modal still exported)
   const handleOptionSelect = useCallback(
     (toolResource: EToolResources | undefined) => {
       /** File search is not automatically enabled to simulate legacy behavior */
@@ -57,7 +47,7 @@ export default function useDragHelpers() {
     [draggedFiles, handleFiles, setEphemeralAgent],
   );
 
-  /** Use refs to avoid re-creating the drop handler */
+  /** Use ref to avoid re-creating the drop handler */
   const handleFilesRef = useRef(handleFiles);
   const conversationRef = useRef(conversation);
 
@@ -86,55 +76,11 @@ export default function useDragHelpers() {
         }
       }
 
-      if (isAssistants) {
-        handleFilesRef.current(item.files);
-        return;
-      }
-
-      const endpointsConfig = queryClient.getQueryData<t.TEndpointsConfig>([QueryKeys.endpoints]);
-      const agentsConfig = endpointsConfig?.[EModelEndpoint.agents];
-      const capabilities = agentsConfig?.capabilities ?? defaultAgentCapabilities;
-      const fileSearchEnabled = capabilities.includes(AgentCapabilities.file_search) === true;
-      const codeEnabled = capabilities.includes(AgentCapabilities.execute_code) === true;
-      const contextEnabled = capabilities.includes(AgentCapabilities.context) === true;
-
-      /** Get agent permissions at drop time */
-      const agentId = conversationRef.current?.agent_id;
-      let fileSearchAllowedByAgent = true;
-      let codeAllowedByAgent = true;
-
-      if (agentId && !isEphemeralAgent(agentId)) {
-        /** Agent data from cache */
-        const agent = queryClient.getQueryData<t.Agent>([QueryKeys.agent, agentId]);
-        if (agent) {
-          const agentTools = agent.tools as string[] | undefined;
-          fileSearchAllowedByAgent = agentTools?.includes(Tools.file_search) ?? false;
-          codeAllowedByAgent = agentTools?.includes(Tools.execute_code) ?? false;
-        } else {
-          /** If agent exists but not found, disallow */
-          fileSearchAllowedByAgent = false;
-          codeAllowedByAgent = false;
-        }
-      }
-
-      /** Determine if dragged files are all images (enables the base image option) */
-      const allImages = item.files.every((f) => f.type?.startsWith('image/'));
-
-      const shouldShowModal =
-        allImages ||
-        (fileSearchEnabled && fileSearchAllowedByAgent) ||
-        (codeEnabled && codeAllowedByAgent) ||
-        contextEnabled;
-
-      if (!shouldShowModal) {
-        // Fallback: directly handle files without showing modal
-        handleFilesRef.current(item.files);
-        return;
-      }
-      setDraggedFiles(item.files);
-      setShowModal(true);
+      // Unified attachment flow: let the backend intent analyzer handle routing
+      // This matches the manual attach button behavior
+      handleFilesRef.current(item.files);
     },
-    [isAssistants, queryClient, showToast, localize],
+    [queryClient, showToast, localize],
   );
 
   const [{ canDrop, isOver }, drop] = useDrop(

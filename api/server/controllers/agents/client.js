@@ -367,17 +367,28 @@ class AgentClient extends BaseClient {
         assistantName: this.options?.modelLabel,
       });
 
-      if (message.fileContext && i !== orderedMessages.length - 1) {
-        if (typeof formattedMessage.content === 'string') {
-          formattedMessage.content = message.fileContext + '\n' + formattedMessage.content;
-        } else {
-          const textPart = formattedMessage.content.find((part) => part.type === 'text');
-          textPart
-            ? (textPart.text = message.fileContext + '\n' + textPart.text)
-            : formattedMessage.content.unshift({ type: 'text', text: message.fileContext });
+      const isCurrentMessage = i === orderedMessages.length - 1;
+      
+      // Handle file context injection
+      // When current message has attachments, SKIP injecting file context from previous messages
+      // to avoid confusing the model with old file content when user is asking about new files
+      if (message.fileContext) {
+        if (isCurrentMessage) {
+          // Current message's file context goes to system prompt
+          systemContent = [systemContent, message.fileContext].join('\n');
+        } else if (!currentMessageHasAttachments) {
+          // Only include historical file context if NO new files are attached
+          // This allows follow-up questions about previously uploaded files
+          if (typeof formattedMessage.content === 'string') {
+            formattedMessage.content = message.fileContext + '\n' + formattedMessage.content;
+          } else {
+            const textPart = formattedMessage.content.find((part) => part.type === 'text');
+            textPart
+              ? (textPart.text = message.fileContext + '\n' + textPart.text)
+              : formattedMessage.content.unshift({ type: 'text', text: message.fileContext });
+          }
         }
-      } else if (message.fileContext && i === orderedMessages.length - 1) {
-        systemContent = [systemContent, message.fileContext].join('\n');
+        // When currentMessageHasAttachments && !isCurrentMessage: skip old file context entirely
       }
 
       const needsTokenCount =
@@ -391,7 +402,6 @@ class AgentClient extends BaseClient {
       /* If message has files, calculate image token cost */
       if (this.message_file_map && this.message_file_map[message.messageId]) {
         const attachments = this.message_file_map[message.messageId];
-        const isCurrentMessage = i === orderedMessages.length - 1;
         
         for (const file of attachments) {
           if (file.embedded) {
@@ -831,6 +841,7 @@ class AgentClient extends BaseClient {
       const cache_read = Number(usage.input_token_details?.cache_read) || 0;
 
       const agentContextBreakdown = this.options.agent?.contextBreakdown;
+      const agentContextAnalytics = this.options.agent?.contextAnalytics;
       
       const txMetadata = {
         context,
@@ -842,6 +853,8 @@ class AgentClient extends BaseClient {
         model: usage.model ?? model ?? this.model ?? this.options.agent.model_parameters.model,
         // Include context breakdown for detailed token tracking in admin UI
         contextBreakdown: agentContextBreakdown,
+        // Include context analytics for utilization, TOON stats, etc.
+        contextAnalytics: agentContextAnalytics,
       };
 
       if (i > 0) {
@@ -1183,6 +1196,18 @@ class AgentClient extends BaseClient {
         }
       } catch (error) {
         logger.error('[AgentClient] Error capturing context breakdown:', error);
+      }
+
+      // Capture context analytics for admin traces (utilization, TOON stats, etc.)
+      try {
+        if (run?.Graph?.getContextAnalytics) {
+          const contextAnalytics = run.Graph.getContextAnalytics();
+          if (contextAnalytics) {
+            this.options.agent.contextAnalytics = contextAnalytics;
+          }
+        }
+      } catch (error) {
+        logger.error('[AgentClient] Error capturing context analytics:', error);
       }
 
       // 🛡️ OUTPUT MODERATION: Check completed response before finalizing

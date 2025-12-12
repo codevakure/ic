@@ -88,6 +88,16 @@ const getOptions = async ({ req, overrideModel, endpointOption }) => {
     llmConfig.endpointHost = BEDROCK_REVERSE_PROXY;
   }
 
+  // Add retry configuration for throttling errors via clientOptions
+  // AWS SDK will automatically retry with exponential backoff on:
+  // - ThrottlingException
+  // - ServiceUnavailableException  
+  // - TooManyRequestsException ("Too many tokens, Please wait before trying")
+  llmConfig.clientOptions = {
+    ...llmConfig.clientOptions,
+    maxAttempts: 4, // 1 initial + 3 retries with exponential backoff
+  };
+
   // Enable prompt caching for Claude models
   // This enables caching for system messages, tools, and conversation history
   const modelId = (llmConfig.model ?? '').toLowerCase();

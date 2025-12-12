@@ -264,6 +264,29 @@ const getUserSessions = async (req, res) => {
 };
 
 /**
+ * Terminate a specific user session
+ */
+const terminateSession = async (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+
+    const result = await userService.terminateUserSession(userId, sessionId);
+
+    if (!result.success) {
+      return res.status(404).json({ message: result.message || 'Session not found' });
+    }
+
+    res.status(200).json({ message: 'Session terminated successfully' });
+  } catch (error) {
+    logger.error('[Admin] Error terminating session:', error);
+    res.status(500).json({ 
+      message: 'Error terminating session',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
  * Get user's transaction history
  */
 const getUserTransactions = async (req, res) => {
@@ -359,6 +382,7 @@ module.exports = {
   getActiveUsers,
   getActiveSessions,
   getUserSessions,
+  terminateSession,
   getUserTransactions,
   getUserUsage,
   getUserConversations,

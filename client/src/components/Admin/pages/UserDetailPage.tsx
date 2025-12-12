@@ -178,11 +178,24 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
         {/* Header */}
         <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-            <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg bg-blue-500/20 flex-shrink-0">
-              <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+            <div className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg flex-shrink-0 ${
+              conversation.hasErrors ? 'bg-red-500/20' : 'bg-blue-500/20'
+            }`}>
+              {conversation.hasErrors ? (
+                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-400" />
+              ) : (
+                <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">{conversation.title}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">{conversation.title}</h2>
+                {conversation.hasErrors && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-400 rounded flex-shrink-0">
+                    {conversation.errorCount} error{conversation.errorCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] md:text-xs text-[var(--text-tertiary)]">
                 {conversation.messageCount} messages • {conversation.model?.split('/').pop() || conversation.endpoint}
               </p>
@@ -224,15 +237,21 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
                 className={`max-w-[85%] md:max-w-[75%] rounded-xl p-3 md:p-4 ${
                   msg.isCreatedByUser
                     ? 'bg-blue-600 text-white'
+                    : msg.isError || msg.error
+                    ? 'bg-red-500/10 border border-red-500/30 text-[var(--text-primary)]'
                     : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
                 }`}
               >
                 {/* Message Header */}
                 <div className="flex items-center gap-2 mb-2">
+                  {(msg.isError || msg.error) && !msg.isCreatedByUser && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                  )}
                   <span className={`text-[10px] md:text-xs font-medium ${
-                    msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
+                    msg.isCreatedByUser ? 'text-blue-200' : msg.isError || msg.error ? 'text-red-400' : 'text-[var(--text-tertiary)]'
                   }`}>
                     {msg.sender}
+                    {(msg.isError || msg.error) && !msg.isCreatedByUser && ' - Error'}
                   </span>
                   {msg.tokenCount && (
                     <span className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded ${
@@ -243,8 +262,10 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
                   )}
                 </div>
                 
-                {/* Message Text */}
-                <p className="text-xs md:text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                {/* Message Text or Error Message */}
+                <p className={`text-xs md:text-sm whitespace-pre-wrap leading-relaxed ${
+                  (msg.isError || msg.error) && !msg.isCreatedByUser ? 'text-red-300' : ''
+                }`}>{msg.text || (msg.errorMessage ? msg.errorMessage : '_No message text_')}</p>
                 
                 {/* Timestamp */}
                 <p className={`text-[10px] md:text-xs mt-2 ${
@@ -461,12 +482,27 @@ export function UserDetailPage() {
     }
   };
 
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
+
   const handleTerminateSession = async (sessionId: string) => {
+    if (!sessionId || terminatingSessionId) return;
+    
     try {
+      setTerminatingSessionId(sessionId);
       await userDetailApi.terminateSession(userId!, sessionId);
-      await fetchData();
+      // Optimistically remove the session from the list
+      setSessions(prev => prev.filter(s => (s.sessionId || s.id) !== sessionId));
     } catch (err) {
       console.error('Error terminating session:', err);
+      // On error, refresh sessions to get accurate state
+      try {
+        const sessionsResponse = await userDetailApi.getUserSessions(userId!);
+        setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
+      } catch {
+        // Ignore refresh errors
+      }
+    } finally {
+      setTerminatingSessionId(null);
     }
   };
 
@@ -863,11 +899,22 @@ export function UserDetailPage() {
                   className="w-full p-3 md:p-4 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors text-left group"
                 >
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 flex-shrink-0">
-                      <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                    <div className={`p-1.5 md:p-2 rounded-lg flex-shrink-0 ${conv.hasErrors ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
+                      {conv.hasErrors ? (
+                        <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+                      ) : (
+                        <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-medium text-xs md:text-sm text-[var(--text-primary)] truncate">{conv.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-xs md:text-sm text-[var(--text-primary)] truncate">{conv.title}</h4>
+                        {conv.hasErrors && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-400 rounded flex-shrink-0">
+                            {conv.errorCount} error{conv.errorCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] truncate">
                         {conv.messageCount} messages • {conv.model?.split('/').pop() || conv.endpoint}
                       </p>
@@ -1126,9 +1173,10 @@ export function UserDetailPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleTerminateSession(session.sessionId || session.id || '')}
-                      className="border-red-500 text-red-400 hover:bg-red-500/10 text-xs self-end sm:self-auto"
+                      disabled={terminatingSessionId === (session.sessionId || session.id)}
+                      className="border-red-500 text-red-400 hover:bg-red-500/10 text-xs self-end sm:self-auto disabled:opacity-50"
                     >
-                      Terminate
+                      {terminatingSessionId === (session.sessionId || session.id) ? 'Terminating...' : 'Terminate'}
                     </Button>
                   )}
                 </div>

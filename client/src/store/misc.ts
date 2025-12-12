@@ -72,6 +72,8 @@ export type SourcesPanelMode = 'push' | 'overlay';
 export interface SourcesPanelState {
   isOpen: boolean;
   title: string;
+  /** Optional display title shown in panel header. If not set, title is used. */
+  displayTitle?: string;
   content: React.ReactNode | null;
   mode: SourcesPanelMode;
   headerActions?: React.ReactNode | null;

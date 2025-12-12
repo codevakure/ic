@@ -21,10 +21,11 @@ const { getFiles } = require('~/models/File');
 const primeFiles = async (options) => {
   const { tool_resources, req, agentId } = options;
   const file_ids = tool_resources?.[EToolResources.file_search]?.file_ids ?? [];
-  const agentResourceIds = new Set(file_ids);
+  // resourceFiles are from the CURRENT message attachments
   const resourceFiles = tool_resources?.[EToolResources.file_search]?.files ?? [];
+  const currentMessageFileIds = new Set(resourceFiles.map(f => f.file_id));
 
-  // Get all files first
+  // Get all files first (include embedded status but not full text)
   const allFiles = (await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [];
 
   // Filter by access if user and agent are provided
@@ -40,26 +41,83 @@ const primeFiles = async (options) => {
     dbFiles = allFiles;
   }
 
-  dbFiles = dbFiles.concat(resourceFiles);
+  // Combine but track which files are from current message vs history
+  const combinedFiles = [...resourceFiles, ...dbFiles];
 
   let toolContext = `- Note: Semantic search is available through the ${Tools.file_search} tool but no files are currently loaded. Request the user to upload documents to search through.`;
 
   const files = [];
-  for (let i = 0; i < dbFiles.length; i++) {
-    const file = dbFiles[i];
+  const currentMessageFiles = {
+    embedded: [],
+    pending: [],
+  };
+  const historyFiles = {
+    embedded: [],
+    pending: [],
+  };
+  
+  for (let i = 0; i < combinedFiles.length; i++) {
+    const file = combinedFiles[i];
     if (!file) {
       continue;
     }
-    if (i === 0) {
-      toolContext = `- Note: Use the ${Tools.file_search} tool to find relevant information within:`;
+    
+    const isCurrentMessage = currentMessageFileIds.has(file.file_id);
+    
+    // Track file status
+    const targetGroup = isCurrentMessage ? currentMessageFiles : historyFiles;
+    if (file.embedded === true) {
+      targetGroup.embedded.push(file.filename);
+    } else {
+      targetGroup.pending.push(file.filename);
     }
-    toolContext += `\n\t- ${file.filename}${
-      agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
-    }`;
+    
     files.push({
       file_id: file.file_id,
       filename: file.filename,
+      isCurrentMessage, // Track this for search prioritization
     });
+  }
+
+  // Build context message - prioritize current message files in instructions
+  const hasCurrentFiles = currentMessageFiles.embedded.length > 0 || currentMessageFiles.pending.length > 0;
+  const hasHistoryFiles = historyFiles.embedded.length > 0 || historyFiles.pending.length > 0;
+
+  if (files.length > 0) {
+    if (hasCurrentFiles && !hasHistoryFiles) {
+      // Only current message files
+      if (currentMessageFiles.pending.length > 0) {
+        // Current files with text in context - don't recommend file_search for initial query
+        toolContext = `- Note: The ${Tools.file_search} tool can search the attached document(s): ${[...currentMessageFiles.pending, ...currentMessageFiles.embedded].join(', ')}.\n` +
+          `  However, the full document text is already in the conversation above. For this query, answer directly from that text. ` +
+          `Use file_search only for targeted follow-up searches.`;
+      } else {
+        // Current files fully embedded (no pending) - recommend file_search
+        toolContext = `- Note: Use the ${Tools.file_search} tool to find information in the attached document(s):\n\t- ` +
+          currentMessageFiles.embedded.join('\n\t- ');
+      }
+    } else if (hasCurrentFiles && hasHistoryFiles) {
+      // Both current and history files - PRIORITIZE CURRENT
+      toolContext = `- **CURRENT ATTACHMENT(S)** (prioritize these):\n`;
+      if (currentMessageFiles.pending.length > 0) {
+        toolContext += `  Full text is in the conversation: ${currentMessageFiles.pending.join(', ')}. Answer directly from that content.\n`;
+      }
+      if (currentMessageFiles.embedded.length > 0) {
+        toolContext += `  Use file_search for: ${currentMessageFiles.embedded.join(', ')}\n`;
+      }
+      toolContext += `- Previous conversation files (only if user asks about them):\n`;
+      toolContext += `  ${[...historyFiles.embedded, ...historyFiles.pending].join(', ')}`;
+    } else if (!hasCurrentFiles && hasHistoryFiles) {
+      // Only history files - user is asking about previous files
+      if (historyFiles.embedded.length > 0) {
+        toolContext = `- Note: Use the ${Tools.file_search} tool to find information in previous conversation files:\n\t- ` +
+          historyFiles.embedded.join('\n\t- ');
+      }
+      if (historyFiles.pending.length > 0) {
+        toolContext += (historyFiles.embedded.length > 0 ? '\n' : '- Note: ') +
+          `Files with text in conversation history: ${historyFiles.pending.join(', ')}`;
+      }
+    }
   }
 
   return { files, toolContext };
@@ -69,12 +127,17 @@ const primeFiles = async (options) => {
  *
  * @param {Object} options
  * @param {string} options.userId
- * @param {Array<{ file_id: string; filename: string }>} options.files
+ * @param {Array<{ file_id: string; filename: string; isCurrentMessage?: boolean }>} options.files
  * @param {string} [options.entity_id]
  * @param {boolean} [options.fileCitations=false] - Whether to include citation instructions
  * @returns
  */
 const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = false }) => {
+  // Create a map for quick lookup of current message files
+  const currentMessageFileIds = new Set(
+    files.filter(f => f.isCurrentMessage).map(f => f.file_id)
+  );
+  
   return tool(
     async ({ query }) => {
       if (files.length === 0) {
@@ -153,12 +216,25 @@ const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = 
             distance,
             file_id: files[fileIndex]?.file_id,
             page: docInfo.metadata.page || null,
+            isCurrentMessage: currentMessageFileIds.has(files[fileIndex]?.file_id),
           })),
         )
-        // TODO: results should be sorted by relevance, not distance
-        .sort((a, b) => a.distance - b.distance)
-        // TODO: make this configurable
+        // Sort by: 1) current message files first, 2) then by relevance (distance)
+        .sort((a, b) => {
+          // Current message files get priority
+          if (a.isCurrentMessage && !b.isCurrentMessage) return -1;
+          if (!a.isCurrentMessage && b.isCurrentMessage) return 1;
+          // Within same category, sort by relevance
+          return a.distance - b.distance;
+        })
         .slice(0, 10);
+
+      if (formattedResults.length === 0) {
+        return [
+          'No content found in the files. The files may not have been processed correctly or you may need to refine your query.',
+          undefined,
+        ];
+      }
 
       const formattedString = formattedResults
         .map(
@@ -189,11 +265,12 @@ const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = 
           ? `
 
 **CITE FILE SEARCH RESULTS:**
-Use anchor markers immediately after statements derived from file content. Reference the filename in your text:
+Use the EXACT anchor markers shown below (copy them verbatim) immediately after statements derived from file content. Reference the filename in your text:
 - File citation: "The document.pdf states that... \\ue202turn0file0"  
 - Page reference: "According to report.docx... \\ue202turn0file1"
 - Multi-file: "Multiple sources confirm... \\ue200\\ue202turn0file0\\ue202turn0file1\\ue201"
 
+**CRITICAL:** Output these escape sequences EXACTLY as shown (e.g., \\ue202turn0file0). Do NOT substitute with other characters like † or similar symbols.
 **ALWAYS mention the filename in your text before the citation marker. NEVER use markdown links or footnotes.**`
           : ''
       }`,

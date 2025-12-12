@@ -441,7 +441,7 @@ const getUserSessions = async (userId) => {
 
     return {
       activeSessions: activeSessions.map(s => ({
-        id: s._id,
+        id: s._id.toString(),
         createdAt: s.createdAt || null,
         expiration: s.expiration,
         isActive: true,
@@ -450,6 +450,49 @@ const getUserSessions = async (userId) => {
     };
   } catch (error) {
     logger.error('[Admin UserService] Error getting user sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Terminate a specific user session
+ */
+const terminateUserSession = async (userId, sessionId) => {
+  try {
+    const mongoose = require('mongoose');
+    
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      logger.warn(`[Admin UserService] Invalid session ID format: ${sessionId}`);
+      return { success: false, message: 'Invalid session ID format' };
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      logger.warn(`[Admin UserService] Invalid user ID format: ${userId}`);
+      return { success: false, message: 'Invalid user ID format' };
+    }
+
+    // Verify the session belongs to the user
+    const session = await Session.findOne({
+      _id: new mongoose.Types.ObjectId(sessionId),
+      user: new mongoose.Types.ObjectId(userId),
+    }).lean();
+
+    if (!session) {
+      logger.warn(`[Admin UserService] Session ${sessionId} not found for user ${userId}`);
+      return { success: false, message: 'Session not found or does not belong to this user' };
+    }
+
+    // Delete the session directly using the Session model for reliability
+    const result = await Session.deleteOne({ _id: new mongoose.Types.ObjectId(sessionId) });
+
+    if (result.deletedCount === 0) {
+      return { success: false, message: 'Failed to delete session' };
+    }
+
+    logger.info(`[Admin UserService] Session ${sessionId} terminated for user ${userId}`);
+    return { success: true };
+  } catch (error) {
+    logger.error('[Admin UserService] Error terminating user session:', error);
     throw error;
   }
 };
@@ -819,8 +862,20 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
       conversations.map(async (conv) => {
         const messages = await Message.find({ conversationId: conv.conversationId })
           .sort({ createdAt: 1 })
-      .select('messageId text content sender isCreatedByUser model createdAt tokenCount')
-      .lean();        return {
+      .select('messageId text content sender isCreatedByUser model createdAt tokenCount error finish_reason')
+      .lean();
+
+        // Count errors in this conversation (including content array errors)
+        const errorCount = messages.filter(m => {
+          if (m.error === true) return true;
+          // Also check for error type in content array
+          if (m.content && Array.isArray(m.content)) {
+            return m.content.some(c => c.type === 'error');
+          }
+          return false;
+        }).length;
+
+        return {
           _id: conv._id,
           conversationId: conv.conversationId,
           title: conv.title || 'Untitled',
@@ -829,16 +884,53 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
           createdAt: conv.createdAt,
           updatedAt: conv.updatedAt,
           messageCount: messages.length,
+          errorCount,
+          hasErrors: errorCount > 0,
           messages: messages.map(msg => {
             // For AI messages, text may be empty and content stored in 'content' array
             let displayText = msg.text;
-            if (!displayText && msg.content && Array.isArray(msg.content)) {
+            let hasContentError = false;
+            let errorMessage = null;
+            
+            if (msg.content && Array.isArray(msg.content)) {
+              // Check for error in content array
+              const errorPart = msg.content.find(c => c.type === 'error');
+              if (errorPart) {
+                hasContentError = true;
+                errorMessage = errorPart.error || errorPart[errorPart.type] || 'Unknown error';
+              }
+              
               // Extract text from content array (structured content format)
-              const textParts = msg.content
-                .filter(c => c.type === 'text' && c.text)
-                .map(c => c.text);
-              displayText = textParts.join('\n') || '';
+              if (!displayText) {
+                const textParts = msg.content
+                  .filter(c => c.type === 'text' && c.text)
+                  .map(c => c.text);
+                displayText = textParts.join('\n') || '';
+              }
+
+              // Check for tool_use blocks - if message only has tool calls, indicate that
+              if (!displayText) {
+                const toolUseParts = msg.content.filter(c => c.type === 'tool_use');
+                if (toolUseParts.length > 0) {
+                  const toolNames = toolUseParts.map(t => t.name || 'tool').join(', ');
+                  displayText = `[Using tools: ${toolNames}]`;
+                }
+              }
+
+              // Check for thinking blocks
+              if (!displayText) {
+                const thinkingPart = msg.content.find(c => c.type === 'thinking' && c.thinking);
+                if (thinkingPart) {
+                  displayText = `[Thinking...]\n${thinkingPart.thinking.substring(0, 200)}${thinkingPart.thinking.length > 200 ? '...' : ''}`;
+                }
+              }
             }
+            
+            // If there's an error but no display text, show the error message
+            if ((msg.error || hasContentError) && !displayText && errorMessage) {
+              displayText = errorMessage;
+            }
+            
             return {
               messageId: msg.messageId,
               text: displayText,
@@ -847,6 +939,9 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
               model: msg.model,
               createdAt: msg.createdAt,
               tokenCount: msg.tokenCount,
+              error: msg.error || hasContentError,
+              isError: msg.error === true || hasContentError,
+              errorMessage: errorMessage,
             };
           }),
         };
@@ -962,6 +1057,7 @@ module.exports = {
   getActiveUsers,
   getActiveSessions,
   getUserSessions,
+  terminateUserSession,
   getUserTransactions,
   getUserConversations,
   getMicrosoftSessions,

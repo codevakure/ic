@@ -1,8 +1,8 @@
 import React from 'react';
 import { UIResourceRenderer } from '@mcp-ui/client';
 import type { UIResource } from 'ranger-data-provider';
-import type { TAskFunction } from '~/common';
 import { handleUIAction } from '~/utils';
+import { getMCPAskRef } from '~/utils/mcpAskRef';
 import { useLocalize } from '~/hooks';
 
 interface MCPUIResourcePanelProps {
@@ -10,26 +10,27 @@ interface MCPUIResourcePanelProps {
   resource: UIResource;
   /** Optional conversation ID for context */
   conversationId?: string;
-  /** The ask function to submit messages - passed from parent that has access to context */
-  ask?: TAskFunction;
 }
 
 /**
  * MCPUIResourcePanel - Renders the MCP UI resource content inside the push side panel.
  * This is the full view of the MCP UI resource with proper sizing for the panel.
  * 
- * Note: Uses useChatContext directly instead of useMessagesOperations because
- * the side panel is rendered outside MessagesViewProvider but inside ChatContext.
+ * IMPORTANT: This component is rendered OUTSIDE ChatContext.Provider (in the side panel).
+ * To get the ask function, we use a global ref that's set by MCPUIResource component
+ * which IS inside ChatContext.
  */
-export function MCPUIResourcePanel({ resource, ask }: MCPUIResourcePanelProps) {
+export function MCPUIResourcePanel({ resource }: MCPUIResourcePanelProps) {
   const localize = useLocalize();
 
-  // Handle UI actions - only if ask is available (passed from parent component)
+  // Handle UI actions - get ask from global ref since we're outside ChatContext
   const handleAction = async (result: unknown) => {
+    const ask = getMCPAskRef();
+    console.log('[MCPUIResourcePanel] handleAction called - ask available:', !!ask, 'result:', result);
     if (ask) {
       await handleUIAction(result, ask);
     } else {
-      console.warn('MCP UI action triggered but ask() is not available - was not passed from parent');
+      console.error('[MCPUIResourcePanel] ask() NOT available! Make sure MCPUIResource is mounted.');
     }
   };
 

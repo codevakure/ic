@@ -157,16 +157,18 @@ export function formatToolContent(
           : JSON.stringify(resource.text || '');
         const contentToHash = textContent || resource.uri || '';
         const resourceId = generateResourceId(contentToHash);
+        const resourceName = resource.name || 'UI Resource';
         const uiResource: UIResource = {
           uri: resource.uri,
           text: resource.text,
           mimeType: resource.mimeType,
           resourceId,
+          name: resourceName,
         };
 
         uiResources.push(uiResource);
-        resourceText.push(`UI Resource ID: ${resourceId}`);
-        resourceText.push(`UI Resource Marker: \\ui{${resourceId}}`);
+        // Provide clear marker with resource name for easy identification
+        resourceText.push(`📊 "${resourceName}" → UI Marker: \\ui{${resourceId}}`);
       } else if (resource.text != null && resource.text) {
         resourceText.push(`Resource Text: ${resource.text}`);
       }
@@ -201,16 +203,27 @@ export function formatToolContent(
   }
 
   if (uiResources.length > 0) {
+    // Generate list of all markers for easy reference
+    const markerList = uiResources.map(r => `  - "${r.name || 'UI Resource'}": \\ui{${r.resourceId}}`).join('\n');
+    
     const uiInstructions = `
 
-UI Resource Markers Available:
-- Each resource above includes a stable ID and a marker hint like \`\\ui{abc123}\`
-- You should usually introduce what you're showing before placing the marker
-- For a single resource: \\ui{resource-id}
-- For multiple resources shown separately: \\ui{resource-id-a} \\ui{resource-id-b}
-- For multiple resources in a carousel: \\ui{resource-id-a,resource-id-b,resource-id-c}
-- The UI will be rendered inline where you place the marker
-- Format: \\ui{resource-id} or \\ui{id1,id2,id3} using the IDs provided above`;
+⚠️ MANDATORY: UI RESOURCE MARKERS - YOU MUST USE THESE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Each resource above has a UI Resource ID. You MUST include the marker in your response.
+
+REQUIRED: Include \\ui{resource-id} in your response text where you want the panel to appear.
+
+Available Resources:
+${markerList}
+
+Examples:
+- Single resource: \\ui{abc123}
+- Multiple separate: \\ui{abc123} \\ui{def456}  
+- Carousel: \\ui{abc123,def456,ghi789}
+
+⛔ WITHOUT THE MARKER, USERS CANNOT SEE THE DATA.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
     currentTextBlock += uiInstructions;
   }

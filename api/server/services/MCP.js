@@ -381,6 +381,7 @@ function createToolInstance({ res, toolName, serverName, toolDefinition, provide
         oauthEnd,
       });
 
+      // Return the result - TOON conversion handled centrally in ToolNode
       if (isAssistantsEndpoint(provider) && Array.isArray(result)) {
         return result[0];
       }

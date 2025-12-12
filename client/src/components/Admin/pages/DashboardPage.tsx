@@ -3,6 +3,9 @@
  * 
  * Modern observability dashboard with real-time metrics, hourly activity charts,
  * and comprehensive LLM usage analytics. All data is from the database - no mocks.
+ * 
+ * Uses shared Recoil cache for Tools and Guardrails data - if user visits
+ * individual pages first, the data is reused here and vice versa.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -41,9 +44,8 @@ import {
   type ConversationMetrics,
   type UserMetrics,
   type SystemHealth,
-  type ToolMetrics,
-  type GuardrailsMetrics,
 } from '../services/adminApi';
+import { useToolMetrics, useGuardrailsMetrics } from '../hooks/useAdminMetrics';
 import { 
   DashboardPageSkeleton,
   StatCardSkeleton,
@@ -166,15 +168,13 @@ function DashboardPage() {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showCustomPicker, setShowCustomPicker] = useState(false);
 
-  // Dashboard data
+  // Dashboard data (dashboard-specific only)
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [tokenMetrics, setTokenMetrics] = useState<TokenMetrics | null>(null);
   const [conversationMetrics, setConversationMetrics] = useState<ConversationMetrics | null>(null);
   const [userMetrics, setUserMetrics] = useState<UserMetrics | null>(null);
   const [hourlyActivity, setHourlyActivity] = useState<HourlyActivity | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
-  const [toolMetrics, setToolMetrics] = useState<ToolMetrics | null>(null);
-  const [guardrailsMetrics, setGuardrailsMetrics] = useState<GuardrailsMetrics | null>(null);
   const [bannedCount, setBannedCount] = useState<number>(0);
 
   // Calculate date range from preset
@@ -220,11 +220,37 @@ function DashboardPage() {
     };
   }, [datePreset, customStartDate, customEndDate]);
 
+  // Convert dateRange to the format hooks expect (YYYY-MM-DD strings)
+  const hookDateRange = useMemo(() => ({
+    startDate: dateRange.startDate.split('T')[0],
+    endDate: dateRange.endDate.split('T')[0],
+  }), [dateRange]);
+
+  // Use shared cached hooks for Tools and Guardrails
+  // These cache in Recoil - if user already visited ToolsPage or GuardrailsPage, data is reused
+  const {
+    summary: toolsSummary,
+    summaryLoading: toolsSummaryLoading,
+    trend: toolsTrend,
+    detailsLoading: toolsDetailsLoading,
+    refetch: refetchTools,
+  } = useToolMetrics(hookDateRange);
+
+  const {
+    summary: guardrailsSummary,
+    summaryLoading: guardrailsSummaryLoading,
+    trend: guardrailsTrend,
+    detailsLoading: guardrailsDetailsLoading,
+    refetch: refetchGuardrails,
+  } = useGuardrailsMetrics(hookDateRange);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
+      // Fetch dashboard-specific data only
+      // Tools and Guardrails data comes from shared hooks (cached in Recoil)
       const [
         overviewRes, 
         tokensRes, 
@@ -232,8 +258,6 @@ function DashboardPage() {
         usersRes,
         healthRes, 
         hourlyRes,
-        toolsRes,
-        guardrailsRes
       ] = await Promise.allSettled([
         dashboardApi.getOverview(dateRange),
         dashboardApi.getTokenMetrics(dateRange),
@@ -241,8 +265,6 @@ function DashboardPage() {
         dashboardApi.getUserMetrics(dateRange),
         systemApi.getHealth(),
         dashboardApi.getHourlyActivity('America/Chicago'),
-        dashboardApi.getToolMetrics(dateRange),
-        dashboardApi.getGuardrailsMetrics(dateRange),
       ]);
 
       if (overviewRes.status === 'fulfilled') setOverview(overviewRes.value);
@@ -251,8 +273,6 @@ function DashboardPage() {
       if (usersRes.status === 'fulfilled') setUserMetrics(usersRes.value);
       if (healthRes.status === 'fulfilled') setSystemHealth(healthRes.value);
       if (hourlyRes.status === 'fulfilled') setHourlyActivity(hourlyRes.value);
-      if (toolsRes.status === 'fulfilled') setToolMetrics(toolsRes.value);
-      if (guardrailsRes.status === 'fulfilled') setGuardrailsMetrics(guardrailsRes.value);
 
       // Fetch banned users count using proper API
       try {
@@ -268,15 +288,22 @@ function DashboardPage() {
     }
   }, [dateRange]);
 
+  // Combined refresh that also refreshes tools and guardrails from hooks
+  const handleRefresh = useCallback(() => {
+    fetchData();
+    refetchTools();
+    refetchGuardrails();
+  }, [fetchData, refetchTools, refetchGuardrails]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // Auto-refresh every 60 seconds
   useEffect(() => {
-    const interval = setInterval(fetchData, 60000);
+    const interval = setInterval(handleRefresh, 60000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [handleRefresh]);
 
   // Handle date preset change
   const handleDatePresetChange = (value: string) => {
@@ -357,25 +384,25 @@ function DashboardPage() {
     }));
   }, [conversationMetrics?.byModel]);
 
-  // Tools usage trend - real data
+  // Tools usage trend - from shared hook
   const toolsUsageData = useMemo(() => {
-    if (!toolMetrics?.trend?.length) return [];
-    return toolMetrics.trend.map(d => ({
+    if (!toolsTrend?.length) return [];
+    return toolsTrend.map(d => ({
       name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       value: d.count,
     }));
-  }, [toolMetrics?.trend]);
+  }, [toolsTrend]);
 
-  // Guardrails trend - real data with all 3 categories
+  // Guardrails trend - from shared hook with all 3 categories
   const guardrailsData = useMemo(() => {
-    if (!guardrailsMetrics?.trend?.length) return [];
-    return guardrailsMetrics.trend.map(d => ({
+    if (!guardrailsTrend?.length) return [];
+    return guardrailsTrend.map(d => ({
       name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       blocked: d.blocked,
       intervened: d.intervened,
       anonymized: d.anonymized,
     }));
-  }, [guardrailsMetrics?.trend]);
+  }, [guardrailsTrend]);
 
   // Get display label for date range
   const dateRangeLabel = useMemo(() => {
@@ -468,11 +495,11 @@ function DashboardPage() {
           
           {/* Refresh Button */}
           <button
-            onClick={fetchData}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || toolsDetailsLoading || guardrailsDetailsLoading}
             className="flex items-center gap-2 rounded-lg bg-surface-tertiary px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            <RefreshCw className={cn('h-4 w-4', (loading || toolsDetailsLoading || guardrailsDetailsLoading) && 'animate-spin')} />
           </button>
         </div>
       </div>
@@ -735,12 +762,12 @@ function DashboardPage() {
             <div>
               <h3 className="text-sm font-semibold text-text-primary">Tools Usage</h3>
               <p className="text-xs text-text-secondary">
-                {toolMetrics?.summary?.totalInvocations ?? 0} invocations • {toolMetrics?.summary?.totalTools ?? 0} tools
+                {toolsSummary?.totalInvocations ?? 0} invocations • {toolsSummary?.totalTools ?? 0} tools
               </p>
             </div>
             <Wrench className="h-4 w-4 text-text-tertiary" />
           </div>
-          {loading && !toolMetrics ? (
+          {toolsDetailsLoading ? (
             <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
           ) : toolsUsageData.length > 0 ? (
             <AdminAreaChart
@@ -766,12 +793,12 @@ function DashboardPage() {
             <div>
               <h3 className="text-sm font-semibold text-text-primary">Guardrails</h3>
               <p className="text-xs text-text-secondary">
-                {guardrailsMetrics?.summary?.totalEvents ?? 0} events • {guardrailsMetrics?.summary?.blocked ?? 0} blocked • {guardrailsMetrics?.summary?.anonymized ?? 0} anonymized
+                {guardrailsSummary?.totalEvents ?? 0} events • {guardrailsSummary?.blocked ?? 0} blocked • {guardrailsSummary?.anonymized ?? 0} anonymized
               </p>
             </div>
             <Shield className="h-4 w-4 text-text-tertiary" />
           </div>
-          {loading && !guardrailsMetrics ? (
+          {guardrailsDetailsLoading ? (
             <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
           ) : guardrailsData.length > 0 ? (
             <AdminMultiBarChart

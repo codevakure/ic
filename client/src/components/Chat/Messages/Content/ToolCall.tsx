@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai';
 import { actionDelimiter, actionDomainSeparator, Constants } from 'ranger-data-provider';
 import type { TAttachment } from 'ranger-data-provider';
 import { hideCompletedToolCallsAtom } from '~/store/hideCompletedToolCalls';
+import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import { useLocalize, useProgress } from '~/hooks';
 import { useGetStartupConfig } from '~/data-provider';
 import { AttachmentGroup } from './Parts';
@@ -299,6 +300,12 @@ export default function ToolCall({
             <TriangleAlert className="mr-1.5 inline-block h-4 w-4" />
             {localize('com_assistants_allow_sites_you_trust')}
           </p>
+        </div>
+      )}
+      {/* Show streaming loader after tool call completes but model is still processing */}
+      {isLast && isSubmitting && progress >= 1 && !cancelled && (
+        <div className="mt-2">
+          <StreamingLoader />
         </div>
       )}
       {attachments && attachments.length > 0 && <AttachmentGroup attachments={attachments} />}

@@ -155,6 +155,7 @@ router.get('/', async function (req, res) {
         isBirthday() ||
         isEnabled(process.env.SHOW_BIRTHDAY_ICON) ||
         process.env.SHOW_BIRTHDAY_ICON === '',
+      allowHolidayTheme: isEnabled(process.env.ALLOW_HOLIDAY_THEME),
       helpAndFaqURL: process.env.HELP_AND_FAQ_URL || 'https://ranger.tcbinternal.net',
       interface: appConfig?.interfaceConfig,
       turnstile: appConfig?.turnstileConfig,

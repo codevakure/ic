@@ -222,10 +222,12 @@ const getCostsMetrics = async (req, res) => {
  */
 const getLLMTraces = async (req, res) => {
   try {
-    const { page = 1, limit = 50, userId, conversationId, model, startDate, endDate, toolName } = req.query;
+    const { page = 1, limit = 25, userId, conversationId, model, startDate, endDate, toolName, errorOnly } = req.query;
     
-    // Enforce maximum limit of 50 to prevent performance issues
-    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 50);
+    // Enforce maximum limit of 50 to prevent performance issues (default 25)
+    const parsedLimit = Math.min(parseInt(limit, 10) || 25, 50);
+    
+    logger.debug(`[Admin Dashboard] getLLMTraces - page: ${page}, requestedLimit: ${limit}, parsedLimit: ${parsedLimit}`);
     
     const traces = await adminService.getLLMTraces({
       page: parseInt(page, 10),
@@ -236,6 +238,7 @@ const getLLMTraces = async (req, res) => {
       startDate,
       endDate,
       toolName,
+      errorOnly: errorOnly === 'true' || errorOnly === true,
     });
     
     res.json(traces);
@@ -284,6 +287,60 @@ const getGuardrailsMetrics = async (req, res) => {
   }
 };
 
+/**
+ * Get agent summary only (fast endpoint for stats cards)
+ * Returns only counts, no detailed agent list
+ */
+const getAgentSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const summary = await adminService.getAgentSummary(startDate, endDate);
+    res.status(200).json(summary);
+  } catch (error) {
+    logger.error('[Admin] Error fetching agent summary:', error);
+    res.status(500).json({ 
+      message: 'Error fetching agent summary',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Get tools summary only (fast endpoint for stats cards)
+ * Returns only summary metrics, no detailed tool list
+ */
+const getToolSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const summary = await adminService.getToolSummary(startDate, endDate);
+    res.status(200).json(summary);
+  } catch (error) {
+    logger.error('[Admin] Error fetching tool summary:', error);
+    res.status(500).json({ 
+      message: 'Error fetching tool summary',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Get guardrails summary only (fast endpoint for stats cards)
+ * Returns only summary metrics, no detailed breakdown
+ */
+const getGuardrailsSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const summary = await adminService.getGuardrailsSummary(startDate, endDate);
+    res.status(200).json(summary);
+  } catch (error) {
+    logger.error('[Admin] Error fetching guardrails summary:', error);
+    res.status(500).json({ 
+      message: 'Error fetching guardrails summary',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   getOverview,
   getUserMetrics,
@@ -291,11 +348,14 @@ module.exports = {
   getTokenMetrics,
   getModelMetrics,
   getAgentMetrics,
+  getAgentSummary,
   getActivityTimeline,
   getHourlyActivity,
   getUsageMetrics,
   getCostsMetrics,
   getLLMTraces,
   getToolMetrics,
+  getToolSummary,
   getGuardrailsMetrics,
+  getGuardrailsSummary,
 };

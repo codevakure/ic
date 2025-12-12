@@ -18,11 +18,6 @@ const { decrypt } = require('@ranger/api');
 const loadAuthValues = async ({ userId, authFields, agentId, toolKey, optional, throwError = true }) => {
   const authValues = {};
 
-  // Debug logging for agent credential resolution
-  if (agentId && toolKey) {
-    console.log(`[AGENT CREDENTIALS] Looking for credentials - agentId: ${agentId}, toolKey: ${toolKey}, authFields: ${JSON.stringify(authFields)}`);
-  }
-
   for (const authField of authFields) {
     let value = null;
 

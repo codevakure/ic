@@ -304,6 +304,14 @@ export const dashboardApi = {
     const queryStr = query.toString();
     return adminFetch<AgentMetrics>(`/dashboard/agents${queryStr ? `?${queryStr}` : ''}`);
   },
+  // Fast summary endpoint - just counts, no detailed list
+  getAgentSummary: (params: DateRangeParams = {}) => {
+    const query = new URLSearchParams();
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    const queryStr = query.toString();
+    return adminFetch<{ summary: { total: number; public: number; private: number; active: number }; generatedAt: string }>(`/dashboard/agents/summary${queryStr ? `?${queryStr}` : ''}`);
+  },
   getCostsMetrics: (params: DateRangeParams = {}) => {
     const query = new URLSearchParams();
     if (params.startDate) query.set('startDate', params.startDate);
@@ -318,12 +326,28 @@ export const dashboardApi = {
     const queryStr = query.toString();
     return adminFetch<ToolMetrics>(`/dashboard/tools${queryStr ? `?${queryStr}` : ''}`);
   },
+  // Fast summary endpoint - just counts, no detailed tool list
+  getToolSummary: (params: DateRangeParams = {}) => {
+    const query = new URLSearchParams();
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    const queryStr = query.toString();
+    return adminFetch<{ summary: { totalInvocations: number; totalTools: number; avgSuccessRate: number; mostUsedTool: string }; generatedAt: string }>(`/dashboard/tools/summary${queryStr ? `?${queryStr}` : ''}`);
+  },
   getGuardrailsMetrics: (params: DateRangeParams = {}) => {
     const query = new URLSearchParams();
     if (params.startDate) query.set('startDate', params.startDate);
     if (params.endDate) query.set('endDate', params.endDate);
     const queryStr = query.toString();
     return adminFetch<GuardrailsMetrics>(`/dashboard/guardrails${queryStr ? `?${queryStr}` : ''}`);
+  },
+  // Fast summary endpoint - just counts, no detailed breakdown
+  getGuardrailsSummary: (params: DateRangeParams = {}) => {
+    const query = new URLSearchParams();
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    const queryStr = query.toString();
+    return adminFetch<{ summary: { totalEvents: number; blocked: number; intervened: number; anonymized: number; passed: number; userCount: number; conversationCount: number; blockRate: number | string }; generatedAt: string }>(`/dashboard/guardrails/summary${queryStr ? `?${queryStr}` : ''}`);
   },
   getActivityTimeline: (days?: number) =>
     adminFetch<ActivityTimeline>(`/dashboard/activity${days ? `?days=${days}` : ''}`),
@@ -611,6 +635,9 @@ export interface ConversationMessage {
   model?: string;
   createdAt: string;
   tokenCount?: number;
+  error?: boolean;
+  isError?: boolean;
+  errorMessage?: string | null;
 }
 
 export interface UserConversation {
@@ -622,6 +649,8 @@ export interface UserConversation {
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+  errorCount?: number;
+  hasErrors?: boolean;
   messages: ConversationMessage[];
 }
 
@@ -680,7 +709,15 @@ export interface LLMTrace {
   messageId: string;
   conversationId: string;
   conversationTitle: string;
-  user: { name: string; email: string } | null;
+  user: { _id: string; name: string; email: string } | null;
+  /** Error information if this trace resulted in an error */
+  error: {
+    isError: boolean;
+    message: string;
+    type: string;
+    code: string | null;
+    rawText: string;
+  } | null;
   input: {
     messageId: string | null;
     text: string;
@@ -692,6 +729,7 @@ export interface LLMTrace {
     text: string;
     tokenCount: number;
     createdAt: string;
+    isError?: boolean;
   };
   trace: {
     model: string;
@@ -744,6 +782,27 @@ export interface LLMTrace {
         memory: number;
       };
     };
+    /** Context analytics - message breakdown, TOON compression, utilization */
+    contextAnalytics?: {
+      messageCount: number;
+      totalTokens: number;
+      maxContextTokens: number;
+      instructionTokens: number;
+      utilizationPercent: number;
+      breakdown?: Record<string, { tokens: number; percent: number }>;  // { human: { tokens, percent }, ai: {...}, tool: {...} }
+      toonStats?: {
+        compressedCount: number;
+        charactersSaved: number;
+        tokensSaved: number;
+        avgReductionPercent: number;
+      };
+      cacheStats?: {
+        cacheReadTokens: number;
+        cacheCreationTokens: number;
+      };
+      pruningApplied: boolean;
+      messagesPruned: number;
+    };
   };
   guardrails: GuardrailsData | null;
   createdAt: string;
@@ -779,6 +838,7 @@ export interface LLMTracesParams {
   startDate?: string;
   endDate?: string;
   toolName?: string;
+  errorOnly?: boolean;
 }
 
 // LLM Traces API for Observability
@@ -918,6 +978,10 @@ export interface Conversation {
   model?: string;
   createdAt: string;
   updatedAt: string;
+  messageCount?: number;
+  errorCount?: number;
+  hasErrors?: boolean;
+  messages?: ConversationMessage[];
 }
 
 export interface ConversationListResponse {
@@ -943,7 +1007,8 @@ export const conversationsApi = {
     return adminFetch<ConversationListResponse>(`/conversations?${query.toString()}`);
   },
 
-  getById: (conversationId: string) => adminFetch<Conversation>(`/conversations/${conversationId}`),
+  getById: (conversationId: string, includeMessages = false) => 
+    adminFetch<Conversation>(`/conversations/${conversationId}?includeMessages=${includeMessages}`),
 
   delete: (conversationId: string) =>
     adminFetch<{ message: string }>(`/conversations/${conversationId}`, {

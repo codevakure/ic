@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from 'react-markdown';
 import {
   Activity,
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Bot,
@@ -14,9 +15,11 @@ import {
   Clock,
   Cpu,
   DollarSign,
+  ExternalLink,
   Filter,
   Info,
   MessageCircle,
+  MessageSquare,
   RefreshCw,
   Search,
   Shield,
@@ -31,7 +34,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@ranger/client';
-import { tracesApi, usersApi, type LLMTrace, type LLMTracesResponse } from '../services/adminApi';
+import { tracesApi, usersApi, conversationsApi, type LLMTrace, type LLMTracesResponse, type Conversation, type ConversationMessage } from '../services/adminApi';
 import { 
   TracesPageSkeleton, 
   StatsGridSkeleton, 
@@ -44,6 +47,9 @@ interface TraceDrawerProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Tab types for drawer
+type DrawerTab = 'trace' | 'conversation';
 
 interface UserOption {
   id: string;
@@ -65,14 +71,37 @@ interface TreeNode {
 function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
   const [selectedNode, setSelectedNode] = useState<string>('trace');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['trace']));
+  const [activeTab, setActiveTab] = useState<DrawerTab>('trace');
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [conversationLoading, setConversationLoading] = useState(false);
 
   // Reset selection when trace changes
   useEffect(() => {
     if (trace) {
       setSelectedNode('trace');
       setExpandedNodes(new Set(['trace']));
+      setActiveTab('trace');
+      setConversation(null);
     }
   }, [trace?.id]);
+
+  // Load conversation when conversation tab is selected
+  useEffect(() => {
+    const loadConversation = async () => {
+      if (activeTab === 'conversation' && trace?.conversationId && !conversation) {
+        try {
+          setConversationLoading(true);
+          const conv = await conversationsApi.getById(trace.conversationId, true);
+          setConversation(conv);
+        } catch (err) {
+          console.error('Failed to load conversation:', err);
+        } finally {
+          setConversationLoading(false);
+        }
+      }
+    };
+    loadConversation();
+  }, [activeTab, trace?.conversationId, conversation]);
 
   if (!isOpen || !trace) return null;
 
@@ -291,18 +320,33 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
             {/* Response Section */}
             <div>
               <div className="flex items-center gap-2 mb-2 md:mb-3">
-                <div className="flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded bg-green-500/20">
-                  <ArrowUpRight className="h-3 w-3 md:h-4 md:w-4 text-green-400" />
+                <div className={`flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded ${trace.error?.isError ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
+                  {trace.error?.isError ? (
+                    <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-400" />
+                  ) : (
+                    <ArrowUpRight className="h-3 w-3 md:h-4 md:w-4 text-green-400" />
+                  )}
                 </div>
-                <h3 className="font-medium text-[var(--text-primary)] text-xs md:text-sm">Response</h3>
+                <h3 className={`font-medium text-xs md:text-sm ${trace.error?.isError ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
+                  {trace.error?.isError ? 'Error' : 'Response'}
+                </h3>
               </div>
-              <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)]">
-                <div className="prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {trace.output?.text || '_No output text_'}
-                  </ReactMarkdown>
+              {trace.error?.isError ? (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 md:p-4">
+                  <div className="text-red-400 text-xs md:text-sm">
+                    <p className="font-medium mb-1">Error occurred during processing:</p>
+                    <p className="text-red-300">{trace.error.message}</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)]">
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {trace.output?.text || '_No output text_'}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -335,23 +379,38 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
         return (
           <div className="space-y-3 md:space-y-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded bg-green-500/20">
-                <Sparkles className="h-3 w-3 md:h-4 md:w-4 text-green-400" />
+              <div className={`flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded ${trace.error?.isError ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
+                {trace.error?.isError ? (
+                  <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-red-400" />
+                ) : (
+                  <Sparkles className="h-3 w-3 md:h-4 md:w-4 text-green-400" />
+                )}
               </div>
               <div>
-                <h3 className="font-medium text-[var(--text-primary)] text-xs md:text-sm">AI Response</h3>
+                <h3 className={`font-medium text-xs md:text-sm ${trace.error?.isError ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
+                  {trace.error?.isError ? 'Error Response' : 'AI Response'}
+                </h3>
                 <p className="text-[10px] md:text-xs text-[var(--text-tertiary)]">
                   {trace.trace.modelName} • {trace.output?.tokenCount || 0} tokens
                 </p>
               </div>
             </div>
-            <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)]">
-              <div className="prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {trace.output?.text || '_No output text_'}
-                </ReactMarkdown>
+            {trace.error?.isError ? (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 md:p-4">
+                <div className="text-red-400 text-xs md:text-sm">
+                  <p className="font-medium mb-1">Error occurred during processing:</p>
+                  <p className="text-red-300">{trace.error.message}</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-[var(--surface-secondary)] rounded-lg p-3 md:p-4 border border-[var(--border-light)]">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {trace.output?.text || '_No output text_'}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -592,44 +651,95 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
         onClick={onClose}
       />
       
-      {/* Drawer - Full screen on mobile, 50% on desktop */}
+      {/* Drawer Container with Vertical Tabs */}
       <div 
-        className="fixed right-0 top-0 h-screen w-full md:w-1/2 md:min-w-[600px] md:max-w-[900px] bg-[var(--surface-primary)] border-l border-[var(--border-light)] flex flex-col shadow-2xl"
+        className="fixed right-0 top-0 h-screen flex"
         style={{ zIndex: 9999 }}
       >
-        {/* Header Row 1 - Conversation Title and Close */}
-        <div className="flex items-center justify-between px-3 md:px-4 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
-          <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-            <div className="flex h-7 w-7 md:h-8 md:w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/20">
-              <Activity className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">
-                {trace.conversationTitle || 'Untitled Conversation'}
-                <span className="text-[var(--text-tertiary)] font-normal ml-2">
-                  ({new Date(trace.createdAt).toLocaleString()})
-                </span>
-              </h2>
-            </div>
-          </div>
+        {/* Vertical Folder Tabs - Physical folder style */}
+        <div className="flex flex-col pt-14 -mr-px" style={{ zIndex: 10000 }}>
+          {/* Traces Tab */}
+          <button
+            onClick={() => setActiveTab('trace')}
+            className="relative flex items-center justify-center transition-all"
+            style={{ 
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              width: '24px',
+              height: '72px',
+              clipPath: 'polygon(100% 0, 100% 100%, 0 100%, 0 12px, 12px 0)',
+              background: activeTab === 'trace' 
+                ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' 
+                : 'linear-gradient(135deg, #374151 0%, #1f2937 100%)',
+              color: activeTab === 'trace' ? '#e0e7ff' : '#9ca3af',
+              boxShadow: activeTab === 'trace' 
+                ? '-4px 0 12px rgba(79,70,229,0.25)' 
+                : '-1px 0 4px rgba(0,0,0,0.15)',
+              marginBottom: '-1px',
+              zIndex: activeTab === 'trace' ? 10 : 1,
+              transform: activeTab === 'trace' ? 'translateX(-1px)' : 'translateX(0)',
+            }}
+          >
+            <span className="text-[10px] font-medium tracking-wide" style={{ transform: 'rotate(180deg)' }}>TRACES</span>
+          </button>
           
-          {/* Duration badge */}
-          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-            <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full">
-              <Clock className="h-3 w-3 md:h-3.5 md:w-3.5 text-purple-400" />
-              <span className="text-xs md:text-sm font-medium text-purple-400">{formatDuration(trace.trace.duration)}</span>
-            </div>
-            <button 
-              onClick={onClose}
-              className="p-1 md:p-1.5 hover:bg-[var(--surface-tertiary)] rounded-lg transition-colors"
-            >
-              <X className="h-4 w-4 md:h-5 md:w-5 text-[var(--text-secondary)]" />
-            </button>
-          </div>
+          {/* Conversation Tab */}
+          <button
+            onClick={() => setActiveTab('conversation')}
+            className="relative flex items-center justify-center transition-all"
+            style={{ 
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              width: '24px',
+              height: '95px',
+              clipPath: 'polygon(100% 0, 100% 100%, 0 100%, 0 12px, 12px 0)',
+              background: activeTab === 'conversation' 
+                ? 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' 
+                : 'linear-gradient(135deg, #374151 0%, #1f2937 100%)',
+              color: activeTab === 'conversation' ? '#e0e7ff' : '#9ca3af',
+              boxShadow: activeTab === 'conversation' 
+                ? '-4px 0 12px rgba(79,70,229,0.25)' 
+                : '-1px 0 4px rgba(0,0,0,0.15)',
+              zIndex: activeTab === 'conversation' ? 10 : 1,
+              transform: activeTab === 'conversation' ? 'translateX(-1px)' : 'translateX(0)',
+            }}
+          >
+            <span className="text-[10px] font-medium tracking-wide" style={{ transform: 'rotate(180deg)' }}>CONVERSATION</span>
+          </button>
         </div>
         
-        {/* Header Row 2 - Stats Badges */}
-        <div className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]/50 flex-wrap overflow-x-auto">
+        {/* Main Drawer Panel */}
+        <div 
+          className="h-screen w-[calc(100vw-2rem)] md:w-[60vw] md:min-w-[800px] md:max-w-[1200px] bg-[var(--surface-primary)] border-l border-[var(--border-light)] flex flex-col shadow-2xl"
+        >
+          {/* Compact Header - Single Row */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {activeTab === 'trace' ? (
+                <Activity className="h-4 w-4 text-blue-400 flex-shrink-0" />
+              ) : (
+                <MessageSquare className="h-4 w-4 text-blue-400 flex-shrink-0" />
+              )}
+              <span className="text-sm font-medium text-[var(--text-primary)] truncate">{trace.conversationTitle || 'Untitled'}</span>
+              <span className="text-xs text-[var(--text-tertiary)] flex-shrink-0">({new Date(trace.createdAt).toLocaleString()})</span>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="flex items-center gap-1 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded text-xs">
+                <Clock className="h-3 w-3 text-purple-400" />
+                <span className="text-purple-400">{formatDuration(trace.trace.duration)}</span>
+              </span>
+              <button onClick={onClose} className="p-1 hover:bg-[var(--surface-tertiary)] rounded transition-colors">
+                <X className="h-4 w-4 text-[var(--text-secondary)]" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'trace' ? (
+            <>
+              {/* Header Row 2 - Stats Badges */}
+              <div className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]/50 flex-wrap overflow-x-auto">
           {/* Model Badge */}
           <div className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 bg-blue-500/10 border border-blue-500/20 rounded-md">
             <Cpu className="h-3 w-3 md:h-3.5 md:w-3.5 text-blue-400" />
@@ -700,290 +810,444 @@ function TraceDrawer({ trace, isOpen, onClose }: TraceDrawerProps) {
           </div>
         </div>
 
-        {/* Main Content - Split View on desktop, stacked on mobile */}
+        {/* Main Content - 3-Column Layout on desktop */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-          {/* Left Navigation Tree - Collapsible on mobile */}
-          <div className="md:w-56 lg:w-64 flex flex-col border-b md:border-b-0 md:border-r border-[var(--border-light)] bg-[var(--surface-secondary)]/30">
-            {/* Tree */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-3 max-h-[200px] md:max-h-none">
+          {/* Left Column: Trace Flow Tree */}
+          <div className="md:w-48 lg:w-56 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-[var(--border-light)] bg-[var(--surface-secondary)]/30">
+            <div className="flex-1 overflow-y-auto p-2 md:p-3 max-h-[150px] md:max-h-none">
               <div className="text-[9px] md:text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1 mb-1">
                 Trace Flow
               </div>
               {renderTreeNode(tree)}
             </div>
-            
-            {/* Token & Cost Breakdown - hidden on mobile */}
-            <div className="hidden md:block p-2 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/70">
-              <div className="space-y-2">
-                {/* Token Breakdown */}
-                <div>
-                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Token Breakdown</span>
-                  <div className="mt-1 space-y-0.5 text-xs">
-                    <div className="flex justify-between items-center group">
-                      <span className="text-blue-400 flex items-center gap-1">
-                        Input
-                        <span className="relative">
-                          <Info className="h-3 w-3 text-blue-400/60 cursor-help" />
-                          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}>
-                            {trace.trace?.tokenBreakdown ? (
-                              <span className="flex flex-col gap-0.5">
-                                <span className="font-semibold text-white mb-1 text-[11px]">📊 Input Token Breakdown</span>
-                                
-                                {/* Prompts breakdown - if available */}
-                                {trace.trace.tokenBreakdown.prompts && (
-                                  <>
-                                    <span className="font-medium text-yellow-400 mt-1 mb-0.5 text-[10px] flex items-center gap-1">
-                                      📜 System Prompts
-                                      {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
-                                    </span>
-                                    {trace.trace.tokenBreakdown.prompts.branding > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Branding</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.branding.toLocaleString()}</span></span>
-                                    )}
-                                    {trace.trace.tokenBreakdown.prompts.toolRouting > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Tool Routing</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.toolRouting.toLocaleString()}</span></span>
-                                    )}
-                                    {trace.trace.tokenBreakdown.prompts.agentInstructions > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Agent Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.agentInstructions.toLocaleString()}</span></span>
-                                    )}
-                                    {trace.trace.tokenBreakdown.prompts.mcpInstructions > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-cyan-300">• MCP Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.mcpInstructions.toLocaleString()}</span></span>
-                                    )}
-                                    {trace.trace.tokenBreakdown.prompts.artifacts > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-gray-300">• Artifacts</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.artifacts.toLocaleString()}</span></span>
-                                    )}
-                                    {trace.trace.tokenBreakdown.prompts.memory > 0 && (
-                                      <span className="flex justify-between pl-2"><span className="text-purple-300">• Memory</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.memory.toLocaleString()}</span></span>
-                                    )}
-                                    {/* Show total system prompts */}
-                                    {(() => {
-                                      const p = trace.trace.tokenBreakdown.prompts;
-                                      const total = (p.branding || 0) + (p.toolRouting || 0) + (p.agentInstructions || 0) + (p.mcpInstructions || 0) + (p.artifacts || 0) + (p.memory || 0);
-                                      return total > 0 ? (
-                                        <span className="flex justify-between pl-2 pt-0.5 border-t border-gray-600 mt-0.5">
-                                          <span className="text-yellow-300 font-medium">Subtotal</span>
-                                          <span className="text-yellow-300 font-medium">{total.toLocaleString()}</span>
-                                        </span>
-                                      ) : null;
-                                    })()}
-                                  </>
-                                )}
-                                
-                                {/* Legacy instructions display (if prompts not available) */}
-                                {!trace.trace.tokenBreakdown.prompts && trace.trace.tokenBreakdown.instructions != null && trace.trace.tokenBreakdown.instructions > 0 && (
-                                  <span className="flex justify-between"><span>📝 Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.instructions.toLocaleString()}</span></span>
-                                )}
-                                {trace.trace.tokenBreakdown.artifacts != null && trace.trace.tokenBreakdown.artifacts > 0 && (
-                                  <span className="flex justify-between"><span>🎨 Artifacts</span><span className="text-white">{trace.trace.tokenBreakdown.artifacts.toLocaleString()}</span></span>
-                                )}
-                                {/* Per-tool breakdown */}
-                                {trace.trace.tokenBreakdown.toolsDetail && trace.trace.tokenBreakdown.toolsDetail.length > 0 && (
-                                  <>
-                                    {/* Separate core tools from MCP tools */}
-                                    {(() => {
-                                      const coreTools = trace.trace.tokenBreakdown.toolsDetail.filter((t: { name: string }) => !t.name.includes('_mcp_'));
-                                      const mcpTools = trace.trace.tokenBreakdown.toolsDetail.filter((t: { name: string }) => t.name.includes('_mcp_'));
-                                      return (
-                                        <>
-                                          {coreTools.length > 0 && (
-                                            <>
-                                              <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px] flex items-center gap-1">
-                                                🔧 Core Tools ({coreTools.length})
-                                                {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
-                                              </span>
-                                              {coreTools.map((tool: { name: string; tokens: number }, idx: number) => (
-                                                <span key={idx} className="flex justify-between pl-2"><span className="text-gray-300">• {tool.name}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
-                                              ))}
-                                            </>
-                                          )}
-                                          {mcpTools.length > 0 && (
-                                            <>
-                                              <span className="font-medium text-cyan-400 mt-1.5 mb-0.5 text-[10px] flex items-center gap-1">
-                                                🔌 MCP Tools ({mcpTools.length})
-                                                {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
-                                              </span>
-                                              {mcpTools.map((tool: { name: string; tokens: number }, idx: number) => (
-                                                <span key={idx} className="flex justify-between pl-2"><span className="text-cyan-300">• {tool.name.replace('_mcp_', ' → ')}</span><span className="text-white">{tool.tokens.toLocaleString()}</span></span>
-                                              ))}
-                                            </>
-                                          )}
-                                        </>
-                                      );
-                                    })()}
-                                  </>
-                                )}
-                                {/* Per-tool context breakdown */}
-                                {trace.trace.tokenBreakdown.toolContextDetail && trace.trace.tokenBreakdown.toolContextDetail.length > 0 && (
-                                  <>
-                                    <span className="font-medium text-white mt-1.5 mb-0.5 text-[10px]">📋 Tool Instructions</span>
-                                    {trace.trace.tokenBreakdown.toolContextDetail.map((ctx, idx) => (
-                                      <span key={idx} className="flex justify-between pl-2"><span className="text-gray-300">• {ctx.name}</span><span className="text-white">{ctx.tokens.toLocaleString()}</span></span>
-                                    ))}
-                                  </>
-                                )}
-                                <span className="border-t border-gray-600 pt-1.5 mt-1.5 flex flex-col gap-0.5">
-                                  <span className="flex justify-between font-medium"><span className="text-gray-300">Tracked</span><span className="text-white">{(trace.trace.tokenBreakdown.total || 0).toLocaleString()}</span></span>
-                                  <span className="flex justify-between text-gray-400"><span>Other (history, formatting)</span><span>{((trace.trace?.inputTokens || 0) - (trace.trace.tokenBreakdown.total || 0)).toLocaleString()}</span></span>
-                                  <span className="flex justify-between font-semibold text-blue-400"><span>Total Input</span><span>{(trace.trace?.inputTokens || 0).toLocaleString()}</span></span>
-                                </span>
-                                
-                                {/* Cache Summary - if caching is enabled */}
-                                {trace.trace.caching?.enabled && (
-                                  <span className="border-t border-purple-500/50 pt-1.5 mt-1.5 flex flex-col gap-0.5">
-                                    <span className="font-medium text-purple-400 text-[10px] mb-0.5">⚡ Cache Summary</span>
-                                    <span className="flex justify-between pl-2">
-                                      <span className="text-purple-300">Read (from cache)</span>
-                                      <span className="text-green-400">{(trace.trace.caching.readTokens || 0).toLocaleString()}</span>
-                                    </span>
-                                    <span className="flex justify-between pl-2">
-                                      <span className="text-purple-300">Write (to cache)</span>
-                                      <span className="text-yellow-400">{(trace.trace.caching.writeTokens || 0).toLocaleString()}</span>
-                                    </span>
-                                    {trace.trace.caching.readTokens > 0 && (
-                                      <span className="flex justify-between pl-2 pt-0.5 border-t border-gray-600 mt-0.5">
-                                        <span className="text-green-400">Cache Hit Rate</span>
-                                        <span className="text-green-400">
-                                          {Math.round((trace.trace.caching.readTokens / (trace.trace.inputTokens + trace.trace.caching.readTokens)) * 100)}%
-                                        </span>
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                              </span>
-                            ) : (
-                              <span>Tokens sent to the model</span>
-                            )}
-                          </span>
-                        </span>
-                      </span>
-                      <span className="text-[var(--text-secondary)]">{(trace.trace?.inputTokens || 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-green-400">Output</span>
-                      <span className="text-[var(--text-secondary)]">{(trace.trace?.outputTokens || 0).toLocaleString()}</span>
-                    </div>
-                    {trace.trace?.caching?.enabled && (
-                      <>
-                        <div className="flex justify-between items-center group">
-                          <span className="text-purple-400 flex items-center gap-1">
-                            Cache Write
-                            <span className="relative">
-                              <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
-                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '220px' }}>
-                                <span className="flex flex-col gap-1">
-                                  <span className="font-semibold text-white text-[11px]">💾 Cache Write</span>
-                                  <span className="text-gray-400">New tokens written to cache (1.25x input cost)</span>
-                                  <span className="border-t border-gray-600 pt-1 mt-1">
-                                    <span className="text-purple-300">Typically includes:</span>
-                                    <span className="flex flex-col gap-0.5 pl-2 mt-0.5">
-                                      <span className="text-gray-400">• New conversation turns</span>
-                                      <span className="text-gray-400">• Updated tool outputs</span>
-                                      <span className="text-gray-400">• First-time system prompts</span>
-                                    </span>
-                                  </span>
-                                </span>
-                              </span>
-                            </span>
-                          </span>
-                          <span className="text-[var(--text-secondary)]">{(trace.trace.caching.writeTokens || 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center group">
-                          <span className="text-purple-400 flex items-center gap-1">
-                            Cache Read
-                            <span className="relative">
-                              <Info className="h-3 w-3 text-purple-400/60 cursor-help" />
-                              <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '220px' }}>
-                                <span className="flex flex-col gap-1">
-                                  <span className="font-semibold text-white text-[11px]">⚡ Cache Read (Savings!)</span>
-                                  <span className="text-gray-400">Tokens served from cache (0.1x input cost = 90% savings)</span>
-                                  <span className="border-t border-gray-600 pt-1 mt-1">
-                                    <span className="text-purple-300">What gets cached (5-min TTL):</span>
-                                    <span className="flex flex-col gap-0.5 pl-2 mt-0.5">
-                                      <span className="text-gray-400">• System prompts (branding, routing, instructions)</span>
-                                      <span className="text-gray-400">• Tool definitions & schemas</span>
-                                      <span className="text-gray-400">• Prior conversation history</span>
-                                    </span>
-                                  </span>
-                                  {trace.trace.caching.readTokens > 0 && trace.trace.inputTokens > 0 && (
-                                    <span className="border-t border-gray-600 pt-1 mt-1">
-                                      <span className="text-green-400">
-                                        📈 {Math.round((trace.trace.caching.readTokens / (trace.trace.inputTokens + trace.trace.caching.readTokens)) * 100)}% of context served from cache
-                                      </span>
-                                    </span>
-                                  )}
-                                </span>
-                              </span>
-                            </span>
-                          </span>
-                          <span className="text-[var(--text-secondary)]">{(trace.trace.caching.readTokens || 0).toLocaleString()}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
-                      <span className="text-[var(--text-primary)]">Total</span>
-                      <span className="text-[var(--text-primary)]">{(trace.trace?.totalTokens || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Cost Breakdown */}
-                <div className="pt-2 mt-2 border-t border-[var(--border-light)]">
-                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Cost Breakdown</span>
-                  <div className="mt-1 space-y-0.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-blue-400">Input</span>
-                      <span className="text-[var(--text-secondary)]">${(trace.trace?.inputCost || 0).toFixed(6)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-green-400">Output</span>
-                      <span className="text-[var(--text-secondary)]">${(trace.trace?.outputCost || 0).toFixed(6)}</span>
-                    </div>
-                    {trace.trace?.caching?.enabled && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-purple-400">Cache Write</span>
-                          <span className="text-[var(--text-secondary)]">${(trace.trace.caching.writeCost || 0).toFixed(6)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-purple-400">Cache Read</span>
-                          <span className="text-[var(--text-secondary)]">${(trace.trace.caching.readCost || 0).toFixed(6)}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
-                      <span className="text-green-400">Total Cost</span>
-                      <span className="text-green-400">${(trace.trace?.totalCost || 0).toFixed(6)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Right Content Panel */}
+          {/* Middle Column: Content (Request/Response) */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-3 md:p-5">
               {renderContent()}
             </div>
           </div>
-        </div>
 
-        {/* Full-width Footer */}
-        <div className="px-2 py-1 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
-          <div className="flex items-center gap-3 text-[10px]">
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--text-tertiary)]">Trace ID:</span>
-              <code className="text-[9px] text-[var(--text-secondary)] font-mono truncate max-w-[200px]">{trace.messageId}</code>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--text-tertiary)]">User:</span>
-              <span className="text-[var(--text-secondary)]">{trace.user?.name || trace.user?.email || 'Unknown'}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--text-tertiary)]">Model:</span>
-              <code className="text-[9px] text-[var(--text-secondary)] font-mono">{trace.trace.model}</code>
+          {/* Right Column: Token, Cost, Context Analytics - matches left column width */}
+          <div className="hidden lg:flex md:w-44 lg:w-52 flex-shrink-0 flex-col border-l border-[var(--border-light)] bg-[var(--surface-secondary)]/30 overflow-y-auto">
+            <div className="p-3 space-y-3">
+              {/* Token Breakdown */}
+              <div>
+                <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Token Breakdown</span>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <div className="flex justify-between items-center group">
+                    <span className="text-blue-400 flex items-center gap-1">
+                      Input
+                      <span className="relative">
+                        <Info className="h-3 w-3 text-blue-400/60 cursor-help" />
+                        <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-[10px] text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl" style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}>
+                          {trace.trace?.tokenBreakdown ? (
+                            <span className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-white mb-1 text-[11px]">📊 Input Token Breakdown</span>
+                              
+                              {/* Prompts breakdown - if available */}
+                              {trace.trace.tokenBreakdown.prompts && (
+                                <>
+                                  <span className="font-medium text-yellow-400 mt-1 mb-0.5 text-[10px] flex items-center gap-1">
+                                    📜 System Prompts
+                                    {trace.trace.caching?.enabled && <span className="text-purple-400 text-[8px]">(🔒 cached)</span>}
+                                  </span>
+                                  {trace.trace.tokenBreakdown.prompts.branding > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-gray-300">• Branding</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.branding.toLocaleString()}</span></span>
+                                  )}
+                                  {trace.trace.tokenBreakdown.prompts.toolRouting > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-gray-300">• Tool Routing</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.toolRouting.toLocaleString()}</span></span>
+                                  )}
+                                  {trace.trace.tokenBreakdown.prompts.agentInstructions > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-gray-300">• Agent Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.agentInstructions.toLocaleString()}</span></span>
+                                  )}
+                                  {trace.trace.tokenBreakdown.prompts.mcpInstructions > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-cyan-300">• MCP Instructions</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.mcpInstructions.toLocaleString()}</span></span>
+                                  )}
+                                  {trace.trace.tokenBreakdown.prompts.artifacts > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-gray-300">• Artifacts</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.artifacts.toLocaleString()}</span></span>
+                                  )}
+                                  {trace.trace.tokenBreakdown.prompts.memory > 0 && (
+                                    <span className="flex justify-between pl-2"><span className="text-purple-300">• Memory</span><span className="text-white">{trace.trace.tokenBreakdown.prompts.memory.toLocaleString()}</span></span>
+                                  )}
+                                </>
+                              )}
+                            </span>
+                          ) : (
+                            <span>Tokens sent to the model</span>
+                          )}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="text-[var(--text-secondary)]">{(trace.trace?.inputTokens || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-green-400">Output</span>
+                    <span className="text-[var(--text-secondary)]">{(trace.trace?.outputTokens || 0).toLocaleString()}</span>
+                  </div>
+                  {trace.trace?.caching?.enabled && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">Cache Write</span>
+                        <span className="text-[var(--text-secondary)]">{(trace.trace.caching.writeTokens || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">Cache Read</span>
+                        <span className="text-[var(--text-secondary)]">{(trace.trace.caching.readTokens || 0).toLocaleString()}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
+                    <span className="text-[var(--text-primary)]">Total</span>
+                    <span className="text-[var(--text-primary)]">{(trace.trace?.totalTokens || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Cost Breakdown */}
+              <div className="pt-2 border-t border-[var(--border-light)]">
+                <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Cost Breakdown</span>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-blue-400">Input</span>
+                    <span className="text-[var(--text-secondary)]">${(trace.trace?.inputCost || 0).toFixed(6)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-green-400">Output</span>
+                    <span className="text-[var(--text-secondary)]">${(trace.trace?.outputCost || 0).toFixed(6)}</span>
+                  </div>
+                  {trace.trace?.caching?.enabled && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">Cache Write</span>
+                        <span className="text-[var(--text-secondary)]">${(trace.trace.caching.writeCost || 0).toFixed(6)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">Cache Read</span>
+                        <span className="text-[var(--text-secondary)]">${(trace.trace.caching.readCost || 0).toFixed(6)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between font-medium pt-1 border-t border-[var(--border-light)]">
+                    <span className="text-green-400">Total Cost</span>
+                    <span className="text-green-400">${(trace.trace?.totalCost || 0).toFixed(6)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Context Analytics */}
+              {trace.trace?.contextAnalytics && (
+                <div className="pt-3 border-t border-[var(--border-light)]">
+                  <span className="text-[9px] md:text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider flex items-center gap-1">
+                    📊 Context Analytics
+                  </span>
+                  <div className="mt-2 space-y-3 text-xs">
+                    
+                    {/* Context Utilization */}
+                    <div className="bg-[var(--surface-tertiary)]/50 rounded-lg p-2">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[10px] text-[var(--text-secondary)] font-medium">Context Utilization</span>
+                        <span className={`text-sm font-bold ${
+                          trace.trace.contextAnalytics.utilizationPercent > 90 ? 'text-red-400' :
+                          trace.trace.contextAnalytics.utilizationPercent > 75 ? 'text-yellow-400' :
+                          'text-green-400'
+                        }`}>
+                          {trace.trace.contextAnalytics.utilizationPercent.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-[var(--surface-secondary)] rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all ${
+                            trace.trace.contextAnalytics.utilizationPercent > 90 ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                            trace.trace.contextAnalytics.utilizationPercent > 75 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                            'bg-gradient-to-r from-green-600 to-green-400'
+                          }`}
+                          style={{ width: `${Math.min(trace.trace.contextAnalytics.utilizationPercent, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] mt-1">
+                        <span className="text-[var(--text-secondary)] font-medium">{trace.trace.contextAnalytics.totalTokens.toLocaleString()}</span>
+                        <span className="text-[var(--text-tertiary)]">max: {trace.trace.contextAnalytics.maxContextTokens.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-[var(--surface-tertiary)]/30 rounded p-1.5">
+                        <span className="text-[9px] text-[var(--text-tertiary)]">Messages</span>
+                        <div className="text-sm font-medium text-[var(--text-primary)]">{trace.trace.contextAnalytics.messageCount || 0}</div>
+                      </div>
+                      <div className="bg-[var(--surface-tertiary)]/30 rounded p-1.5">
+                        <span className="text-[9px] text-[var(--text-tertiary)]">Instructions</span>
+                        <div className="text-sm font-medium text-[var(--text-primary)]">{(trace.trace.contextAnalytics.instructionTokens || 0).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Message Breakdown */}
+                    {trace.trace.contextAnalytics.breakdown && Object.keys(trace.trace.contextAnalytics.breakdown).length > 0 && (
+                      <div>
+                        <span className="text-[9px] text-[var(--text-tertiary)] uppercase tracking-wider">Message Breakdown</span>
+                        <div className="mt-1.5 space-y-1">
+                          {Object.entries(trace.trace.contextAnalytics.breakdown)
+                            .sort((a, b) => b[1].tokens - a[1].tokens)
+                            .map(([type, data]) => (
+                            <div key={type} className="flex items-center gap-2">
+                              <span className={`text-[10px] w-12 font-medium ${
+                                type === 'human' ? 'text-blue-400' :
+                                type === 'ai' ? 'text-green-400' :
+                                type === 'tool' ? 'text-orange-400' :
+                                type === 'system' ? 'text-yellow-400' :
+                                'text-gray-400'
+                              }`}>{type}</span>
+                              <div className="flex-1 h-1.5 bg-[var(--surface-tertiary)] rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${
+                                    type === 'human' ? 'bg-blue-500' :
+                                    type === 'ai' ? 'bg-green-500' :
+                                    type === 'tool' ? 'bg-orange-500' :
+                                    type === 'system' ? 'bg-yellow-500' : 'bg-gray-500'
+                                  }`}
+                                  style={{ width: `${data.percent}%` }}
+                                />
+                              </div>
+                              <span className="text-[9px] text-[var(--text-secondary)] w-20 text-right font-mono">
+                                {data.tokens.toLocaleString()} ({data.percent.toFixed(0)}%)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* TOON Compression */}
+                    {trace.trace.contextAnalytics.toonStats && (
+                      <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-2">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-cyan-400">📦</span>
+                          <span className="text-[10px] text-cyan-400 font-medium uppercase tracking-wider">TOON Compression</span>
+                        </div>
+                        {trace.trace.contextAnalytics.toonStats.compressedCount > 0 ? (
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                            <div className="flex justify-between">
+                              <span className="text-[var(--text-tertiary)]">Compressed</span>
+                              <span className="text-cyan-400 font-medium">{trace.trace.contextAnalytics.toonStats.compressedCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[var(--text-tertiary)]">Reduction</span>
+                              <span className="text-green-400 font-medium">{trace.trace.contextAnalytics.toonStats.avgReductionPercent?.toFixed(1) || 0}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[var(--text-tertiary)]">Chars Saved</span>
+                              <span className="text-[var(--text-secondary)]">{(trace.trace.contextAnalytics.toonStats.charactersSaved || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-[var(--text-tertiary)]">Tokens Saved</span>
+                              <span className="text-green-400 font-medium">~{(trace.trace.contextAnalytics.toonStats.tokensSaved || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-tertiary)]">No compression this turn</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Pruning Status */}
+                    <div className={`rounded-lg p-2 ${
+                      trace.trace.contextAnalytics.pruningApplied 
+                        ? 'bg-amber-500/10 border border-amber-500/30' 
+                        : 'bg-[var(--surface-tertiary)]/30'
+                    }`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span>{trace.trace.contextAnalytics.pruningApplied ? '✂️' : '📋'}</span>
+                        <span className={`text-[10px] font-medium uppercase tracking-wider ${
+                          trace.trace.contextAnalytics.pruningApplied ? 'text-amber-400' : 'text-[var(--text-tertiary)]'
+                        }`}>Pruning</span>
+                      </div>
+                      {trace.trace.contextAnalytics.pruningApplied ? (
+                        <span className="text-[10px] text-amber-400">{trace.trace.contextAnalytics.messagesPruned || 0} messages pruned</span>
+                      ) : (
+                        <span className="text-[10px] text-[var(--text-tertiary)]">No pruning needed</span>
+                      )}
+                    </div>
+                    
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+
+              {/* Trace Footer */}
+              <div className="px-2 py-1 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
+                <div className="flex items-center gap-3 text-[10px]">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--text-tertiary)]">Trace ID:</span>
+                    <code className="text-[9px] text-[var(--text-secondary)] font-mono truncate max-w-[200px]">{trace.messageId}</code>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--text-tertiary)]">User:</span>
+                    {trace.user?._id ? (
+                      <Link 
+                        to={`/admin/users/${trace.user._id}`}
+                        className="text-[var(--text-secondary)] hover:text-blue-400 hover:underline transition-colors cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {trace.user?.name || trace.user?.email || 'Unknown'}
+                      </Link>
+                    ) : (
+                      <span className="text-[var(--text-secondary)]">{trace.user?.name || trace.user?.email || 'Unknown'}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--text-tertiary)]">Model:</span>
+                    <code className="text-[9px] text-[var(--text-secondary)] font-mono">{trace.trace.model}</code>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Conversation Tab Content */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {conversationLoading ? (
+                /* Skeleton Loading */
+                <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
+                  {/* User message skeleton */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[75%] rounded-xl p-4 bg-blue-600/30 animate-pulse">
+                      <div className="h-3 w-16 bg-blue-400/30 rounded mb-2" />
+                      <div className="h-4 w-48 bg-blue-400/30 rounded mb-1" />
+                      <div className="h-4 w-32 bg-blue-400/30 rounded" />
+                    </div>
+                  </div>
+                  {/* AI message skeleton */}
+                  <div className="flex justify-start">
+                    <div className="max-w-[75%] rounded-xl p-4 bg-[var(--surface-tertiary)] animate-pulse">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-3 w-16 bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-3 w-20 bg-[var(--surface-secondary)] rounded" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 w-full bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-full bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-3/4 bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-full bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-2/3 bg-[var(--surface-secondary)] rounded" />
+                      </div>
+                      <div className="h-3 w-32 bg-[var(--surface-secondary)] rounded mt-3" />
+                    </div>
+                  </div>
+                  {/* User message skeleton */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[75%] rounded-xl p-4 bg-blue-600/30 animate-pulse">
+                      <div className="h-3 w-16 bg-blue-400/30 rounded mb-2" />
+                      <div className="h-4 w-64 bg-blue-400/30 rounded" />
+                    </div>
+                  </div>
+                  {/* AI message skeleton */}
+                  <div className="flex justify-start">
+                    <div className="max-w-[75%] rounded-xl p-4 bg-[var(--surface-tertiary)] animate-pulse">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-3 w-16 bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-3 w-24 bg-[var(--surface-secondary)] rounded" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 w-full bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-full bg-[var(--surface-secondary)] rounded" />
+                        <div className="h-4 w-1/2 bg-[var(--surface-secondary)] rounded" />
+                      </div>
+                      <div className="h-3 w-32 bg-[var(--surface-secondary)] rounded mt-3" />
+                    </div>
+                  </div>
+                </div>
+              ) : conversation ? (
+                <>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
+                    {/* Info bar */}
+                    <div className="flex items-center justify-between px-2 py-1.5 bg-[var(--surface-secondary)]/50 rounded-lg text-[10px] text-[var(--text-tertiary)]">
+                      <div className="flex items-center gap-2">
+                        {conversation.hasErrors && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded">
+                            <AlertTriangle className="h-3 w-3" />
+                            {conversation.errorCount} error{conversation.errorCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        <span>{conversation.messages?.length || 0} messages</span>
+                        <span>•</span>
+                        <span>{conversation.model?.split('/').pop() || conversation.endpoint}</span>
+                      </div>
+                      <span>{new Date(conversation.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                    {conversation.messages?.map((msg, idx) => (
+                      <div
+                        key={msg.messageId || idx}
+                        className={`flex ${msg.isCreatedByUser ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[85%] md:max-w-[75%] rounded-xl p-3 md:p-4 ${
+                            msg.isCreatedByUser
+                              ? 'bg-blue-600 text-white'
+                              : msg.isError || msg.error
+                              ? 'bg-red-500/10 border border-red-500/30 text-[var(--text-primary)]'
+                              : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {/* Message Header */}
+                          <div className="flex items-center gap-2 mb-2">
+                            {(msg.isError || msg.error) && !msg.isCreatedByUser && (
+                              <AlertTriangle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                            )}
+                            <span className={`text-[10px] md:text-xs font-medium ${
+                              msg.isCreatedByUser ? 'text-blue-200' : msg.isError || msg.error ? 'text-red-400' : 'text-[var(--text-tertiary)]'
+                            }`}>
+                              {msg.sender}
+                              {(msg.isError || msg.error) && !msg.isCreatedByUser && ' - Error'}
+                            </span>
+                            {msg.tokenCount && (
+                              <span className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded ${
+                                msg.isCreatedByUser ? 'bg-blue-500/30 text-blue-200' : 'bg-[var(--surface-secondary)] text-[var(--text-tertiary)]'
+                              }`}>
+                                {msg.tokenCount} tokens
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Message Text */}
+                          <p className={`text-xs md:text-sm whitespace-pre-wrap leading-relaxed ${
+                            (msg.isError || msg.error) && !msg.isCreatedByUser ? 'text-red-300' : ''
+                          }`}>{msg.text || (msg.errorMessage ? msg.errorMessage : '_No message text_')}</p>
+                          
+                          {/* Timestamp */}
+                          <p className={`text-[10px] md:text-xs mt-2 ${
+                            msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
+                          }`}>
+                            {new Date(msg.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Conversation Footer */}
+                  <div className="px-3 md:px-4 py-2 border-t border-[var(--border-light)] bg-[var(--surface-secondary)]/50">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 text-[10px] md:text-xs text-[var(--text-tertiary)]">
+                      <span>Conversation ID: <code className="font-mono bg-[var(--surface-tertiary)] px-1.5 py-0.5 rounded text-[var(--text-secondary)]">{conversation.conversationId?.slice(0, 12) || ''}...</code></span>
+                      <span>Created: {new Date(conversation.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center text-[var(--text-tertiary)]">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No conversation loaded</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>,
@@ -1011,6 +1275,7 @@ export function TracesPage() {
   const [selectedAgent, setSelectedAgent] = useState<string>(searchParams.get('agent') || '');
   const [guardrailsFilter, setGuardrailsFilter] = useState<string>(searchParams.get('guardrails') || '');
   const [toolNameFilter, setToolNameFilter] = useState<string>(searchParams.get('toolName') || '');
+  const [errorFilter, setErrorFilter] = useState<string>(searchParams.get('errors') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10));
 
   // Update URL params when filters change
@@ -1023,9 +1288,10 @@ export function TracesPage() {
     if (selectedAgent) params.set('agent', selectedAgent);
     if (guardrailsFilter) params.set('guardrails', guardrailsFilter);
     if (toolNameFilter) params.set('toolName', toolNameFilter);
+    if (errorFilter) params.set('errors', errorFilter);
     if (page > 1) params.set('page', String(page));
     setSearchParams(params, { replace: true });
-  }, [searchQuery, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, page, setSearchParams]);
+  }, [searchQuery, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, errorFilter, page, setSearchParams]);
 
   // Fetch users for filter dropdown
   useEffect(() => {
@@ -1058,6 +1324,7 @@ export function TracesPage() {
         agent: selectedAgent || undefined,
         guardrails: guardrailsFilter || undefined,
         toolName: toolNameFilter || undefined,
+        errorOnly: errorFilter === 'errors' ? true : undefined,
       });
       setData(response);
       setError(null);
@@ -1067,7 +1334,7 @@ export function TracesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter]);
+  }, [page, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, errorFilter]);
 
   useEffect(() => {
     fetchData();
@@ -1147,10 +1414,11 @@ export function TracesPage() {
     setSelectedAgent('');
     setGuardrailsFilter('');
     setToolNameFilter('');
+    setErrorFilter('');
     setPage(1);
   };
 
-  const hasActiveFilters = selectedModel || selectedUserId || conversationIdFilter || searchQuery || selectedAgent || guardrailsFilter || toolNameFilter;
+  const hasActiveFilters = selectedModel || selectedUserId || conversationIdFilter || searchQuery || selectedAgent || guardrailsFilter || toolNameFilter || errorFilter;
 
   // Show full page skeleton on initial load
   if (loading && !data) {
@@ -1186,7 +1454,7 @@ export function TracesPage() {
         <StatsGridSkeleton count={4} />
       ) : data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+          <div className="bg-surface-secondary rounded-lg border border-border-light p-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20">
                 <Activity className="h-4 w-4 text-blue-400" />
@@ -1197,7 +1465,7 @@ export function TracesPage() {
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+          <div className="bg-surface-secondary rounded-lg border border-border-light p-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20">
                 <Cpu className="h-4 w-4 text-purple-400" />
@@ -1208,7 +1476,7 @@ export function TracesPage() {
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+          <div className="bg-surface-secondary rounded-lg border border-border-light p-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/20">
                 <Zap className="h-4 w-4 text-yellow-400" />
@@ -1221,7 +1489,7 @@ export function TracesPage() {
               </div>
             </div>
           </div>
-          <div className="bg-[var(--surface-primary)] rounded-lg border border-[var(--border-light)] p-3">
+          <div className="bg-surface-secondary rounded-lg border border-border-light p-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/20">
                 <DollarSign className="h-4 w-4 text-green-400" />
@@ -1323,6 +1591,19 @@ export function TracesPage() {
                 <option value="blocked">Blocked</option>
                 <option value="anonymized">Anonymized</option>
                 <option value="passed">Passed</option>
+              </select>
+            </div>
+            
+            {/* Errors Filter */}
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <select
+                value={errorFilter}
+                onChange={(e) => { setErrorFilter(e.target.value); setPage(1); }}
+                className="px-3 py-2 bg-[var(--surface-secondary)] border border-[var(--border-light)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)] min-w-[120px]"
+              >
+                <option value="">All Traces</option>
+                <option value="errors">Errors Only</option>
               </select>
             </div>
             
@@ -1559,13 +1840,22 @@ export function TracesPage() {
                             <Brain className="h-3 w-3" />
                           </span>
                         )}
+                        {/* Error flag */}
+                        {trace.error?.isError && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs"
+                            title={`Error: ${trace.error.message}`}
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                          </span>
+                        )}
                         {trace.trace?.toolCalls && trace.trace.toolCalls.length > 0 && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs" title={`${trace.trace.toolCalls.length} Tool Calls`}>
                             <Wrench className="h-3 w-3" />
                             <span>{trace.trace.toolCalls.length}</span>
                           </span>
                         )}
-                        {!trace.guardrails?.invoked && !trace.trace?.thinking && (!trace.trace?.toolCalls || trace.trace.toolCalls.length === 0) && (
+                        {!trace.guardrails?.invoked && !trace.trace?.thinking && !trace.error?.isError && (!trace.trace?.toolCalls || trace.trace.toolCalls.length === 0) && (
                           <span className="text-xs text-[var(--text-tertiary)]">—</span>
                         )}
                       </div>
@@ -1612,8 +1902,12 @@ export function TracesPage() {
         </>
       )}
 
-      {/* Trace Drawer */}
-      <TraceDrawer trace={selectedTrace} isOpen={drawerOpen} onClose={closeDrawer} />
+      {/* Trace Drawer (from right) with integrated conversation tab */}
+      <TraceDrawer 
+        trace={selectedTrace} 
+        isOpen={drawerOpen} 
+        onClose={closeDrawer} 
+      />
     </div>
   );
 }

@@ -168,15 +168,14 @@ export interface QueryIntentResult {
 /**
  * Model tier for routing queries to appropriate LLM
  * 
- * 4-TIER SYSTEM (target distribution):
+ * 3-TIER SYSTEM (target distribution):
  * - simple   (~1%)  : Nova Micro  ($0.035/$0.14)  - Greetings, text-only simple responses
  * - moderate (~80%) : Haiku 4.5   ($1/$5)         - Most tasks, tool usage, standard code
- * - complex  (~15%) : Sonnet 4.5  ($3/$15)        - Debugging, detailed analysis
- * - expert   (~4%)  : Opus 4.5    ($15/$75)       - Deep analysis, architecture, research
+ * - complex/expert (~19%) : Sonnet 4.5  ($3/$15)  - Debugging, detailed analysis, architecture
  * 
  * Routing Rules:
  * - Tool usage → Haiku 4.5 minimum (Claude handles tools better)
- * - Deep/comprehensive analysis → Opus 4.5
+ * - Deep/comprehensive analysis → Sonnet 4.5
  * - Text-only simple queries → Nova Micro
  */
 export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple';

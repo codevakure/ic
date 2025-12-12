@@ -8,17 +8,16 @@
 // ============================================================================
 
 /**
- * Model tier classification - 4-tier system for optimal cost/quality balance
+ * Model tier classification - 3-tier system for optimal cost/quality balance
  * 
  * TARGET DISTRIBUTION:
  * - simple:   Nova Micro   (~1%)   - Greetings, acknowledgments, text-only simple responses
  * - moderate: Haiku 4.5    (~80%)  - Most tasks, tool usage, standard coding
- * - complex:  Sonnet 4.5   (~15%)  - Debugging, detailed analysis, complex code
- * - expert:   Opus 4.5     (~4%)   - Deep analysis, architecture, research
+ * - complex/expert: Sonnet 4.5 (~19%) - Debugging, detailed analysis, architecture, deep research
  * 
  * ROUTING RULES:
  * - ANY tool usage → Haiku 4.5 minimum (Claude models handle tools better)
- * - Deep/comprehensive analysis requests → Opus 4.5
+ * - Deep/comprehensive analysis requests → Sonnet 4.5
  * - Text-only simple queries → Nova Micro allowed
  */
 export type ModelTier = 'expert' | 'complex' | 'moderate' | 'simple';
@@ -74,7 +73,7 @@ export interface ModelConfig {
  * Distribution targets: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
  */
 export interface ModelPair {
-  /** Tier 4: Expert (~4%) - deep analysis, architecture, research (Opus 4.5) */
+  /** Tier 4: Expert (~4%) - deep analysis, architecture, research (Sonnet 4.5) */
   expert: string;
   /** Tier 3: Complex (~15%) - debugging, detailed analysis (Sonnet 4.5) */
   complex: string;

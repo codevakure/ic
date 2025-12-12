@@ -76,6 +76,21 @@ const MODEL_PRICING = {
     cacheWrite: 3.75,
     cacheRead: 0.3
   },
+  'us.anthropic.claude-3-5-haiku-20241022-v1:0': {
+    name: 'Claude 3.5 Haiku',
+    input: 0.8,
+    output: 4.0,
+    cacheWrite: 1.0,
+    cacheRead: 0.08
+  },
+  // Default pricing for unknown models
+  'default': {
+    name: 'Unknown Model',
+    input: 1.0,
+    output: 5.0,
+    cacheWrite: 1.25,
+    cacheRead: 0.1
+  },
 };
 
 /**
@@ -86,10 +101,11 @@ const MODEL_PRICING = {
  * @returns {number} Cost in dollars
  */
 const calculateCost = (model, tokenType, tokens) => {
-  const pricing = MODEL_PRICING[model] || findMatchingPricing(model);
-  if (!pricing) {
-    // For agents or unknown models, use a default pricing
-    return (tokens / 1000000) * 1.0; // Default $1 per million
+  const pricing = MODEL_PRICING[model] || findMatchingPricing(model) || MODEL_PRICING.default;
+  if (!pricing || !pricing.input || !pricing.output) {
+    // For agents or unknown models, use default pricing
+    const defaultRate = tokenType === 'prompt' ? 1.0 : 5.0;
+    return (Math.abs(tokens) / 1000000) * defaultRate;
   }
   const rate = tokenType === 'prompt' ? pricing.input : pricing.output;
   return (Math.abs(tokens) / 1000000) * rate;
@@ -503,11 +519,13 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       logger.warn('[Admin] Could not fetch agent count:', error.message);
     }
 
-    // Active sessions count
+    // Active sessions count - sessions created today (actual logins today)
     let activeSessions = 0;
     try {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
       activeSessions = await Session.countDocuments({
-        expiration: { $gt: new Date() },
+        createdAt: { $gte: startOfToday },
       });
     } catch (error) {
       logger.warn('[Admin] Could not fetch active sessions:', error.message);
@@ -2079,12 +2097,12 @@ const getTransactionHistory = async ({ userId, startDate, endDate, page = 1, lim
  * @param {Object} options - Query options
  * @returns {Object} Traces with pagination
  */
-const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationId = null, model = null, startDate = null, endDate = null, toolName = null } = {}) => {
+const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationId = null, model = null, startDate = null, endDate = null, toolName = null, errorOnly = false } = {}) => {
   try {
     const mongoose = require('mongoose');
     
-    // Enforce maximum limit of 50 to prevent performance issues
-    const effectiveLimit = Math.min(limit || 50, 50);
+    // Enforce maximum limit of 50 to prevent performance issues (default 25)
+    const effectiveLimit = Math.min(limit || 25, 50);
     
     // Build match conditions
     const matchConditions = { isCreatedByUser: false }; // Get AI responses (they link to user messages via parentMessageId)
@@ -2097,6 +2115,10 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
     }
     if (model) {
       matchConditions.model = model;
+    }
+    // Filter to only show error messages
+    if (errorOnly) {
+      matchConditions.error = true;
     }
     if (startDate || endDate) {
       matchConditions.createdAt = {};
@@ -2135,7 +2157,14 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
         // Get user info
         let userInfo = null;
         if (aiMsg.user) {
-          userInfo = await User.findById(aiMsg.user).select('name email').lean();
+          const userData = await User.findById(aiMsg.user).select('name email').lean();
+          if (userData) {
+            userInfo = {
+              _id: userData._id.toString(),
+              name: userData.name,
+              email: userData.email,
+            };
+          }
         }
 
         // Get conversation title
@@ -2168,6 +2197,7 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
         let cacheWriteCost = 0;
         let cacheReadCost = 0;
         let contextBreakdown = null;  // Will hold the breakdown of what's in the cached context
+        let contextAnalytics = null;  // Will hold message breakdown, TOON stats, etc.
 
         transactions.forEach(tx => {
           // Use tokenValue if available (already has correct rates applied)
@@ -2189,6 +2219,11 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
             // Extract context breakdown if available (what's in the cached tokens)
             if (tx.contextBreakdown && !contextBreakdown) {
               contextBreakdown = tx.contextBreakdown;
+            }
+            
+            // Extract context analytics if available (message breakdown, TOON stats, etc.)
+            if (tx.contextAnalytics && !contextAnalytics) {
+              contextAnalytics = tx.contextAnalytics;
             }
             
             // Calculate costs using model-specific rates
@@ -2232,12 +2267,54 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
         // Resolve the actual model ID (handles legacy case where agent_id was stored in model field)
         const resolvedModel = resolveModelId(aiMsg, transactions);
 
+        // Extract error information if this message is an error response
+        let errorInfo = null;
+        
+        // Check for error in content array (agent-style errors)
+        if (aiMsg.content && Array.isArray(aiMsg.content)) {
+          const errorPart = aiMsg.content.find(c => c.type === 'error');
+          if (errorPart) {
+            const errorMessage = errorPart.error || errorPart[errorPart.type] || 'Unknown error';
+            errorInfo = {
+              isError: true,
+              message: errorMessage,
+              type: 'error',
+              code: null,
+              rawText: errorMessage,
+            };
+          }
+        }
+        
+        // Also check the error flag and text field (legacy and abort errors)
+        if (!errorInfo && aiMsg.error === true) {
+          // Try to parse error text as JSON (structured error) or use as plain text
+          let parsedError = null;
+          try {
+            if (aiMsg.text && aiMsg.text.startsWith('{')) {
+              parsedError = JSON.parse(aiMsg.text);
+            }
+          } catch {
+            // Not JSON, use as plain text
+          }
+          
+          errorInfo = {
+            isError: true,
+            message: parsedError?.message || aiMsg.text || 'Unknown error',
+            type: parsedError?.type || 'error',
+            code: parsedError?.code || null,
+            // Include raw text for debugging
+            rawText: aiMsg.text,
+          };
+        }
+
         return {
           id: aiMsg._id.toString(),
           messageId: aiMsg.messageId,
           conversationId: aiMsg.conversationId,
           conversationTitle,
           user: userInfo,
+          // Error information (if this is an error response)
+          error: errorInfo,
           // Input (user message)
           input: {
             messageId: userMessage?.messageId,
@@ -2248,9 +2325,10 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
           // Output (AI response)
           output: {
             messageId: aiMsg.messageId,
-            text: aiText,
+            text: errorInfo ? '' : aiText,  // Don't duplicate error text in output
             tokenCount: aiMsg.tokenCount || 0,
             createdAt: aiMsg.createdAt,
+            isError: !!errorInfo,
           },
           // Trace details
           trace: {
@@ -2295,6 +2373,27 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
               // Per-prompt token breakdown (branding, tool routing, etc.)
               prompts: contextBreakdown.prompts || null,
             } : null,
+            // Context analytics - message type breakdown, TOON compression, utilization
+            contextAnalytics: contextAnalytics ? {
+              messageCount: contextAnalytics.messageCount || 0,
+              totalTokens: contextAnalytics.totalTokens || 0,
+              maxContextTokens: contextAnalytics.maxContextTokens || 0,
+              instructionTokens: contextAnalytics.instructionTokens || 0,
+              utilizationPercent: contextAnalytics.utilizationPercent || 0,
+              breakdown: contextAnalytics.breakdown || null,  // { human: { tokens, percent }, ai: {...}, tool: {...} }
+              toonStats: contextAnalytics.toonStats ? {
+                compressedCount: contextAnalytics.toonStats.compressedCount || 0,
+                charactersSaved: contextAnalytics.toonStats.charactersSaved || 0,
+                tokensSaved: contextAnalytics.toonStats.tokensSaved || 0,
+                avgReductionPercent: contextAnalytics.toonStats.avgReductionPercent || 0,
+              } : null,
+              cacheStats: contextAnalytics.cacheStats ? {
+                cacheReadTokens: contextAnalytics.cacheStats.cacheReadTokens || 0,
+                cacheCreationTokens: contextAnalytics.cacheStats.cacheCreationTokens || 0,
+              } : null,
+              pruningApplied: contextAnalytics.pruningApplied || false,
+              messagesPruned: contextAnalytics.messagesPruned || 0,
+            } : null,
             // Costs - accurate with cache token rates
             inputCost: parseFloat(inputCost.toFixed(6)),
             outputCost: parseFloat(outputCost.toFixed(6)),
@@ -2318,8 +2417,14 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
       })
     );
 
+    // Count errors in traces
+    const errorCount = traces.filter(t => t.output?.isError).length;
+
     // Get unique models for filter
     const models = await Message.distinct('model', { isCreatedByUser: false, model: { $ne: null } });
+
+    // Get total error count in database (for summary, not just current page)
+    const totalErrors = await Message.countDocuments({ isCreatedByUser: false, error: true });
 
     return {
       traces,
@@ -2336,6 +2441,9 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
       },
       summary: {
         totalTraces: total,
+        totalErrors,
+        errorRate: total > 0 ? parseFloat((totalErrors / total * 100).toFixed(2)) : 0,
+        errorsOnPage: errorCount,
       },
       generatedAt: new Date().toISOString(),
     };
@@ -2352,19 +2460,28 @@ const getLLMTraces = async ({ page = 1, limit = 50, userId = null, conversationI
  * @param {string} endDate - Optional end date filter
  * @returns {Promise<Object>} Tool usage metrics
  */
-const getToolMetrics = async (startDate, endDate) => {
+const getToolMetrics = async (startDateStr, endDateStr) => {
   try {
-    const dateFilter = {};
-    if (startDate) dateFilter.$gte = new Date(startDate);
-    if (endDate) dateFilter.$lte = new Date(endDate);
+    // Parse dates properly - ensure full day range
+    let startDate, endDate;
+    const now = new Date();
+    
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
+    } else {
+      // Default to current month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
+    }
 
     const matchStage = {
       'content.type': 'tool_call',
       isCreatedByUser: false,
+      createdAt: { $gte: startDate, $lte: endDate },
     };
-    if (Object.keys(dateFilter).length > 0) {
-      matchStage.createdAt = dateFilter;
-    }
 
     // Aggregate tool calls from messages
     const toolAggregation = await Message.aggregate([
@@ -2462,8 +2579,16 @@ const categorizeToolName = (toolName) => {
 const getGuardrailsMetrics = async (startDate, endDate) => {
   try {
     const dateFilter = {};
-    if (startDate) dateFilter.$gte = new Date(startDate);
-    if (endDate) dateFilter.$lte = new Date(endDate);
+    if (startDate) {
+      // Parse date string to ensure we capture the full day
+      const startStr = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
+      dateFilter.$gte = new Date(startStr);
+    }
+    if (endDate) {
+      // Parse date string to ensure we capture the full day
+      const endStr = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
+      dateFilter.$lte = new Date(endStr);
+    }
 
     const matchStage = {
       $or: [
@@ -2632,6 +2757,235 @@ const getGuardrailsMetrics = async (startDate, endDate) => {
   }
 };
 
+/**
+ * Get agent summary only (fast - just counts)
+ * Used for stats cards on Dashboard and Agents page
+ */
+const getAgentSummary = async (startDateStr, endDateStr) => {
+  try {
+    // Parse dates
+    let startDate, endDate;
+    const now = new Date();
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
+    }
+
+    // Fast count queries
+    const totalAgents = await Agent.countDocuments();
+    const publicAgents = await Agent.countDocuments({ isPublic: true });
+    const privateAgents = totalAgents - publicAgents;
+
+    // Count active agents (with transactions in period)
+    const activeAgentsResult = await Transaction.distinct('model', {
+      createdAt: { $gte: startDate, $lte: endDate },
+      model: { $regex: /^agent_/ },
+    });
+    const activeAgents = activeAgentsResult.length;
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      summary: {
+        total: totalAgents,
+        public: publicAgents,
+        private: privateAgents,
+        active: activeAgents,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getAgentSummary:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get tools summary only (fast - just counts and aggregates)
+ * Used for stats cards on Dashboard and Tools page
+ */
+const getToolSummary = async (startDateStr, endDateStr) => {
+  try {
+    // Parse dates
+    let startDate, endDate;
+    const now = new Date();
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
+    }
+
+    // Build match stage for messages with tool calls
+    const matchStage = {
+      'content.type': 'tool_call',
+      isCreatedByUser: false,
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    // Fast aggregation for summary only using Message model
+    const summaryAgg = await Message.aggregate([
+      { $match: matchStage },
+      { $unwind: '$content' },
+      { $match: { 'content.type': 'tool_call' } },
+      {
+        $group: {
+          _id: '$content.tool_call.name',
+          invocations: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalInvocations: { $sum: '$invocations' },
+          totalTools: { $sum: 1 },
+          mostUsedTool: { $first: '$_id' },
+          mostUsedCount: { $max: '$invocations' },
+        },
+      },
+    ]);
+
+    const summary = summaryAgg[0] || {
+      totalInvocations: 0,
+      totalTools: 0,
+      mostUsedTool: null,
+    };
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      summary: {
+        totalInvocations: summary.totalInvocations,
+        totalTools: summary.totalTools,
+        avgSuccessRate: 1, // Assume 100% success since we don't track errors at message level
+        mostUsedTool: summary.mostUsedTool || 'N/A',
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getToolSummary:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get guardrails summary only (fast - just counts)
+ * Used for stats cards on Dashboard and Guardrails page
+ */
+const getGuardrailsSummary = async (startDateStr, endDateStr) => {
+  try {
+    // Parse dates
+    let startDate, endDate;
+    const now = new Date();
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      const startStr = startDateStr.includes('T') ? startDateStr.split('T')[0] : startDateStr;
+      const endStr = endDateStr.includes('T') ? endDateStr.split('T')[0] : endDateStr;
+      startDate = new Date(startStr + 'T00:00:00.000Z');
+      endDate = new Date(endStr + 'T23:59:59.999Z');
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
+    }
+
+    // Build match stage for messages with guardrail data
+    const matchStage = {
+      $or: [
+        { 'metadata.guardrailTracking': { $exists: true } },
+        { 'metadata.guardrailBlocked': { $exists: true } },
+      ],
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    // Fast aggregation for summary only using Message model
+    const summaryAgg = await Message.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: null,
+          totalEvents: { $sum: 1 },
+          blocked: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$metadata.guardrailBlocked', true] },
+                    { $eq: ['$metadata.guardrailTracking.outcome', 'blocked'] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          intervened: {
+            $sum: {
+              $cond: [
+                { $eq: ['$metadata.guardrailTracking.outcome', 'intervened'] },
+                1,
+                0,
+              ],
+            },
+          },
+          anonymized: {
+            $sum: {
+              $cond: [
+                { $eq: ['$metadata.guardrailTracking.outcome', 'anonymized'] },
+                1,
+                0,
+              ],
+            },
+          },
+          users: { $addToSet: '$user' },
+          conversations: { $addToSet: '$conversationId' },
+        },
+      },
+    ]);
+
+    const summary = summaryAgg[0] || {
+      totalEvents: 0,
+      blocked: 0,
+      intervened: 0,
+      anonymized: 0,
+      users: [],
+      conversations: [],
+    };
+
+    // Calculate passed (total minus other outcomes)
+    const passed = summary.totalEvents - summary.blocked - summary.intervened - summary.anonymized;
+
+    const blockRate = summary.totalEvents > 0
+      ? ((summary.blocked / summary.totalEvents) * 100).toFixed(1)
+      : '0.0';
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      summary: {
+        totalEvents: summary.totalEvents,
+        blocked: summary.blocked,
+        intervened: summary.intervened,
+        anonymized: summary.anonymized,
+        passed: Math.max(0, passed),
+        userCount: summary.users?.length || 0,
+        conversationCount: summary.conversations?.length || 0,
+        blockRate,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getGuardrailsSummary:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOverviewMetrics,
   getUserMetrics,
@@ -2639,6 +2993,7 @@ module.exports = {
   getTokenMetrics,
   getModelMetrics,
   getAgentMetrics,
+  getAgentSummary,
   getActivityTimeline,
   getHourlyActivity,
   getUsageMetrics,
@@ -2647,6 +3002,8 @@ module.exports = {
   getTransactionHistory,
   getLLMTraces,
   getToolMetrics,
+  getToolSummary,
   getGuardrailsMetrics,
+  getGuardrailsSummary,
   MODEL_PRICING,
 };

@@ -8,8 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   DollarSign,
-  RefreshCw,
-  Calendar,
   TrendingUp,
   Cpu,
   ArrowUpRight,
@@ -19,6 +17,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
+import { AdminDateRangePicker } from '../components/AdminDateRangePicker';
 import { dashboardApi, type CostsMetrics } from '../services/adminApi';
 import { CostsPageSkeleton, StatsGridSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
@@ -57,15 +56,19 @@ function CostsPage() {
   const [loading, setLoading] = useState(true);
   const [costsData, setCostsData] = useState<CostsMetrics | null>(null);
 
-  // Date filters - default to current month
+  // Date filters - default to today for faster initial load
   const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(1);
-    return date.toISOString().split('T')[0];
+    return new Date().toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
+
+  // Handle date change from the picker
+  const handleDateChange = useCallback(({ startDate: start, endDate: end }: { startDate: string; endDate: string }) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
 
   const fetchCosts = useCallback(async () => {
     setLoading(true);
@@ -326,8 +329,8 @@ function CostsPage() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      {/* Page Header */}
+    <div className="space-y-4 p-4 md:p-5">
+      {/* Page Header with Date Picker */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-text-primary">Costs</h1>
@@ -335,75 +338,13 @@ function CostsPage() {
             Cost breakdown by model with detailed token usage
           </p>
         </div>
-        <button
-          onClick={fetchCosts}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-        >
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-          Refresh
-        </button>
-      </div>
-
-      {/* Date Filters */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-light bg-surface-secondary p-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-text-tertiary" />
-          <span className="text-sm text-text-secondary">Range:</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
-          />
-          <span className="text-text-tertiary">to</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              const now = new Date();
-              const start = new Date(now);
-              start.setDate(1);
-              setStartDate(start.toISOString().split('T')[0]);
-              setEndDate(now.toISOString().split('T')[0]);
-            }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
-          >
-            This Month
-          </button>
-          <button
-            onClick={() => {
-              const now = new Date();
-              const start = new Date(now);
-              start.setDate(now.getDate() - 7);
-              setStartDate(start.toISOString().split('T')[0]);
-              setEndDate(now.toISOString().split('T')[0]);
-            }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
-          >
-            Last 7 Days
-          </button>
-          <button
-            onClick={() => {
-              const now = new Date();
-              const start = new Date(now);
-              start.setDate(now.getDate() - 30);
-              setStartDate(start.toISOString().split('T')[0]);
-              setEndDate(now.toISOString().split('T')[0]);
-            }}
-            className="rounded-lg border border-border-light bg-surface-primary px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-tertiary"
-          >
-            Last 30 Days
-          </button>
-        </div>
+        <AdminDateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          onDateChange={handleDateChange}
+          onRefresh={fetchCosts}
+          isLoading={loading}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -411,7 +352,7 @@ function CostsPage() {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="rounded-lg border border-border-light bg-surface-primary p-3"
+            className="rounded-lg border border-border-light bg-surface-secondary p-3"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-secondary">{stat.label}</span>

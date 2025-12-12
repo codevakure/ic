@@ -148,20 +148,19 @@ memory:
 # Tool selection is config-driven via toolsAutoEnabled above.
 # MCP tools are added when user selects them in the UI dropdown.
 #
-# modelRouting (4-Tier Automatic Model Selection):
+# modelRouting (3-Tier Automatic Model Selection):
 #   SIMPLE   (~1%)   Nova Micro  $0.035/$0.14   Greetings, text-only simple responses
 #   MODERATE (~80%)  Haiku 4.5   $1/$5          Most tasks, tool usage, standard code
-#   COMPLEX  (~15%)  Sonnet 4.5  $3/$15         Debugging, detailed analysis
-#   EXPERT   (~4%)   Opus 4.5    $15/$75        Deep analysis, architecture, research
+#   COMPLEX/EXPERT (~19%)  Sonnet 4.5  $3/$15   Debugging, detailed analysis, architecture
 #
 # Routing Rules:
 #   - Tool usage → Haiku 4.5 minimum (Claude handles tools better)
-#   - Deep/comprehensive analysis → Opus 4.5
+#   - Deep/comprehensive analysis → Sonnet 4.5
 #   - Text-only simple queries → Nova Micro
 #
 # preset: Controls maximum model tier
-#   'premium'       - Up to Opus 4.5
-#   'costOptimized' - Up to Sonnet 4.5
+#   'premium'       - Up to Sonnet 4.5 (expert/complex)
+#   'costOptimized' - Up to Sonnet 4.5 (balanced)
 #   'ultraCheap'    - Up to Haiku 4.5
 #
 # Uses regex patterns only - defaults to Haiku 4.5 if no pattern matches
@@ -208,13 +207,10 @@ endpoints:
     iconURL: "/assets/icon-dark.svg"
     models:
       default:
-        # Latest Claude 4.5 and 4 models (inference profiles)
-        - "global.anthropic.claude-opus-4-5-20251101-v1:0"
-        - "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-        - "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-        - "us.anthropic.claude-opus-4-1-20250805-v1:0"
-        - "us.anthropic.claude-sonnet-4-20250514-v1:0"
-        - "us.anthropic.claude-opus-4-20250514-v1:0"
+        # PRIMARY: Claude 4.5 models for 3-tier routing (Haiku default, Sonnet for complex)
+        - "us.anthropic.claude-haiku-4-5-20251001-v1:0"    # DEFAULT - 85% of tasks
+        - "us.anthropic.claude-sonnet-4-5-20250929-v1:0"   # Complex/Expert - 15% of tasks
+        # REMOVED: Opus 4.5 - too expensive, routing handles tier selection
         # Claude 3.7 and 3.5 models (inference profiles)
         - "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         - "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
@@ -222,7 +218,6 @@ endpoints:
         - "us.anthropic.claude-3-5-haiku-20241022-v1:0"
         # Claude 3 models (inference profiles)
         - "us.anthropic.claude-3-haiku-20240307-v1:0"
-        - "us.anthropic.claude-3-opus-20240229-v1:0"
         - "us.anthropic.claude-3-sonnet-20240229-v1:0"
         # Meta Llama models (inference profiles for cross-region)
         - "us.meta.llama3-3-70b-instruct-v1:0"
@@ -291,6 +286,7 @@ endpoints:
 
 # File configuration
 fileConfig:
+  fileTokenLimit: 20000  # Tokens for inline file context (default: 30000)
   endpoints:
     bedrock:
       fileLimit: 10
@@ -401,22 +397,66 @@ mcpServers:
       
       These tools are for accessing the user's Microsoft 365 data (Outlook, SharePoint, OneDrive, Teams).
       
-      **CRITICAL: DO NOT ASK FOR CLARIFICATION**
-      When a query clearly matches one tool type, execute it immediately. NEVER offer multiple approach options.
-      - Stock prices, news, weather, public info → use web_search directly (NOT these MS365 tools)
-      - User's emails, calendar, files, SharePoint, OneDrive → use MS365 tools directly
-      - Just execute the appropriate tool - don't ask "which would you prefer?"
+      **CRITICAL: AUTOMATIC ROUTING - DO NOT ASK FOR CLARIFICATION**
+      When a query matches these categories, IMMEDIATELY use the appropriate MS365 tool. NEVER ask the user to choose.
       
-      **WHEN TO USE THESE TOOLS:**
-      - User asks about THEIR emails, calendar, files, or documents (e.g., "check my emails", "find my document")
+      **AUTO-ROUTE TO SHAREPOINT (use sharepoint_search or m365_search):**
+      These document types are ALWAYS in SharePoint/OneDrive - search immediately without asking:
+      - Architecture documents, technical architecture, system design
+      - MRAs (Master Reference Architecture), reference architectures
+      - Build permits, permit documents, construction permits
+      - Technical specifications, requirements documents
+      - Company policies, procedures, standards
+      - Project documentation, project files
+      - Internal documents, team documents
+      - Shared resources, department files
+      - Any request for "documents related to X" or "files about Y"
+      
+      **SHAREPOINT URL HANDLING - USE sharepoint_search:**
+      When user provides ANY SharePoint URL, use `sharepoint_search` (NOT m365_search):
+      
+      ```
+      sharepoint_search({
+        sharepointUrl: "<the SharePoint URL>",
+        query: "<keywords from user's question>"
+      })
+      ```
+      
+      This will:
+      1. Resolve the URL via Graph API → find exact site/drive
+      2. Search ONLY within that SharePoint location (strict scoping)
+      3. Return files with IDs needed for file_to_text
+      
+      **GENERAL DOCUMENT SEARCH (no URL provided):**
+      When user asks for documents/files without a specific URL:
+      ```
+      m365_search({
+        searchQuery: "<keywords>",
+        entityTypes: ["driveItem"],
+        limit: 25
+      })
+      ```
+      
+      Example queries to AUTO-SEARCH (don't ask, just search):
+      - "Find AI Architect requirements" → m365_search({ searchQuery: "AI Architect requirements", entityTypes: ["driveItem"] })
+      - "Documents related to architecture" → m365_search({ searchQuery: "architecture", entityTypes: ["driveItem"] })
+      - "MRA for cloud services" → m365_search({ searchQuery: "MRA cloud services master reference", entityTypes: ["driveItem"] })
+      - "Build permit documentation" → m365_search({ searchQuery: "build permit", entityTypes: ["driveItem"] })
+      
+      **Search results often contain enough context to answer without extracting the full file.**
+      Only use `file_to_text` if you need the COMPLETE document content.
+      
+      **Tool Priority:**
+      1. `sharepoint_search` - PRIMARY for SharePoint URLs/content (uses Graph drive search API)
+      2. `m365_search` - For general document searches, cross-service searches (emails + files)
+      3. `file_to_text` - Only when full document content is needed after search
+      
+      **WHEN TO USE THESE TOOLS (search immediately, don't ask):**
+      - User asks about THEIR emails, calendar, files, or documents
       - User references "my SharePoint", "my OneDrive", "my Outlook", "my Teams"
-      - User asks to search within their organization's Microsoft 365 data
+      - User asks for documents, files, architecture, MRAs, permits, specs, policies
       - User wants to look up people/contacts in their organization
-      - MRAs (Master Reference Architecture), architecture documents, technical specs
-      - Build permits, permit documents, construction documents
-      - Company policies, procedures, internal documentation
-      - Any document stored in SharePoint or OneDrive
-      - Project files, team documents, shared resources
+      - ANY document-related query (architecture, requirements, specifications, standards)
       
       **WHEN NOT TO USE THESE TOOLS (use web_search instead):**
       - Stock prices, cryptocurrency, market data → web_search
@@ -433,17 +473,14 @@ mcpServers:
       The UI resource already displays the information interactively (emails, calendar events, files, etc.).
       
       DO:
-      - Provide a brief acknowledgment like "I found 12 emails - you can view them in the panel"
-      - Highlight important or urgent items (e.g., "You have 2 unread emails from your manager")
-      - Summarize if the user specifically asks for a summary or analysis
-      - Answer specific questions about the data (e.g., "Yes, you have a meeting at 3pm")
+      - Provide a brief acknowledgment like "I found 12 files - you can view them in the panel"
+      - Highlight important items
+      - Answer specific questions about the data
       
       DON'T:
-      - List or table every single item when the UI already shows them
-      - Repeat full email subjects, file names, or event details that are visible in the panel
+      - List every single item when the UI already shows them
       - Ask which approach the user prefers when the answer is obvious
-      
-      Users can see and interact with the data directly in the UI panel.
+      - Offer multiple options for document searches - just search SharePoint/OneDrive
     # OAuth configuration - Ranger will use these instead of auto-discovery
     oauth:
       # Microsoft Entra ID (Azure AD) OAuth endpoints

@@ -938,12 +938,19 @@ class BaseClient {
       throw new Error('User mismatch.');
     }
 
+    // Check if content array contains an ERROR type item and set error flag
+    let hasError = false;
+    if (Array.isArray(message.content)) {
+      hasError = message.content.some((item) => item?.type === ContentTypes.ERROR);
+    }
+
     const savedMessage = await saveMessage(
       this.options?.req,
       {
         ...message,
         endpoint: this.options.endpoint,
         unfinished: false,
+        error: hasError,
         user,
       },
       { context: 'api/app/clients/BaseClient.js - saveMessageToDatabase #saveMessage' },

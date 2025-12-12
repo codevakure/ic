@@ -59,31 +59,53 @@ describe('mcpUIResourcePlugin', () => {
     });
   });
 
-  describe('carousel markers', () => {
-    it('should replace carousel marker with mcp-ui-carousel node', () => {
-      const tree = createTree([createTextNode(`Carousel ${UI_RESOURCE_MARKER}{id1,id2,id3}`)]);
+  describe('multiple resource markers', () => {
+    it('should replace comma-separated IDs with multiple mcp-ui-resource nodes (not carousel)', () => {
+      const tree = createTree([createTextNode(`Multiple ${UI_RESOURCE_MARKER}{id1,id2,id3}`)]);
       processTree(tree);
 
       const children = (tree as any).children;
-      expect(children).toHaveLength(2);
-      expect(children[0]).toEqual({ type: 'text', value: 'Carousel ' });
+      expect(children).toHaveLength(4);
+      expect(children[0]).toEqual({ type: 'text', value: 'Multiple ' });
+      // Each ID becomes a separate mcp-ui-resource node
       expect(children[1]).toEqual({
-        type: 'mcp-ui-carousel',
+        type: 'mcp-ui-resource',
         data: {
-          hName: 'mcp-ui-carousel',
+          hName: 'mcp-ui-resource',
           hProperties: {
-            resourceIds: ['id1', 'id2', 'id3'],
+            resourceId: 'id1',
+          },
+        },
+      });
+      expect(children[2]).toEqual({
+        type: 'mcp-ui-resource',
+        data: {
+          hName: 'mcp-ui-resource',
+          hProperties: {
+            resourceId: 'id2',
+          },
+        },
+      });
+      expect(children[3]).toEqual({
+        type: 'mcp-ui-resource',
+        data: {
+          hName: 'mcp-ui-resource',
+          hProperties: {
+            resourceId: 'id3',
           },
         },
       });
     });
 
-    it('should handle multiple IDs in carousel', () => {
+    it('should handle multiple IDs as separate resources', () => {
       const tree = createTree([createTextNode(`${UI_RESOURCE_MARKER}{alpha,beta,gamma}`)]);
       processTree(tree);
 
       const children = (tree as any).children;
-      expect(children[0].data.hProperties.resourceIds).toEqual(['alpha', 'beta', 'gamma']);
+      expect(children).toHaveLength(3);
+      expect(children[0].data.hProperties.resourceId).toEqual('alpha');
+      expect(children[1].data.hProperties.resourceId).toEqual('beta');
+      expect(children[2].data.hProperties.resourceId).toEqual('gamma');
     });
   });
 
@@ -101,21 +123,18 @@ describe('mcpUIResourcePlugin', () => {
       });
     });
 
-    it('should replace carousel ID marker with mcp-ui-carousel node', () => {
+    it('should replace multiple ID marker with separate mcp-ui-resource nodes', () => {
       const tree = createTree([createTextNode(`${UI_RESOURCE_MARKER}{one,two,three}`)]);
       processTree(tree);
 
       const children = (tree as any).children;
-      expect(children).toHaveLength(1);
-      expect(children[0]).toEqual({
-        type: 'mcp-ui-carousel',
-        data: {
-          hName: 'mcp-ui-carousel',
-          hProperties: {
-            resourceIds: ['one', 'two', 'three'],
-          },
-        },
-      });
+      expect(children).toHaveLength(3);
+      expect(children[0].type).toBe('mcp-ui-resource');
+      expect(children[0].data.hProperties.resourceId).toBe('one');
+      expect(children[1].type).toBe('mcp-ui-resource');
+      expect(children[1].data.hProperties.resourceId).toBe('two');
+      expect(children[2].type).toBe('mcp-ui-resource');
+      expect(children[2].data.hProperties.resourceId).toBe('three');
     });
 
     it('should ignore empty IDs', () => {
@@ -138,12 +157,17 @@ describe('mcpUIResourcePlugin', () => {
       processTree(tree);
 
       const children = (tree as any).children;
-      expect(children).toHaveLength(5);
+      // 'Before ', id1, ' middle ', id2, id3, ' after'
+      expect(children).toHaveLength(6);
       expect(children[0].value).toBe('Before ');
       expect(children[1].type).toBe('mcp-ui-resource');
+      expect(children[1].data.hProperties.resourceId).toBe('id1');
       expect(children[2].value).toBe(' middle ');
-      expect(children[3].type).toBe('mcp-ui-carousel');
-      expect(children[4].value).toBe(' after');
+      expect(children[3].type).toBe('mcp-ui-resource');
+      expect(children[3].data.hProperties.resourceId).toBe('id2');
+      expect(children[4].type).toBe('mcp-ui-resource');
+      expect(children[4].data.hProperties.resourceId).toBe('id3');
+      expect(children[5].value).toBe(' after');
     });
 
     it('should handle marker at start of text', () => {

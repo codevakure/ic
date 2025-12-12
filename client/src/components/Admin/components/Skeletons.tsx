@@ -8,7 +8,7 @@ import React from 'react';
 import { Skeleton } from '@ranger/client';
 import { cn } from '~/utils';
 
-// Base skeleton card for stats/metrics
+// Base skeleton card for stats/metrics - matches actual stat card styling
 interface StatCardSkeletonProps {
   className?: string;
   size?: 'default' | 'large';
@@ -19,47 +19,46 @@ export const StatCardSkeleton: React.FC<StatCardSkeletonProps> = ({
   size = 'default' 
 }) => (
   <div className={cn(
-    'rounded-xl border border-border-light bg-surface-secondary p-4',
+    'rounded-lg border border-border-light bg-surface-primary p-3',
     className
   )}>
-    <div className="flex items-start justify-between">
-      <div className="flex-1">
-        <Skeleton className={cn(
-          'mb-2 rounded',
-          size === 'large' ? 'h-4 w-20' : 'h-3 w-16'
-        )} />
-        <Skeleton className={cn(
-          'mb-2 rounded',
-          size === 'large' ? 'h-8 w-24' : 'h-6 w-20'
-        )} />
-        <Skeleton className="h-3 w-16 rounded" />
-      </div>
-      <Skeleton className={cn(
-        'rounded-lg',
-        size === 'large' ? 'h-11 w-11' : 'h-9 w-9'
-      )} />
+    <div className="flex items-center justify-between">
+      <Skeleton className="h-3 w-20 rounded" />
+      <Skeleton className="h-7 w-7 rounded-lg" />
     </div>
+    <Skeleton className={cn(
+      'mt-1 rounded',
+      size === 'large' ? 'h-7 w-20' : 'h-6 w-16'
+    )} />
   </div>
 );
 
-// Skeleton for stats grid (4 cards)
+// Skeleton for stats grid - matches actual grid layout
 interface StatsGridSkeletonProps {
   count?: number;
+  columns?: 2 | 4 | 7;
   className?: string;
 }
 
 export const StatsGridSkeleton: React.FC<StatsGridSkeletonProps> = ({ 
   count = 4, 
+  columns = 4,
   className 
 }) => (
-  <div className={cn('grid gap-3 grid-cols-2 lg:grid-cols-4', className)}>
+  <div className={cn(
+    'grid gap-3',
+    columns === 2 && 'grid-cols-2',
+    columns === 4 && 'grid-cols-2 md:grid-cols-4',
+    columns === 7 && 'sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7',
+    className
+  )}>
     {Array.from({ length: count }).map((_, i) => (
       <StatCardSkeleton key={i} />
     ))}
   </div>
 );
 
-// Skeleton for chart panels
+// Skeleton for chart panels - matches actual chart card styling
 interface ChartSkeletonProps {
   height?: number;
   title?: boolean;
@@ -72,16 +71,12 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
   className 
 }) => (
   <div className={cn(
-    'rounded-xl border border-border-light bg-surface-secondary p-5',
+    'rounded-lg border border-border-light bg-surface-primary p-4',
     className
   )}>
     {title && (
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <Skeleton className="h-5 w-32 rounded mb-1" />
-          <Skeleton className="h-3 w-48 rounded" />
-        </div>
-        <Skeleton className="h-4 w-4 rounded" />
+      <div className="mb-3">
+        <Skeleton className="h-4 w-24 rounded" />
       </div>
     )}
     <Skeleton 
@@ -91,7 +86,7 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
   </div>
 );
 
-// Skeleton for table rows
+// Skeleton for table rows - matches actual table cell styling
 interface TableRowSkeletonProps {
   columns?: number;
   className?: string;
@@ -102,7 +97,7 @@ export const TableRowSkeleton: React.FC<TableRowSkeletonProps> = ({
   className 
 }) => (
   <div className={cn(
-    'grid gap-4 items-center px-3 py-3 border-b border-border-light/50',
+    'grid gap-4 items-center px-3 py-2 border-b border-border-light/50 last:border-0',
     className
   )} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
     {Array.from({ length: columns }).map((_, i) => (
@@ -110,14 +105,14 @@ export const TableRowSkeleton: React.FC<TableRowSkeletonProps> = ({
         key={i} 
         className={cn(
           'h-4 rounded',
-          i === 0 ? 'w-32' : 'w-16'
+          i === 0 ? 'w-24' : 'w-14'
         )} 
       />
     ))}
   </div>
 );
 
-// Skeleton for full table
+// Skeleton for full table - matches actual table styling
 interface TableSkeletonProps {
   rows?: number;
   columns?: number;
@@ -142,12 +137,12 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({
           style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
           {Array.from({ length: columns }).map((_, i) => (
-            <Skeleton key={i} className="h-3 w-16 rounded" />
+            <Skeleton key={i} className="h-3 w-14 rounded" />
           ))}
         </div>
       </div>
     )}
-    <div className="divide-y divide-border-light/50">
+    <div>
       {Array.from({ length: rows }).map((_, i) => (
         <TableRowSkeleton key={i} columns={columns} />
       ))}
@@ -327,20 +322,20 @@ export const DashboardPageSkeleton: React.FC = () => (
   </div>
 );
 
-// Traces page skeleton
+// Traces page skeleton - matches TracesPage layout
 export const TracesPageSkeleton: React.FC = () => (
   <div className="space-y-4 p-4 md:p-5 animate-pulse">
     {/* Header */}
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
-        <Skeleton className="h-7 w-40 rounded mb-2" />
+        <Skeleton className="h-6 w-40 rounded mb-2" />
         <Skeleton className="h-4 w-72 rounded" />
       </div>
-      <Skeleton className="h-10 w-24 rounded-lg" />
+      <Skeleton className="h-9 w-24 rounded-lg" />
     </div>
     
     {/* Summary Stats */}
-    <StatsGridSkeleton count={4} />
+    <StatsGridSkeleton count={4} columns={4} />
     
     {/* Filters */}
     <FilterBarSkeleton />
@@ -352,62 +347,53 @@ export const TracesPageSkeleton: React.FC = () => (
     <div className="flex items-center justify-between">
       <Skeleton className="h-4 w-48 rounded" />
       <div className="flex gap-2">
-        <Skeleton className="h-10 w-24 rounded-lg" />
-        <Skeleton className="h-10 w-24 rounded-lg" />
+        <Skeleton className="h-9 w-24 rounded-lg" />
+        <Skeleton className="h-9 w-24 rounded-lg" />
       </div>
     </div>
   </div>
 );
 
-// Agents page skeleton
+// Agents page skeleton - matches AgentsPage layout
 export const AgentsPageSkeleton: React.FC = () => (
-  <div className="space-y-4 p-4 md:p-6 animate-pulse">
-    {/* Header */}
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
+    {/* Header with Date Picker */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
-        <Skeleton className="h-7 w-24 rounded mb-2" />
+        <Skeleton className="h-6 w-32 rounded mb-2" />
         <Skeleton className="h-4 w-56 rounded" />
       </div>
-      <Skeleton className="h-9 w-24 rounded-lg" />
-    </div>
-    
-    {/* Date Filters */}
-    <div className="rounded-lg border border-border-light bg-surface-secondary p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Skeleton className="h-4 w-16 rounded" />
-        <Skeleton className="h-8 w-32 rounded" />
-        <Skeleton className="h-4 w-6 rounded" />
-        <Skeleton className="h-8 w-32 rounded" />
-        <div className="flex gap-1">
-          <Skeleton className="h-7 w-20 rounded" />
-          <Skeleton className="h-7 w-16 rounded" />
-          <Skeleton className="h-7 w-24 rounded" />
-        </div>
-      </div>
+      <Skeleton className="h-9 w-72 rounded-lg" />
     </div>
     
     {/* Stats Cards */}
-    <StatsGridSkeleton count={4} />
+    <StatsGridSkeleton count={4} columns={4} />
+    
+    {/* Charts Row */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <ChartSkeleton height={200} />
+      <ChartSkeleton height={200} />
+    </div>
     
     {/* Table */}
     <TableSkeleton rows={8} columns={6} />
   </div>
 );
 
-// Costs page skeleton
+// Costs page skeleton - matches CostsPage layout
 export const CostsPageSkeleton: React.FC = () => (
-  <div className="space-y-4 p-4 md:p-6 animate-pulse">
-    {/* Header */}
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
+    {/* Header with Date Picker */}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <Skeleton className="h-7 w-40 rounded mb-2" />
+        <Skeleton className="h-6 w-16 rounded mb-2" />
         <Skeleton className="h-4 w-64 rounded" />
       </div>
-      <Skeleton className="h-9 w-24 rounded-lg" />
+      <Skeleton className="h-9 w-72 rounded-lg" />
     </div>
     
-    {/* Stats Cards */}
-    <StatsGridSkeleton count={4} />
+    {/* Stats Cards - 7 columns on xl */}
+    <StatsGridSkeleton count={7} columns={7} />
     
     {/* Chart */}
     <ChartSkeleton height={250} />
@@ -417,63 +403,77 @@ export const CostsPageSkeleton: React.FC = () => (
   </div>
 );
 
-// Tools page skeleton
+// Tools page skeleton - matches ToolsPage layout
 export const ToolsPageSkeleton: React.FC = () => (
-  <div className="space-y-4 p-4 md:p-6 animate-pulse">
-    {/* Header */}
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
+    {/* Header with Date Picker */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
-        <Skeleton className="h-7 w-32 rounded mb-2" />
+        <Skeleton className="h-6 w-32 rounded mb-2" />
         <Skeleton className="h-4 w-56 rounded" />
       </div>
-      <Skeleton className="h-9 w-24 rounded-lg" />
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-72 rounded-lg" />
+        <Skeleton className="h-9 w-32 rounded-lg" />
+      </div>
     </div>
     
     {/* Stats Cards */}
-    <StatsGridSkeleton count={4} />
+    <StatsGridSkeleton count={4} columns={4} />
     
-    {/* Chart */}
-    <ChartSkeleton height={200} />
+    {/* Charts Row */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <ChartSkeleton height={240} />
+      <ChartSkeleton height={240} />
+    </div>
     
-    {/* Tools Grid */}
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-border-light bg-surface-primary p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <div className="flex-1">
-              <Skeleton className="h-4 w-24 rounded mb-1" />
-              <Skeleton className="h-3 w-16 rounded" />
+    {/* Table */}
+    <div className="rounded-lg border border-border-light bg-surface-primary overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-light">
+        <Skeleton className="h-4 w-20 rounded" />
+      </div>
+      <div className="p-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between py-3 border-b border-border-light/50 last:border-0">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-4 w-32 rounded" />
             </div>
+            <Skeleton className="h-4 w-16 rounded" />
           </div>
-          <Skeleton className="h-3 w-full rounded mb-2" />
-          <Skeleton className="h-3 w-2/3 rounded" />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   </div>
 );
 
-// Guardrails page skeleton
+// Guardrails page skeleton - matches GuardrailsPage layout
 export const GuardrailsPageSkeleton: React.FC = () => (
-  <div className="space-y-4 p-4 md:p-6 animate-pulse">
-    {/* Header */}
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
+    {/* Header with Date Picker */}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
-        <Skeleton className="h-7 w-32 rounded mb-2" />
+        <Skeleton className="h-6 w-40 rounded mb-2" />
         <Skeleton className="h-4 w-64 rounded" />
       </div>
-      <Skeleton className="h-9 w-24 rounded-lg" />
+      <Skeleton className="h-9 w-72 rounded-lg" />
     </div>
     
     {/* Stats Cards */}
-    <StatsGridSkeleton count={4} />
+    <StatsGridSkeleton count={4} columns={4} />
     
-    {/* Chart */}
-    <ChartSkeleton height={200} />
+    {/* Secondary Stats Row */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <StatCardSkeleton key={i} />
+      ))}
+    </div>
     
-    {/* Table */}
-    <TableSkeleton rows={8} columns={5} />
+    {/* Charts Row */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <ChartSkeleton height={200} />
+      <ChartSkeleton height={200} />
+    </div>
   </div>
 );
 
@@ -545,22 +545,22 @@ export const UserDetailPageSkeleton: React.FC = () => (
   </div>
 );
 
-// Users list page skeleton
+// Users list page skeleton - matches UsersPage layout
 export const UsersPageSkeleton: React.FC = () => (
-  <div className="space-y-4 p-4 md:p-6 animate-pulse">
-    {/* Header */}
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
+    {/* Header with Search */}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <Skeleton className="h-7 w-24 rounded mb-2" />
+        <Skeleton className="h-6 w-24 rounded mb-2" />
         <Skeleton className="h-4 w-48 rounded" />
       </div>
+      <Skeleton className="h-9 w-64 rounded-lg" />
     </div>
     
-    {/* Filters */}
-    <div className="flex flex-wrap gap-3">
-      <Skeleton className="h-9 w-64 rounded" />
-      <Skeleton className="h-9 w-32 rounded" />
-      <Skeleton className="h-9 w-32 rounded" />
+    {/* Filters Row */}
+    <div className="flex flex-wrap items-center gap-3">
+      <Skeleton className="h-9 w-32 rounded-lg" />
+      <Skeleton className="h-9 w-32 rounded-lg" />
     </div>
     
     {/* Table */}
@@ -615,30 +615,51 @@ export const RolesPageSkeleton: React.FC = () => (
   </div>
 );
 
-// Active Users page skeleton
+// Active Users page skeleton - matches ActiveUsersPage layout
 export const ActiveUsersPageSkeleton: React.FC = () => (
-  <div className="space-y-4 md:space-y-6 p-4 md:p-6 animate-pulse">
+  <div className="space-y-4 p-4 md:p-5 animate-pulse">
     {/* Header */}
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <Skeleton className="h-7 w-32 rounded mb-2" />
+        <Skeleton className="h-6 w-28 rounded mb-2" />
         <Skeleton className="h-4 w-64 rounded" />
       </div>
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-9 w-24 rounded" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-32 rounded" />
+        <Skeleton className="h-8 w-16 rounded-lg" />
+        <Skeleton className="h-8 w-20 rounded-lg" />
       </div>
     </div>
 
     {/* Stats Grid */}
-    <StatsGridSkeleton count={4} />
+    <StatsGridSkeleton count={4} columns={4} />
 
-    {/* Sessions Table */}
-    <div className="bg-surface-secondary rounded-xl border border-border-light p-4">
-      <div className="flex items-center justify-between mb-4">
-        <Skeleton className="h-5 w-32 rounded" />
-        <Skeleton className="h-8 w-48 rounded" />
+    {/* Tabs */}
+    <div className="flex items-center gap-1 border-b border-border-light pb-2">
+      <Skeleton className="h-8 w-24 rounded" />
+      <Skeleton className="h-8 w-28 rounded" />
+    </div>
+
+    {/* Search */}
+    <Skeleton className="h-9 w-full max-w-md rounded-lg" />
+
+    {/* Sessions List */}
+    <div className="rounded-lg border border-border-light bg-surface-primary overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-light">
+        <Skeleton className="h-4 w-32 rounded" />
       </div>
-      <TableSkeleton rows={8} columns={5} />
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-border-light/50 last:border-0">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div>
+              <Skeleton className="h-4 w-32 rounded mb-1" />
+              <Skeleton className="h-3 w-40 rounded" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-6 rounded" />
+        </div>
+      ))}
     </div>
   </div>
 );
