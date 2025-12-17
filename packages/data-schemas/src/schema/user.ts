@@ -170,4 +170,10 @@ const userSchema = new Schema<IUser>(
   { timestamps: true },
 );
 
+// Admin dashboard indexes for efficient user queries
+userSchema.index({ role: 1, createdAt: -1 }); // For role filtering with date sort
+userSchema.index({ banned: 1, createdAt: -1 }); // For banned user filtering
+userSchema.index({ email: 1, name: 1, username: 1 }); // For search queries
+userSchema.index({ updatedAt: -1 }); // For active user queries
+
 export default userSchema;

@@ -15,6 +15,8 @@ const {
   Agent,
   Session,
   File,
+  Group,
+  AclEntry,
 } = require('~/db/models');
 
 /**
@@ -354,6 +356,7 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       usersToday,
       usersThisWeek,
       usersThisMonth,
+      usersInRange,
       activeUsersToday,
       activeUsersThisWeek,
     ] = await Promise.all([
@@ -361,6 +364,7 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       User.countDocuments({ createdAt: { $gte: today } }),
       User.countDocuments({ createdAt: { $gte: thisWeek } }),
       User.countDocuments({ createdAt: { $gte: thisMonth } }),
+      User.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } }),
       User.countDocuments({ updatedAt: { $gte: today } }),
       User.countDocuments({ updatedAt: { $gte: thisWeek } }),
     ]);
@@ -511,33 +515,34 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
       logger.debug('[Admin] Could not fetch token metrics:', error.message);
     }
 
-    // Agent counts
-    let totalAgents = 0;
-    try {
-      totalAgents = await Agent.countDocuments();
-    } catch (error) {
-      logger.warn('[Admin] Could not fetch agent count:', error.message);
-    }
-
-    // Active sessions count - sessions created today (actual logins today)
-    let activeSessions = 0;
-    try {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      activeSessions = await Session.countDocuments({
-        createdAt: { $gte: startOfToday },
-      });
-    } catch (error) {
-      logger.warn('[Admin] Could not fetch active sessions:', error.message);
-    }
-
-    // Total files count
-    let totalFiles = 0;
-    try {
-      totalFiles = await File.countDocuments();
-    } catch (error) {
-      logger.warn('[Admin] Could not fetch file count:', error.message);
-    }
+    // Fetch agent count, active sessions, and file count in parallel
+    // Calculate today's start in CST (Central Standard Time = UTC-6)
+    const CST_OFFSET = -6 * 60; // -360 minutes
+    const nowForCST = new Date();
+    const nowCST = new Date(nowForCST.getTime() + (CST_OFFSET + nowForCST.getTimezoneOffset()) * 60000);
+    const startOfTodayCST = new Date(
+      nowCST.getFullYear(),
+      nowCST.getMonth(),
+      nowCST.getDate(),
+      0, 0, 0, 0
+    );
+    // Convert CST midnight to UTC (add 6 hours)
+    const startOfToday = new Date(startOfTodayCST.getTime() + 6 * 60 * 60 * 1000);
+    
+    const [totalAgents, activeSessions, totalFiles] = await Promise.all([
+      Agent.countDocuments().catch(err => {
+        logger.warn('[Admin] Could not fetch agent count:', err.message);
+        return 0;
+      }),
+      Session.countDocuments({ createdAt: { $gte: startOfToday } }).catch(err => {
+        logger.warn('[Admin] Could not fetch active sessions:', err.message);
+        return 0;
+      }),
+      File.countDocuments().catch(err => {
+        logger.warn('[Admin] Could not fetch file count:', err.message);
+        return 0;
+      }),
+    ]);
 
     return {
       users: {
@@ -545,6 +550,7 @@ const getOverviewMetrics = async (startDateStr, endDateStr) => {
         today: usersToday,
         thisWeek: usersThisWeek,
         thisMonth: usersThisMonth,
+        inRange: usersInRange,
         activeToday: activeUsersToday,
         activeThisWeek: activeUsersThisWeek,
       },
@@ -604,91 +610,90 @@ const getUserMetrics = async (startDateStr, endDateStr) => {
       endDate = now;
     }
 
-    // User growth over time (daily aggregation)
-    const userGrowth = await User.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
+    // Run all queries in parallel for better performance
+    const [userGrowth, usersByRole, usersByProvider, activeUsersTrend, totalUsers, periodUsers] = await Promise.all([
+      // User growth over time (daily aggregation)
+      User.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
         },
-      },
-      {
-        $addFields: {
-          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        {
+          $addFields: {
+            dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+          },
         },
-      },
-      {
-        $group: {
-          _id: '$dateStr',
-          count: { $sum: 1 },
+        {
+          $group: {
+            _id: '$dateStr',
+            count: { $sum: 1 },
+          },
         },
-      },
-      {
-        $sort: { '_id': 1 },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: { $toDate: '$_id' },
-          count: 1,
+        {
+          $sort: { '_id': 1 },
         },
-      },
+        {
+          $project: {
+            _id: 0,
+            date: { $toDate: '$_id' },
+            count: 1,
+          },
+        },
+      ]),
+      // Users by role
+      User.aggregate([
+        {
+          $group: {
+            _id: '$role',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      // Users by provider (registration method)
+      User.aggregate([
+        {
+          $group: {
+            _id: '$provider',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      // Active users trend
+      User.aggregate([
+        {
+          $match: {
+            updatedAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $addFields: {
+            dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt', timezone: 'UTC' } },
+          },
+        },
+        {
+          $group: {
+            _id: '$dateStr',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { '_id': 1 },
+        },
+        {
+          $project: {
+            _id: 0,
+            date: { $toDate: '$_id' },
+            count: 1,
+          },
+        },
+      ]),
+      // Total and period counts
+      User.countDocuments(),
+      User.countDocuments({
+        createdAt: { $gte: startDate, $lte: endDate },
+      }),
     ]);
-
-    // Users by role
-    const usersByRole = await User.aggregate([
-      {
-        $group: {
-          _id: '$role',
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // Users by provider (registration method)
-    const usersByProvider = await User.aggregate([
-      {
-        $group: {
-          _id: '$provider',
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // Active users trend
-    const activeUsersTrend = await User.aggregate([
-      {
-        $match: {
-          updatedAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $addFields: {
-          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt', timezone: 'UTC' } },
-        },
-      },
-      {
-        $group: {
-          _id: '$dateStr',
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { '_id': 1 },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: { $toDate: '$_id' },
-          count: 1,
-        },
-      },
-    ]);
-
-    // Total and period counts
-    const totalUsers = await User.countDocuments();
-    const periodUsers = await User.countDocuments({
-      createdAt: { $gte: startDate, $lte: endDate },
-    });
 
     return {
       startDate: startDate.toISOString(),
@@ -730,97 +735,96 @@ const getConversationMetrics = async (startDateStr, endDateStr) => {
       endDate = now;
     }
 
-    // Conversations over time
-    const conversationTrend = await Conversation.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
+    // Run all queries in parallel for better performance
+    const [conversationTrend, byEndpoint, byModel, avgMessages, totalConversations, periodConversations] = await Promise.all([
+      // Conversations over time
+      Conversation.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
         },
-      },
-      {
-        $addFields: {
-          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+        {
+          $addFields: {
+            dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+          },
         },
-      },
-      {
-        $group: {
-          _id: '$dateStr',
-          count: { $sum: 1 },
+        {
+          $group: {
+            _id: '$dateStr',
+            count: { $sum: 1 },
+          },
         },
-      },
-      {
-        $sort: { '_id': 1 },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: { $toDate: '$_id' },
-          count: 1,
+        {
+          $sort: { '_id': 1 },
         },
-      },
+        {
+          $project: {
+            _id: 0,
+            date: { $toDate: '$_id' },
+            count: 1,
+          },
+        },
+      ]),
+      // Conversations by endpoint
+      Conversation.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: '$endpoint',
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+      ]),
+      // Conversations by model
+      Conversation.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: '$model',
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+        { $limit: 20 },
+      ]),
+      // Average messages per conversation
+      Message.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: '$conversationId',
+            messageCount: { $sum: 1 },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            avgMessages: { $avg: '$messageCount' },
+            maxMessages: { $max: '$messageCount' },
+            minMessages: { $min: '$messageCount' },
+          },
+        },
+      ]),
+      // Total counts
+      Conversation.countDocuments(),
+      Conversation.countDocuments({
+        createdAt: { $gte: startDate, $lte: endDate },
+      }),
     ]);
-
-    // Conversations by endpoint
-    const byEndpoint = await Conversation.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: '$endpoint',
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
-    ]);
-
-    // Conversations by model
-    const byModel = await Conversation.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: '$model',
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 20 },
-    ]);
-
-    // Average messages per conversation
-    const avgMessages = await Message.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: '$conversationId',
-          messageCount: { $sum: 1 },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          avgMessages: { $avg: '$messageCount' },
-          maxMessages: { $max: '$messageCount' },
-          minMessages: { $min: '$messageCount' },
-        },
-      },
-    ]);
-
-    // Total counts
-    const totalConversations = await Conversation.countDocuments();
-    const periodConversations = await Conversation.countDocuments({
-      createdAt: { $gte: startDate, $lte: endDate },
-    });
 
     return {
       startDate: startDate.toISOString(),
@@ -863,12 +867,90 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
       endDate = now;
     }
 
-    // Get detailed model breakdown with accurate cost calculation including cache tokens
-    // Some transactions have structured tokens (inputTokens, writeTokens, readTokens)
-    // Others have simple tokens (rawAmount with tokenType: prompt/completion)
-    const allTransactions = await Transaction.find({
-      createdAt: { $gte: startDate, $lte: endDate },
-    }).lean();
+    // Run all initial queries in parallel for better performance
+    const [allTransactions, durationByModel, tokenTrend, topUsersRaw] = await Promise.all([
+      // Get all transactions in date range
+      Transaction.find({
+        createdAt: { $gte: startDate, $lte: endDate },
+      }).lean(),
+      // Get duration data by model from Message collection
+      Message.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+            isCreatedByUser: false, // AI messages
+            model: { $exists: true, $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: '$model',
+            count: { $sum: 1 },
+            totalDuration: {
+              $sum: {
+                $subtract: ['$updatedAt', '$createdAt']
+              }
+            },
+          },
+        },
+      ]),
+      // Token usage over time
+      Transaction.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $addFields: {
+            dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+          },
+        },
+        {
+          $group: {
+            _id: '$dateStr',
+            inputTokens: { 
+              $sum: { 
+                $cond: [{ $eq: ['$tokenType', 'prompt'] }, { $abs: '$rawAmount' }, 0] 
+              } 
+            },
+            outputTokens: { 
+              $sum: { 
+                $cond: [{ $eq: ['$tokenType', 'completion'] }, { $abs: '$rawAmount' }, 0] 
+              } 
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { '_id': 1 },
+        },
+        {
+          $project: {
+            _id: 0,
+            date: { $toDate: '$_id' },
+            inputTokens: 1,
+            outputTokens: 1,
+            transactions: '$count',
+          },
+        },
+      ]),
+      // Top token users aggregation
+      Transaction.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate },
+          },
+        },
+        {
+          $group: {
+            _id: { user: '$user', model: '$model', tokenType: '$tokenType' },
+            tokens: { $sum: { $abs: '$rawAmount' } },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
 
     // Process all transactions and calculate accurate costs
     const modelMap = {};
@@ -937,29 +1019,6 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
       modelMap[modelId].transactions += 1;
     });
 
-    // Get duration data by model from Message collection
-    const durationByModel = await Message.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          isCreatedByUser: false, // AI messages
-          model: { $exists: true, $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: '$model',
-          count: { $sum: 1 },
-          // Calculate duration as time between createdAt and updatedAt (ms)
-          totalDuration: {
-            $sum: {
-              $subtract: ['$updatedAt', '$createdAt']
-            }
-          },
-        },
-      },
-    ]);
-
     // Create a map of model -> duration
     const durationMap = {};
     durationByModel.forEach(item => {
@@ -985,64 +1044,6 @@ const getTokenMetrics = async (startDateStr, endDateStr) => {
         ? Math.round((durationMap[m.model].totalDuration || 0) / durationMap[m.model].messageCount)
         : 0,
     })).sort((a, b) => b.totalCost - a.totalCost);
-
-    // Token usage over time with accurate costs
-    const tokenTrend = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $addFields: {
-          dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
-        },
-      },
-      {
-        $group: {
-          _id: '$dateStr',
-          inputTokens: { 
-            $sum: { 
-              $cond: [{ $eq: ['$tokenType', 'prompt'] }, { $abs: '$rawAmount' }, 0] 
-            } 
-          },
-          outputTokens: { 
-            $sum: { 
-              $cond: [{ $eq: ['$tokenType', 'completion'] }, { $abs: '$rawAmount' }, 0] 
-            } 
-          },
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { '_id': 1 },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: { $toDate: '$_id' },
-          inputTokens: 1,
-          outputTokens: 1,
-          transactions: '$count',
-        },
-      },
-    ]);
-
-    // Top token users with accurate costs
-    const topUsersRaw = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: { user: '$user', model: '$model', tokenType: '$tokenType' },
-          tokens: { $sum: { $abs: '$rawAmount' } },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
 
     // Aggregate by user with accurate cost calculation
     const userMap = {};
@@ -1292,6 +1293,7 @@ const getModelMetrics = async (startDateStr, endDateStr) => {
 
 /**
  * Get agent usage metrics with accurate cost calculation
+ * Uses conversation-based approach since transactions don't store agent_id
  * @param {string} startDateStr - Start date string (ISO format)
  * @param {string} endDateStr - End date string (ISO format)
  */
@@ -1321,61 +1323,82 @@ const getAgentMetrics = async (startDateStr, endDateStr) => {
     let agentUsage = [];
 
     try {
-      // Total agents
-      totalAgents = await Agent.countDocuments();
-      
-      // Public vs private agents
-      publicAgents = await Agent.countDocuments({ isPublic: true });
+      // Run basic counts in parallel
+      const [totalAgentsResult, publicAgentsResult] = await Promise.all([
+        Agent.countDocuments(),
+        Agent.countDocuments({ isPublic: true }),
+      ]);
+
+      totalAgents = totalAgentsResult;
+      publicAgents = publicAgentsResult;
       privateAgents = totalAgents - publicAgents;
 
-      // Get agent usage from transactions (agents have model starting with 'agent_')
-      const agentTransactions = await Transaction.aggregate([
+      // Get conversations with agent_id grouped by agent
+      const conversationsByAgent = await Conversation.aggregate([
         {
           $match: {
             createdAt: { $gte: startDate, $lte: endDate },
-            model: { $regex: /^agent_/ },
+            agent_id: { $exists: true, $ne: null, $ne: '' },
           },
         },
         {
           $group: {
-            _id: { model: '$model', tokenType: '$tokenType' },
-            tokens: { $sum: { $abs: '$rawAmount' } },
-            count: { $sum: 1 },
-            users: { $addToSet: '$user' },
+            _id: '$agent_id',
+            conversationCount: { $sum: 1 },
+            uniqueUsers: { $addToSet: '$user' },
+            conversationIds: { $push: '$conversationId' },
           },
         },
       ]);
 
-      // Process agent usage
+      // For each agent, get token usage from transactions
       const agentMap = {};
-      agentTransactions.forEach(item => {
-        const agentId = item._id.model;
-        const tokenType = item._id.tokenType;
+      
+      for (const agentData of conversationsByAgent) {
+        const agentId = agentData._id;
+        const conversationIds = agentData.conversationIds;
         
-        if (!agentMap[agentId]) {
-          agentMap[agentId] = {
-            agentId,
-            inputTokens: 0,
-            outputTokens: 0,
-            inputCost: 0,
-            outputCost: 0,
-            transactions: 0,
-            users: new Set(),
-          };
-        }
-        
-        const tokens = item.tokens;
-        // Use calculateCost for consistent pricing across the application
-        if (tokenType === 'prompt') {
-          agentMap[agentId].inputTokens += tokens;
-          agentMap[agentId].inputCost += calculateCost(agentId, tokenType, tokens);
-        } else if (tokenType === 'completion') {
-          agentMap[agentId].outputTokens += tokens;
-          agentMap[agentId].outputCost += calculateCost(agentId, tokenType, tokens);
-        }
-        agentMap[agentId].transactions += item.count;
-        item.users.forEach(u => agentMap[agentId].users.add(u?.toString()));
-      });
+        // Get token usage for this agent's conversations
+        const tokenUsage = await Transaction.aggregate([
+          {
+            $match: {
+              conversationId: { $in: conversationIds },
+              createdAt: { $gte: startDate, $lte: endDate },
+            },
+          },
+          {
+            $group: {
+              _id: '$tokenType',
+              tokens: { $sum: { $abs: '$rawAmount' } },
+              count: { $sum: 1 },
+            },
+          },
+        ]);
+
+        agentMap[agentId] = {
+          agentId,
+          inputTokens: 0,
+          outputTokens: 0,
+          inputCost: 0,
+          outputCost: 0,
+          transactions: 0,
+          conversationCount: agentData.conversationCount,
+          userCount: agentData.uniqueUsers.length,
+        };
+
+        tokenUsage.forEach(item => {
+          const tokens = item.tokens;
+          if (item._id === 'prompt') {
+            agentMap[agentId].inputTokens += tokens;
+            agentMap[agentId].inputCost += calculateCost('default', 'prompt', tokens);
+            agentMap[agentId].transactions += item.count;
+          } else if (item._id === 'completion') {
+            agentMap[agentId].outputTokens += tokens;
+            agentMap[agentId].outputCost += calculateCost('default', 'completion', tokens);
+            agentMap[agentId].transactions += item.count;
+          }
+        });
+      }
 
       // Get agent details from database
       const agentIds = Object.keys(agentMap);
@@ -1394,62 +1417,9 @@ const getAgentMetrics = async (startDateStr, endDateStr) => {
         outputCost: parseFloat(a.outputCost.toFixed(6)),
         totalCost: parseFloat((a.inputCost + a.outputCost).toFixed(6)),
         transactions: a.transactions,
-        userCount: a.users.size,
+        conversationCount: a.conversationCount,
+        userCount: a.userCount,
       })).sort((a, b) => b.totalCost - a.totalCost);
-
-      // Also get agents from conversations
-      const conversationAgents = await Conversation.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: startDate, $lte: endDate },
-            agentId: { $exists: true, $ne: null },
-          },
-        },
-        {
-          $group: {
-            _id: '$agentId',
-            conversationCount: { $sum: 1 },
-            uniqueUsers: { $addToSet: '$user' },
-          },
-        },
-        {
-          $lookup: {
-            from: 'agents',
-            localField: '_id',
-            foreignField: 'id',
-            as: 'agentInfo',
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            agentId: '$_id',
-            name: { $arrayElemAt: ['$agentInfo.name', 0] },
-            conversationCount: 1,
-            userCount: { $size: '$uniqueUsers' },
-          },
-        },
-        { $sort: { conversationCount: -1 } },
-      ]);
-
-      // Merge conversation data with token data
-      conversationAgents.forEach(ca => {
-        const existing = agentUsage.find(a => a.agentId === ca.agentId);
-        if (existing) {
-          existing.conversationCount = ca.conversationCount;
-        } else {
-          agentUsage.push({
-            agentId: ca.agentId,
-            name: ca.name || ca.agentId,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            totalCost: 0,
-            conversationCount: ca.conversationCount,
-            userCount: ca.userCount,
-          });
-        }
-      });
 
     } catch (error) {
       logger.warn('[Admin] Could not fetch agent metrics:', error.message);
@@ -1580,60 +1550,82 @@ const getHourlyActivity = async (timezone = 'America/Chicago') => {
       { $sort: { _id: 1 } },
     ]);
 
-    // Get active sessions count - sessions that were created or updated in last 24 hours
+    // Get active sessions count - sessions created in last 24 hours
     let sessionsByHour = [];
+    let activeUsersByHour = [];
     try {
-      // Try to get sessions that are currently active or were active in last 24 hours
-      const sessionCount = await Session.countDocuments({
-        expiration: { $gte: now },
-      });
-      
-      // Get sessions grouped by the hour they expire
+      // Get sessions grouped by the hour they were created (login time)
       sessionsByHour = await Session.aggregate([
         {
           $match: {
-            $or: [
-              { expiration: { $gte: now } }, // Currently active
-              { expiration: { $gte: twentyFourHoursAgo, $lt: now } }, // Expired in last 24h
-            ],
+            createdAt: { $gte: twentyFourHoursAgo },
           },
         },
         {
           $group: {
             _id: {
               $hour: { 
-                date: '$expiration',
+                date: '$createdAt',
                 timezone: timezone,
               },
             },
             sessions: { $sum: 1 },
+            uniqueUsers: { $addToSet: '$user' },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            sessions: 1,
+            activeUsers: { $size: '$uniqueUsers' },
           },
         },
         { $sort: { _id: 1 } },
       ]);
+      
+      // Map activeUsersByHour from sessionsByHour
+      activeUsersByHour = sessionsByHour;
     } catch (error) {
       logger.warn('[Admin] Could not aggregate session data:', error.message);
     }
 
-    // Create a map for each hour (0-23) starting from 24 hours ago
+    // Get current hour in the specified timezone
+    const currentHourInTz = parseInt(
+      now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }),
+      10
+    );
+    
+    // Create hourly data starting from 24 hours ago up to current hour
+    // This ensures the chart shows from oldest (left) to newest (right)
     const hourlyData = [];
     
     for (let i = 0; i < 24; i++) {
-      // Calculate hour label (12AM, 1AM, ... 11PM format)
-      const hourLabel = i % 12 || 12;
-      const period = i < 12 ? 'AM' : 'PM';
+      // Calculate which hour this slot represents (24 hours ago + i hours)
+      const hourInTz = (currentHourInTz - 23 + i + 24) % 24;
       
-      const convData = conversationsByHour.find(c => c._id === i);
-      const msgData = messagesByHour.find(m => m._id === i);
-      const sessData = sessionsByHour.find(s => s._id === i);
+      // Calculate hour label (12AM, 1AM, ... 11PM format)
+      const hourLabel = hourInTz % 12 || 12;
+      const period = hourInTz < 12 ? 'AM' : 'PM';
+      
+      // Check if this is the current hour
+      const isCurrentHour = i === 23;
+      
+      const convData = conversationsByHour.find(c => c._id === hourInTz);
+      const msgData = messagesByHour.find(m => m._id === hourInTz);
+      const sessData = sessionsByHour.find(s => s._id === hourInTz);
+      
+      // Active users: combine unique users from conversations and sessions
+      const activeUsersFromConv = convData?.activeUsers || 0;
+      const activeUsersFromSess = sessData?.activeUsers || 0;
       
       hourlyData.push({
-        hour: i,
-        label: `${hourLabel}${period}`,
+        hour: hourInTz,
+        label: isCurrentHour ? 'Now' : `${hourLabel}${period}`,
         conversations: convData?.conversations || 0,
         messages: msgData?.messages || 0,
         sessions: sessData?.sessions || 0,
-        activeUsers: convData?.activeUsers || 0,
+        activeUsers: Math.max(activeUsersFromConv, activeUsersFromSess),
+        isCurrentHour,
       });
     }
 
@@ -1672,16 +1664,45 @@ const getUsageMetrics = async (startDate, endDate) => {
       ? { createdAt: dateFilter } 
       : {};
 
-    // Get usage by model with accurate cost calculation
-    const modelUsage = await Transaction.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: { model: '$model', tokenType: '$tokenType' },
-          totalTokens: { $sum: { $abs: '$rawAmount' } },
-          transactionCount: { $sum: 1 },
+    // Run all aggregations in parallel
+    const [modelUsage, userUsage, dailyUsage] = await Promise.all([
+      // Get usage by model with accurate cost calculation
+      Transaction.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: { model: '$model', tokenType: '$tokenType' },
+            totalTokens: { $sum: { $abs: '$rawAmount' } },
+            transactionCount: { $sum: 1 },
+          },
         },
-      },
+      ]),
+      // Get usage by user
+      Transaction.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: { user: '$user', tokenType: '$tokenType' },
+            totalTokens: { $sum: { $abs: '$rawAmount' } },
+            transactionCount: { $sum: 1 },
+          },
+        },
+      ]),
+      // Daily breakdown
+      Transaction.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+              tokenType: '$tokenType',
+            },
+            totalTokens: { $sum: { $abs: '$rawAmount' } },
+            transactionCount: { $sum: 1 },
+          },
+        },
+        { $sort: { '_id.date': 1 } },
+      ]),
     ]);
 
     // Process and calculate costs
@@ -1730,18 +1751,6 @@ const getUsageMetrics = async (startDate, endDate) => {
       transactionCount: acc.transactionCount + m.transactionCount,
     }), { inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, totalCost: 0, transactionCount: 0 });
 
-    // Get usage by user
-    const userUsage = await Transaction.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: { user: '$user', tokenType: '$tokenType' },
-          totalTokens: { $sum: { $abs: '$rawAmount' } },
-          transactionCount: { $sum: 1 },
-        },
-      },
-    ]);
-
     // Process user usage
     const userMap = {};
     userUsage.forEach(item => {
@@ -1787,22 +1796,7 @@ const getUsageMetrics = async (startDate, endDate) => {
       };
     }).sort((a, b) => b.totalCost - a.totalCost);
 
-    // Daily breakdown
-    const dailyUsage = await Transaction.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            tokenType: '$tokenType',
-          },
-          totalTokens: { $sum: { $abs: '$rawAmount' } },
-          transactionCount: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id.date': 1 } },
-    ]);
-
+    // Process daily usage
     const dailyMap = {};
     dailyUsage.forEach(item => {
       const date = item._id.date;
@@ -1851,26 +1845,26 @@ const getAgentUsageMetrics = async (startDate, endDate) => {
     if (startDate) dateFilter.$gte = new Date(startDate);
     if (endDate) dateFilter.$lte = new Date(endDate);
 
-    // Get all agents
-    const agents = await Agent.find().select('id name description author model createdAt').lean();
-    
-    // Get agent transaction data
-    const agentModels = agents.map(a => a.id);
-    
     const matchStage = {
       model: { $regex: /^agent_/ },
       ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
     };
 
-    const agentUsage = await Transaction.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: { model: '$model', tokenType: '$tokenType' },
-          totalTokens: { $sum: { $abs: '$rawAmount' } },
-          transactionCount: { $sum: 1 },
+    // Run both queries in parallel
+    const [agents, agentUsage] = await Promise.all([
+      // Get all agents
+      Agent.find().select('id name description author model createdAt').lean(),
+      // Get agent transaction data
+      Transaction.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: { model: '$model', tokenType: '$tokenType' },
+            totalTokens: { $sum: { $abs: '$rawAmount' } },
+            transactionCount: { $sum: 1 },
+          },
         },
-      },
+      ]),
     ]);
 
     // Process agent usage
@@ -2051,14 +2045,16 @@ const getTransactionHistory = async ({ userId, startDate, endDate, page = 1, lim
       if (endDate) matchStage.createdAt.$lte = new Date(endDate);
     }
 
-    const total = await Transaction.countDocuments(matchStage);
-
-    const transactions = await Transaction.find(matchStage)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate('user', 'name email')
-      .lean();
+    // Run count and find in parallel
+    const [total, transactions] = await Promise.all([
+      Transaction.countDocuments(matchStage),
+      Transaction.find(matchStage)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('user', 'name email')
+        .lean(),
+    ]);
 
     // Add model names and calculated costs
     const enrichedTransactions = transactions.map(t => {
@@ -2097,7 +2093,7 @@ const getTransactionHistory = async ({ userId, startDate, endDate, page = 1, lim
  * @param {Object} options - Query options
  * @returns {Object} Traces with pagination
  */
-const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationId = null, model = null, startDate = null, endDate = null, toolName = null, errorOnly = false } = {}) => {
+const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationId = null, model = null, startDate = null, endDate = null, toolName = null, errorOnly = false, agent = null, guardrails = null, search = null } = {}) => {
   try {
     const mongoose = require('mongoose');
     
@@ -2134,72 +2130,158 @@ const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationI
         }
       };
     }
-
-    // Get total count
-    const total = await Message.countDocuments(matchConditions);
-
-    // Get AI messages with pagination (these contain the model, tokenCount, content)
-    const aiMessages = await Message.find(matchConditions)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * effectiveLimit)
-      .limit(effectiveLimit)
-      .lean();
-
-    // For each AI message, get the corresponding user message (input) via parentMessageId
-    const traces = await Promise.all(
-      aiMessages.map(async (aiMsg) => {
-        // Get user message (input)
-        let userMessage = null;
-        if (aiMsg.parentMessageId && aiMsg.parentMessageId !== '00000000-0000-0000-0000-000000000000') {
-          userMessage = await Message.findOne({ messageId: aiMsg.parentMessageId }).lean();
+    // Filter by agent name
+    if (agent) {
+      matchConditions.endpoint = 'agents';
+      matchConditions['content'] = {
+        $elemMatch: {
+          type: 'text',
+          text: { $regex: agent, $options: 'i' }
         }
+      };
+    }
+    // Filter by guardrails status
+    if (guardrails) {
+      switch (guardrails) {
+        case 'invoked':
+          matchConditions['guardrails.invoked'] = true;
+          break;
+        case 'blocked':
+          matchConditions.$or = [
+            { 'guardrails.input.outcome': 'blocked' },
+            { 'guardrails.output.outcome': 'blocked' }
+          ];
+          break;
+        case 'anonymized':
+          matchConditions['guardrails.output.outcome'] = 'anonymized';
+          break;
+        case 'passed':
+          matchConditions['guardrails.invoked'] = true;
+          matchConditions['guardrails.input.outcome'] = { $ne: 'blocked' };
+          matchConditions['guardrails.output.outcome'] = { $nin: ['blocked', 'anonymized'] };
+          break;
+      }
+    }
+    // Text search on message content (searches in text field)
+    if (search) {
+      matchConditions.text = { $regex: search, $options: 'i' };
+    }
 
-        // Get user info
-        let userInfo = null;
-        if (aiMsg.user) {
-          const userData = await User.findById(aiMsg.user).select('name email').lean();
-          if (userData) {
-            userInfo = {
-              _id: userData._id.toString(),
-              name: userData.name,
-              email: userData.email,
-            };
-          }
+    // Run count and fetch in parallel for better performance
+    const [total, aiMessages] = await Promise.all([
+      Message.countDocuments(matchConditions),
+      Message.find(matchConditions)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * effectiveLimit)
+        .limit(effectiveLimit)
+        .lean()
+    ]);
+
+    // OPTIMIZATION: Batch fetch all related data to avoid N+1 queries
+    // Collect all unique IDs we need to fetch
+    const parentMessageIds = aiMessages
+      .map(m => m.parentMessageId)
+      .filter(id => id && id !== '00000000-0000-0000-0000-000000000000');
+    const userIds = [...new Set(aiMessages.map(m => m.user).filter(Boolean))];
+    const conversationIds = [...new Set(aiMessages.map(m => m.conversationId).filter(Boolean))];
+    
+    // Calculate time window for all transactions (earliest to latest message + buffer)
+    let txTimeStart = null;
+    let txTimeEnd = null;
+    if (aiMessages.length > 0) {
+      const times = aiMessages.map(m => new Date(m.createdAt).getTime());
+      txTimeStart = new Date(Math.min(...times) - 2000);
+      txTimeEnd = new Date(Math.max(...times) + 2000);
+    }
+
+    // Batch fetch all related data in parallel
+    const [userMessages, users, conversations, transactions] = await Promise.all([
+      // Fetch all parent (user) messages in one query
+      parentMessageIds.length > 0
+        ? Message.find({ messageId: { $in: parentMessageIds } }).lean()
+        : Promise.resolve([]),
+      // Fetch all users in one query
+      userIds.length > 0
+        ? User.find({ _id: { $in: userIds } }).select('name email').lean()
+        : Promise.resolve([]),
+      // Fetch all conversations in one query
+      conversationIds.length > 0
+        ? Conversation.find({ conversationId: { $in: conversationIds } }).select('conversationId title').lean()
+        : Promise.resolve([]),
+      // Fetch all transactions for these conversations in the time window
+      (conversationIds.length > 0 && txTimeStart && txTimeEnd)
+        ? Transaction.find({
+            conversationId: { $in: conversationIds },
+            createdAt: { $gte: txTimeStart, $lte: txTimeEnd },
+          }).lean()
+        : Promise.resolve([]),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const userMessageMap = new Map(userMessages.map(m => [m.messageId, m]));
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+    const conversationMap = new Map(conversations.map(c => [c.conversationId, c]));
+    
+    // Group transactions by conversationId for efficient lookup
+    const txByConversation = new Map();
+    transactions.forEach(tx => {
+      const convId = tx.conversationId;
+      if (!txByConversation.has(convId)) {
+        txByConversation.set(convId, []);
+      }
+      txByConversation.get(convId).push(tx);
+    });
+
+    // Process all AI messages using the pre-fetched data (no more individual queries)
+    const traces = aiMessages.map((aiMsg) => {
+      // Get user message from map
+      const userMessage = aiMsg.parentMessageId && aiMsg.parentMessageId !== '00000000-0000-0000-0000-000000000000'
+        ? userMessageMap.get(aiMsg.parentMessageId) || null
+        : null;
+
+      // Get user info from map
+      let userInfo = null;
+      if (aiMsg.user) {
+        const userData = userMap.get(aiMsg.user.toString());
+        if (userData) {
+          userInfo = {
+            _id: userData._id.toString(),
+            name: userData.name,
+            email: userData.email,
+          };
         }
+      }
 
-        // Get conversation title
-        let conversationTitle = 'Untitled';
-        if (aiMsg.conversationId) {
-          const conv = await Conversation.findOne({ conversationId: aiMsg.conversationId }).select('title').lean();
-          if (conv) conversationTitle = conv.title || 'Untitled';
-        }
+      // Get conversation title from map
+      let conversationTitle = 'Untitled';
+      if (aiMsg.conversationId) {
+        const conv = conversationMap.get(aiMsg.conversationId);
+        if (conv) conversationTitle = conv.title || 'Untitled';
+      }
 
-        // Get transactions for this conversation around this time to calculate cost
-        const timeWindow = new Date(aiMsg.createdAt);
-        const timeWindowStart = new Date(timeWindow.getTime() - 2000); // 2 seconds before
-        const timeWindowEnd = new Date(timeWindow.getTime() + 2000); // 2 seconds after
-        
-        const transactions = await Transaction.find({
-          conversationId: aiMsg.conversationId,
-          createdAt: { $gte: timeWindowStart, $lte: timeWindowEnd },
-        }).lean();
+      // Filter transactions for this specific message's time window
+      const msgTime = new Date(aiMsg.createdAt).getTime();
+      const msgTxs = (txByConversation.get(aiMsg.conversationId) || []).filter(tx => {
+        const txTime = new Date(tx.createdAt).getTime();
+        return txTime >= msgTime - 2000 && txTime <= msgTime + 2000;
+      });
 
-        // Calculate costs with full cache token breakdown
-        // Transaction stores: inputTokens, writeTokens, readTokens, rawAmount, tokenValue
-        // tokenValue already has correct rates applied from spendStructuredTokens
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let cacheWriteTokens = 0;
-        let cacheReadTokens = 0;
-        let totalCostFromTx = 0;  // Use actual tokenValue from transactions
-        let inputCost = 0;
-        let outputCost = 0;
-        let cacheWriteCost = 0;
-        let cacheReadCost = 0;
-        let contextBreakdown = null;  // Will hold the breakdown of what's in the cached context
-        let contextAnalytics = null;  // Will hold message breakdown, TOON stats, etc.
+      // Calculate costs with full cache token breakdown
+      // Transaction stores: inputTokens, writeTokens, readTokens, rawAmount, tokenValue
+      // tokenValue already has correct rates applied from spendStructuredTokens
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let cacheWriteTokens = 0;
+      let cacheReadTokens = 0;
+      let totalCostFromTx = 0;  // Use actual tokenValue from transactions
+      let inputCost = 0;
+      let outputCost = 0;
+      let cacheWriteCost = 0;
+      let cacheReadCost = 0;
+      let contextBreakdown = null;  // Will hold the breakdown of what's in the cached context
+      let contextAnalytics = null;  // Will hold message breakdown, TOON stats, etc.
 
-        transactions.forEach(tx => {
+      msgTxs.forEach(tx => {
           // Use tokenValue if available (already has correct rates applied)
           // Otherwise fall back to manual calculation
           if (tx.tokenValue !== undefined && tx.tokenValue !== null) {
@@ -2265,7 +2347,7 @@ const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationI
         }
 
         // Resolve the actual model ID (handles legacy case where agent_id was stored in model field)
-        const resolvedModel = resolveModelId(aiMsg, transactions);
+        const resolvedModel = resolveModelId(aiMsg, msgTxs);
 
         // Extract error information if this message is an error response
         let errorInfo = null;
@@ -2414,17 +2496,19 @@ const getLLMTraces = async ({ page = 1, limit = 25, userId = null, conversationI
           guardrails: extractGuardrailsData(userMessage, aiMsg),
           createdAt: aiMsg.createdAt,
         };
-      })
-    );
+      }
+    ); // End of traces.map
 
     // Count errors in traces
     const errorCount = traces.filter(t => t.output?.isError).length;
 
-    // Get unique models for filter
-    const models = await Message.distinct('model', { isCreatedByUser: false, model: { $ne: null } });
-
-    // Get total error count in database (for summary, not just current page)
-    const totalErrors = await Message.countDocuments({ isCreatedByUser: false, error: true });
+    // Run these queries in parallel for better performance
+    const [models, totalErrors] = await Promise.all([
+      // Get unique models for filter
+      Message.distinct('model', { isCreatedByUser: false, model: { $ne: null } }),
+      // Get total error count in database (for summary, not just current page)
+      Message.countDocuments({ isCreatedByUser: false, error: true }),
+    ]);
 
     return {
       traces,
@@ -2483,36 +2567,38 @@ const getToolMetrics = async (startDateStr, endDateStr) => {
       createdAt: { $gte: startDate, $lte: endDate },
     };
 
-    // Aggregate tool calls from messages
-    const toolAggregation = await Message.aggregate([
-      { $match: matchStage },
-      { $unwind: '$content' },
-      { $match: { 'content.type': 'tool_call' } },
-      {
-        $group: {
-          _id: '$content.tool_call.name',
-          invocations: { $sum: 1 },
-          conversationIds: { $addToSet: '$conversationId' },
-          userIds: { $addToSet: '$user' },
-        },
-      },
-      { $sort: { invocations: -1 } },
-    ]);
-
-    // Get daily trend
-    const trendAggregation = await Message.aggregate([
-      { $match: matchStage },
-      { $unwind: '$content' },
-      { $match: { 'content.type': 'tool_call' } },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+    // Run both aggregations in parallel
+    const [toolAggregation, trendAggregation] = await Promise.all([
+      // Aggregate tool calls from messages
+      Message.aggregate([
+        { $match: matchStage },
+        { $unwind: '$content' },
+        { $match: { 'content.type': 'tool_call' } },
+        {
+          $group: {
+            _id: '$content.tool_call.name',
+            invocations: { $sum: 1 },
+            conversationIds: { $addToSet: '$conversationId' },
+            userIds: { $addToSet: '$user' },
           },
-          count: { $sum: 1 },
         },
-      },
-      { $sort: { '_id.date': 1 } },
+        { $sort: { invocations: -1 } },
+      ]),
+      // Get daily trend
+      Message.aggregate([
+        { $match: matchStage },
+        { $unwind: '$content' },
+        { $match: { 'content.type': 'tool_call' } },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { '_id.date': 1 } },
+      ]),
     ]);
 
     const tools = toolAggregation.map(t => ({
@@ -2600,10 +2686,56 @@ const getGuardrailsMetrics = async (startDate, endDate) => {
       matchStage.createdAt = dateFilter;
     }
 
-    // Get all guardrail events
-    const guardrailMessages = await Message.find(matchStage)
-      .select('messageId conversationId user metadata createdAt')
-      .lean();
+    // Run both queries in parallel
+    const [guardrailMessages, trendAggregation] = await Promise.all([
+      // Get all guardrail events
+      Message.find(matchStage)
+        .select('messageId conversationId user metadata createdAt')
+        .lean(),
+      // Get daily trend with all outcome types
+      Message.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            count: { $sum: 1 },
+            blocked: {
+              $sum: {
+                $cond: [
+                  {
+                    $or: [
+                      { $eq: ['$metadata.guardrailBlocked', true] },
+                      { $eq: ['$metadata.guardrailTracking.outcome', 'blocked'] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            intervened: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$metadata.guardrailTracking.outcome', 'intervened'] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            anonymized: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$metadata.guardrailTracking.outcome', 'anonymized'] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
 
     // Categorize by outcome
     const outcomes = {
@@ -2647,50 +2779,6 @@ const getGuardrailsMetrics = async (startDate, endDate) => {
         }
       }
     }
-
-    // Get daily trend with all outcome types
-    const trendAggregation = await Message.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 },
-          blocked: {
-            $sum: {
-              $cond: [
-                {
-                  $or: [
-                    { $eq: ['$metadata.guardrailBlocked', true] },
-                    { $eq: ['$metadata.guardrailTracking.outcome', 'blocked'] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          intervened: {
-            $sum: {
-              $cond: [
-                { $eq: ['$metadata.guardrailTracking.outcome', 'intervened'] },
-                1,
-                0,
-              ],
-            },
-          },
-          anonymized: {
-            $sum: {
-              $cond: [
-                { $eq: ['$metadata.guardrailTracking.outcome', 'anonymized'] },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]);
 
     // Get violation breakdown by type
     const violationsByType = {};
@@ -2781,10 +2869,10 @@ const getAgentSummary = async (startDateStr, endDateStr) => {
     const publicAgents = await Agent.countDocuments({ isPublic: true });
     const privateAgents = totalAgents - publicAgents;
 
-    // Count active agents (with transactions in period)
-    const activeAgentsResult = await Transaction.distinct('model', {
+    // Count active agents (with conversations in period) - use agent_id field
+    const activeAgentsResult = await Conversation.distinct('agent_id', {
       createdAt: { $gte: startDate, $lte: endDate },
-      model: { $regex: /^agent_/ },
+      agent_id: { $exists: true, $ne: null, $ne: '' },
     });
     const activeAgents = activeAgentsResult.length;
 
@@ -2986,6 +3074,674 @@ const getGuardrailsSummary = async (startDateStr, endDateStr) => {
   }
 };
 
+/**
+ * Get all agents list without date filtering
+ * Returns all agents in the database for display purposes
+ */
+const getAllAgents = async () => {
+  try {
+    const agents = await Agent.find({}, {
+      id: 1,
+      name: 1,
+      description: 1,
+      isPublic: 1,
+      createdAt: 1,
+      author: 1,
+    }).lean();
+
+    // Get user access counts from AclEntry for each agent
+    const agentIds = agents.map(a => a._id);
+    const userAccessCounts = await AclEntry.aggregate([
+      {
+        $match: {
+          resourceType: 'agent',
+          resourceId: { $in: agentIds },
+          principalType: 'user',
+        },
+      },
+      {
+        $group: {
+          _id: '$resourceId',
+          userCount: { $sum: 1 },
+        },
+      },
+    ]);
+    
+    // Create a map for quick lookup
+    const userCountMap = {};
+    userAccessCounts.forEach(item => {
+      userCountMap[item._id.toString()] = item.userCount;
+    });
+
+    return {
+      agents: agents.map(agent => ({
+        agentId: agent.id,
+        name: agent.name || 'Unnamed Agent',
+        description: agent.description || '',
+        isPublic: agent.isPublic || false,
+        directUserCount: userCountMap[agent._id.toString()] || 0,
+      })),
+      total: agents.length,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getAllAgents:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all groups from the Group collection
+ * Returns groups with user counts
+ */
+const getGroups = async () => {
+  try {
+    // Get all groups from the database
+    const groups = await Group.find({}).lean();
+    
+    // Get user counts for each group
+    const groupsWithCounts = await Promise.all(
+      groups.map(async (group) => {
+        // Count users that have this group in their oidcGroups array (by name)
+        const userCount = await User.countDocuments({
+          oidcGroups: group.name,
+        });
+        
+        return {
+          _id: group._id,
+          name: group.name,
+          description: group.description || '',
+          source: group.source || 'local',
+          memberCount: group.memberIds?.length || 0,
+          userCount,
+          createdAt: group.createdAt,
+          updatedAt: group.updatedAt,
+        };
+      })
+    );
+    
+    return {
+      groups: groupsWithCounts,
+      total: groups.length,
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getGroups:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new group
+ */
+const createGroup = async (groupData) => {
+  try {
+    const group = await Group.create({
+      name: groupData.name,
+      description: groupData.description || '',
+      source: 'local',
+      memberIds: [],
+    });
+    
+    return {
+      _id: group._id,
+      name: group.name,
+      description: group.description,
+      source: group.source,
+      memberCount: 0,
+      userCount: 0,
+      createdAt: group.createdAt,
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in createGroup:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a group
+ */
+const updateGroup = async (groupId, groupData) => {
+  try {
+    const group = await Group.findByIdAndUpdate(
+      groupId,
+      {
+        name: groupData.name,
+        description: groupData.description,
+      },
+      { new: true }
+    ).lean();
+    
+    if (!group) {
+      throw new Error('Group not found');
+    }
+    
+    const userCount = await User.countDocuments({
+      oidcGroups: group.name,
+    });
+    
+    return {
+      _id: group._id,
+      name: group.name,
+      description: group.description,
+      source: group.source,
+      memberCount: group.memberIds?.length || 0,
+      userCount,
+      updatedAt: group.updatedAt,
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in updateGroup:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a group
+ */
+const deleteGroup = async (groupId) => {
+  try {
+    const group = await Group.findByIdAndDelete(groupId).lean();
+    if (!group) {
+      throw new Error('Group not found');
+    }
+    return { success: true, deletedGroup: group.name };
+  } catch (error) {
+    logger.error('[Admin] Error in deleteGroup:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get groups associated with agents via AclEntry
+ * Returns a map of agentId -> array of group names
+ */
+const getAgentGroupAssociations = async () => {
+  try {
+    // Find all AclEntry records where the resource is an agent and principal is a group
+    const aclEntries = await AclEntry.find({
+      resourceType: 'agent',
+      principalType: 'group',
+    }).lean();
+    
+    // Build a map of resourceId (agent ObjectId) -> group ObjectIds
+    const agentGroupMap = {};
+    aclEntries.forEach(entry => {
+      const agentId = entry.resourceId.toString();
+      if (!agentGroupMap[agentId]) {
+        agentGroupMap[agentId] = [];
+      }
+      agentGroupMap[agentId].push(entry.principalId);
+    });
+    
+    // Get all group details
+    const allGroupIds = [...new Set(aclEntries.map(e => e.principalId))];
+    const groups = await Group.find({ _id: { $in: allGroupIds } }).lean();
+    const groupLookup = {};
+    groups.forEach(g => {
+      groupLookup[g._id.toString()] = g;
+    });
+    
+    // Get all agents to map ObjectId to agent.id
+    const agentObjectIds = Object.keys(agentGroupMap);
+    const agents = await Agent.find({ _id: { $in: agentObjectIds } }).lean();
+    
+    // Build final map using agent.id as key
+    const result = {};
+    agents.forEach(agent => {
+      const agentObjectId = agent._id.toString();
+      const groupIds = agentGroupMap[agentObjectId] || [];
+      result[agent.id] = groupIds.map(gId => {
+        const group = groupLookup[gId.toString()];
+        return group ? {
+          _id: group._id,
+          name: group.name,
+          source: group.source,
+        } : null;
+      }).filter(Boolean);
+    });
+    
+    return result;
+  } catch (error) {
+    logger.error('[Admin] Error in getAgentGroupAssociations:', error);
+    return {};
+  }
+};
+
+/**
+ * Get detailed information about a specific agent
+ * Returns agent details, usage stats (ALL TIME), conversations, access groups, and users
+ */
+const getAgentDetail = async (agentId) => {
+  try {
+    // Find agent by id field (not _id)
+    const agent = await Agent.findOne({ id: agentId }).lean();
+    if (!agent) {
+      return null;
+    }
+
+    // First, get all conversation IDs for this agent (field is agent_id in schema)
+    const agentConversations = await Conversation.find({ agent_id: agentId }).select('conversationId').lean();
+    const conversationIds = agentConversations.map(c => c.conversationId);
+
+    // Parallel queries for usage data - ALL TIME (no date filtering for totals)
+    const [tokenUsage, conversationStats, last30DaysUsage, groupAclEntries, userAclEntries] = await Promise.all([
+      // Token usage from transactions via conversationId - ALL TIME
+      conversationIds.length > 0 ? Transaction.aggregate([
+        {
+          $match: {
+            conversationId: { $in: conversationIds },
+          },
+        },
+        {
+          $group: {
+            _id: '$tokenType',
+            tokens: { $sum: { $abs: '$rawAmount' } },
+            count: { $sum: 1 },
+            users: { $addToSet: '$user' },
+          },
+        },
+      ]) : [],
+      // Conversation stats - ALL TIME (field is agent_id in schema)
+      Conversation.aggregate([
+        {
+          $match: {
+            agent_id: agentId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            conversationCount: { $sum: 1 },
+            uniqueUsers: { $addToSet: '$user' },
+          },
+        },
+      ]),
+      // Daily usage for chart - last 30 days only
+      (() => {
+        const now = new Date();
+        const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return conversationIds.length > 0 ? Transaction.aggregate([
+          {
+            $match: {
+              createdAt: { $gte: startDate, $lte: now },
+              conversationId: { $in: conversationIds },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                tokenType: '$tokenType',
+              },
+              tokens: { $sum: { $abs: '$rawAmount' } },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { '_id.date': 1 } },
+        ]) : [];
+      })(),
+      // Get groups that have access to this agent
+      AclEntry.find({
+        resourceType: 'agent',
+        resourceId: agent._id,
+        principalType: 'group',
+      }).lean(),
+      // Get users that have direct access to this agent
+      AclEntry.find({
+        resourceType: 'agent',
+        resourceId: agent._id,
+        principalType: 'user',
+      }).lean(),
+    ]);
+
+    // Process token usage - ALL TIME TOTALS
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let inputCost = 0;
+    let outputCost = 0;
+    let totalTransactions = 0;
+    const uniqueUsers = new Set();
+
+    tokenUsage.forEach(item => {
+      const tokens = item.tokens;
+      if (item._id === 'prompt') {
+        inputTokens = tokens;
+        inputCost = calculateCost('default', 'prompt', tokens);
+      } else if (item._id === 'completion') {
+        outputTokens = tokens;
+        outputCost = calculateCost('default', 'completion', tokens);
+      }
+      totalTransactions += item.count;
+      item.users.forEach(u => uniqueUsers.add(u?.toString()));
+    });
+
+    // Get conversation count - ALL TIME
+    const conversationCount = conversationStats[0]?.conversationCount || 0;
+    const conversationUsers = conversationStats[0]?.uniqueUsers || [];
+    conversationUsers.forEach(u => uniqueUsers.add(u?.toString()));
+
+    // Process daily usage for chart (last 30 days)
+    const dailyMap = {};
+    last30DaysUsage.forEach(item => {
+      const date = item._id.date;
+      if (!dailyMap[date]) {
+        dailyMap[date] = { date, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0 };
+      }
+      if (item._id.tokenType === 'prompt') {
+        dailyMap[date].inputTokens = item.tokens;
+        dailyMap[date].inputCost = calculateCost('default', 'prompt', item.tokens);
+      } else if (item._id.tokenType === 'completion') {
+        dailyMap[date].outputTokens = item.tokens;
+        dailyMap[date].outputCost = calculateCost('default', 'completion', item.tokens);
+      }
+    });
+
+    const usageByDay = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Get group details
+    const groupIds = groupAclEntries.map(e => e.principalId);
+    const groups = await Group.find({ _id: { $in: groupIds } }).lean();
+
+    // Get user details for direct access users
+    const userIds = userAclEntries.map(e => e.principalId);
+    const users = await User.find({ _id: { $in: userIds } }).lean();
+
+    return {
+      agent: {
+        id: agent.id,
+        _id: agent._id,
+        name: agent.name,
+        description: agent.description,
+        isPublic: agent.isPublic,
+        author: agent.author,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
+      },
+      stats: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        inputCost: parseFloat(inputCost.toFixed(6)),
+        outputCost: parseFloat(outputCost.toFixed(6)),
+        totalCost: parseFloat((inputCost + outputCost).toFixed(6)),
+        transactions: totalTransactions,
+        conversationCount,
+        userCount: uniqueUsers.size,
+      },
+      usageByDay,
+      groups: groups.map(g => ({
+        _id: g._id,
+        name: g.name,
+        description: g.description,
+        source: g.source,
+        memberCount: g.memberIds?.length || 0,
+      })),
+      users: users.map(u => ({
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        username: u.username,
+        avatar: u.avatar,
+      })),
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getAgentDetail:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update agent access (groups and users)
+ * @param {string} agentId - The agent ID
+ * @param {Object} access - Access configuration
+ * @param {string[]} access.groups - Array of group IDs to grant access
+ * @param {string[]} access.users - Array of user IDs to grant access
+ */
+const updateAgentAccess = async (agentId, { groups = [], users = [] }) => {
+  const mongoose = require('mongoose');
+  try {
+    // Find agent by id field (not _id)
+    const agent = await Agent.findOne({ id: agentId }).lean();
+    if (!agent) {
+      return null;
+    }
+
+    const resourceId = agent._id;
+
+    // Get current ACL entries for this agent
+    const currentGroupEntries = await AclEntry.find({
+      resourceType: 'agent',
+      resourceId,
+      principalType: 'group',
+    }).lean();
+
+    const currentUserEntries = await AclEntry.find({
+      resourceType: 'agent',
+      resourceId,
+      principalType: 'user',
+    }).lean();
+
+    // Determine which groups to add and which to remove
+    const currentGroupIds = currentGroupEntries.map(e => e.principalId?.toString());
+    const groupsToAdd = groups.filter(g => !currentGroupIds.includes(g));
+    const groupsToRemove = currentGroupIds.filter(g => !groups.includes(g));
+
+    // Determine which users to add and which to remove
+    const currentUserIds = currentUserEntries.map(e => e.principalId?.toString());
+    const usersToAdd = users.filter(u => !currentUserIds.includes(u));
+    const usersToRemove = currentUserIds.filter(u => !users.includes(u));
+
+    // Remove old entries
+    if (groupsToRemove.length > 0) {
+      await AclEntry.deleteMany({
+        resourceType: 'agent',
+        resourceId,
+        principalType: 'group',
+        principalId: { $in: groupsToRemove.map(id => new mongoose.Types.ObjectId(id)) },
+      });
+    }
+
+    if (usersToRemove.length > 0) {
+      await AclEntry.deleteMany({
+        resourceType: 'agent',
+        resourceId,
+        principalType: 'user',
+        principalId: { $in: usersToRemove.map(id => new mongoose.Types.ObjectId(id)) },
+      });
+    }
+
+    // Add new group entries
+    if (groupsToAdd.length > 0) {
+      const newGroupEntries = groupsToAdd.map(groupId => ({
+        principalType: 'group',
+        principalId: new mongoose.Types.ObjectId(groupId),
+        principalModel: 'Group',
+        resourceType: 'agent',
+        resourceId,
+        permBits: 1, // Read permission
+      }));
+      await AclEntry.insertMany(newGroupEntries);
+    }
+
+    // Add new user entries
+    if (usersToAdd.length > 0) {
+      const newUserEntries = usersToAdd.map(userId => ({
+        principalType: 'user',
+        principalId: new mongoose.Types.ObjectId(userId),
+        principalModel: 'User',
+        resourceType: 'agent',
+        resourceId,
+        permBits: 1, // Read permission
+      }));
+      await AclEntry.insertMany(newUserEntries);
+    }
+
+    logger.info(`[Admin] Updated agent access for ${agentId}: +${groupsToAdd.length} groups, -${groupsToRemove.length} groups, +${usersToAdd.length} users, -${usersToRemove.length} users`);
+
+    // Return updated access info
+    return {
+      success: true,
+      changes: {
+        groupsAdded: groupsToAdd.length,
+        groupsRemoved: groupsToRemove.length,
+        usersAdded: usersToAdd.length,
+        usersRemoved: usersToRemove.length,
+      },
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in updateAgentAccess:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get conversations for a specific agent
+ * Optimized: Does not load messages by default for faster list loading
+ */
+const getAgentConversations = async (agentId, page = 1, limit = 20) => {
+  try {
+    const skip = (page - 1) * limit;
+    
+    // Note: field is agent_id in schema, not agentId
+    const [conversations, total] = await Promise.all([
+      Conversation.find({ agent_id: agentId })
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('conversationId title user endpoint model createdAt updatedAt')
+        .populate('user', 'name email username avatar')
+        .lean(),
+      Conversation.countDocuments({ agent_id: agentId }),
+    ]);
+
+    // Get message counts and error status in a single aggregation for better performance
+    const conversationIds = conversations.map(c => c.conversationId);
+    const messageStats = await Message.aggregate([
+      { $match: { conversationId: { $in: conversationIds } } },
+      {
+        $group: {
+          _id: '$conversationId',
+          messageCount: { $sum: 1 },
+          errorCount: {
+            $sum: {
+              $cond: [{ $eq: ['$error', true] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+    
+    const statsMap = {};
+    messageStats.forEach(s => {
+      statsMap[s._id] = { messageCount: s.messageCount, errorCount: s.errorCount };
+    });
+
+    const conversationsWithStats = conversations.map(conv => {
+      const stats = statsMap[conv.conversationId] || { messageCount: 0, errorCount: 0 };
+      return {
+        _id: conv._id,
+        conversationId: conv.conversationId,
+        title: conv.title || 'Untitled',
+        user: conv.user ? {
+          _id: conv.user._id,
+          name: conv.user.name,
+          email: conv.user.email,
+          avatar: conv.user.avatar,
+        } : null,
+        endpoint: conv.endpoint,
+        model: conv.model,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        messageCount: stats.messageCount,
+        errorCount: stats.errorCount,
+        hasErrors: stats.errorCount > 0,
+      };
+    });
+
+    return {
+      conversations: conversationsWithStats,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasNext: skip + conversations.length < total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    logger.error('[Admin] Error in getAgentConversations:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get messages for a specific conversation
+ */
+const getConversationMessages = async (conversationId) => {
+  try {
+    const messages = await Message.find({ conversationId })
+      .sort({ createdAt: 1 })
+      .select('messageId text content sender isCreatedByUser model createdAt tokenCount error finish_reason')
+      .lean();
+
+    return messages.map(msg => {
+      let displayText = msg.text;
+      let hasContentError = false;
+      let errorMessage = null;
+      
+      if (msg.content && Array.isArray(msg.content)) {
+        const errorPart = msg.content.find(c => c.type === 'error');
+        if (errorPart) {
+          hasContentError = true;
+          errorMessage = errorPart.error || errorPart[errorPart.type] || 'Unknown error';
+        }
+        
+        if (!displayText) {
+          const textParts = msg.content
+            .filter(c => c.type === 'text' && c.text)
+            .map(c => c.text);
+          displayText = textParts.join('\n') || '';
+        }
+
+        if (!displayText) {
+          const toolUseParts = msg.content.filter(c => c.type === 'tool_use');
+          if (toolUseParts.length > 0) {
+            const toolNames = toolUseParts.map(t => t.name || 'tool').join(', ');
+            displayText = `[Using tools: ${toolNames}]`;
+          }
+        }
+
+        if (!displayText) {
+          const thinkingPart = msg.content.find(c => c.type === 'thinking' && c.thinking);
+          if (thinkingPart) {
+            displayText = `[Thinking...]\n${thinkingPart.thinking.substring(0, 200)}${thinkingPart.thinking.length > 200 ? '...' : ''}`;
+          }
+        }
+      }
+      
+      if ((msg.error || hasContentError) && !displayText && errorMessage) {
+        displayText = errorMessage;
+      }
+      
+      return {
+        messageId: msg.messageId,
+        text: displayText,
+        sender: msg.sender,
+        isCreatedByUser: msg.isCreatedByUser,
+        model: msg.model,
+        createdAt: msg.createdAt,
+        tokenCount: msg.tokenCount,
+        error: msg.error || hasContentError,
+        isError: msg.error || hasContentError,
+        errorMessage: hasContentError ? errorMessage : null,
+      };
+    });
+  } catch (error) {
+    logger.error('[Admin] Error in getConversationMessages:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getOverviewMetrics,
   getUserMetrics,
@@ -2994,6 +3750,7 @@ module.exports = {
   getModelMetrics,
   getAgentMetrics,
   getAgentSummary,
+  getAllAgents,
   getActivityTimeline,
   getHourlyActivity,
   getUsageMetrics,
@@ -3005,5 +3762,14 @@ module.exports = {
   getToolSummary,
   getGuardrailsMetrics,
   getGuardrailsSummary,
+  getGroups,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  getAgentGroupAssociations,
+  getAgentDetail,
+  updateAgentAccess,
+  getAgentConversations,
+  getConversationMessages,
   MODEL_PRICING,
 };

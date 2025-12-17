@@ -48,4 +48,9 @@ convoSchema.index({ expiredAt: 1 }, { expireAfterSeconds: 0 });
 convoSchema.index({ createdAt: 1, updatedAt: 1 });
 convoSchema.index({ conversationId: 1, user: 1 }, { unique: true });
 
+// Admin dashboard indexes for efficient user stats queries
+convoSchema.index({ user: 1, updatedAt: -1 }); // For recent conversations by user
+convoSchema.index({ user: 1, endpoint: 1 }); // For endpoint breakdown
+convoSchema.index({ user: 1, model: 1 }); // For model breakdown
+
 export default convoSchema;

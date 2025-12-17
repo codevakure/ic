@@ -1325,6 +1325,7 @@ export function TracesPage() {
         guardrails: guardrailsFilter || undefined,
         toolName: toolNameFilter || undefined,
         errorOnly: errorFilter === 'errors' ? true : undefined,
+        search: searchQuery || undefined,
       });
       setData(response);
       setError(null);
@@ -1334,7 +1335,7 @@ export function TracesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, errorFilter]);
+  }, [page, selectedModel, selectedUserId, conversationIdFilter, selectedAgent, guardrailsFilter, toolNameFilter, errorFilter, searchQuery]);
 
   useEffect(() => {
     fetchData();
@@ -1365,46 +1366,8 @@ export function TracesPage() {
     return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
   };
 
-  // Filter traces by search query and guardrails (local filter on top of server filters)
-  const filteredTraces = (data?.traces || []).filter(trace => {
-    // Search query filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch = (
-        (trace.input?.text || '').toLowerCase().includes(query) ||
-        (trace.output?.text || '').toLowerCase().includes(query) ||
-        (trace.conversationTitle || '').toLowerCase().includes(query) ||
-        trace.user?.name?.toLowerCase().includes(query) ||
-        trace.user?.email?.toLowerCase().includes(query) ||
-        trace.conversationId?.toLowerCase().includes(query)
-      );
-      if (!matchesSearch) return false;
-    }
-    
-    // Guardrails filter (local since not in API yet)
-    if (guardrailsFilter) {
-      const hasGuardrails = trace.guardrails?.invoked;
-      const wasBlocked = trace.guardrails?.input?.outcome === 'blocked' || trace.guardrails?.output?.outcome === 'blocked';
-      const wasAnonymized = trace.guardrails?.output?.outcome === 'anonymized';
-      
-      switch (guardrailsFilter) {
-        case 'invoked':
-          if (!hasGuardrails) return false;
-          break;
-        case 'blocked':
-          if (!wasBlocked) return false;
-          break;
-        case 'anonymized':
-          if (!wasAnonymized) return false;
-          break;
-        case 'passed':
-          if (!hasGuardrails || wasBlocked || wasAnonymized) return false;
-          break;
-      }
-    }
-    
-    return true;
-  });
+  // All filtering is now done on the server-side for better performance
+  const filteredTraces = data?.traces || [];
 
   const clearFilters = () => {
     setSearchQuery('');

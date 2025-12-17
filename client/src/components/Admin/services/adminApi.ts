@@ -304,6 +304,10 @@ export const dashboardApi = {
     const queryStr = query.toString();
     return adminFetch<AgentMetrics>(`/dashboard/agents${queryStr ? `?${queryStr}` : ''}`);
   },
+  // Get all agents list (no date filtering - returns all agents in database)
+  getAllAgents: () => {
+    return adminFetch<{ agents: Array<{ agentId: string; name: string; description?: string; isPublic: boolean }>; total: number }>(`/dashboard/agents/all`);
+  },
   // Fast summary endpoint - just counts, no detailed list
   getAgentSummary: (params: DateRangeParams = {}) => {
     const query = new URLSearchParams();
@@ -355,6 +359,156 @@ export const dashboardApi = {
     adminFetch<HourlyActivity>(`/dashboard/hourly${timezone ? `?timezone=${timezone}` : ''}`),
 };
 
+// Groups Management API
+export interface AdminGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  source: 'local' | 'entra';
+  memberCount: number;
+  userCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GroupsResponse {
+  groups: AdminGroup[];
+  total: number;
+  generatedAt: string;
+}
+
+export interface AgentGroupAssociation {
+  _id: string;
+  name: string;
+  source: 'local' | 'entra';
+}
+
+export const groupsApi = {
+  getGroups: () => adminFetch<GroupsResponse>('/groups'),
+  createGroup: (data: { name: string; description?: string }) =>
+    adminFetch<AdminGroup>('/groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateGroup: (groupId: string, data: { name?: string; description?: string }) =>
+    adminFetch<AdminGroup>(`/groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteGroup: (groupId: string) =>
+    adminFetch<{ success: boolean; deletedGroup: string }>(`/groups/${groupId}`, {
+      method: 'DELETE',
+    }),
+  getAgentGroupAssociations: () =>
+    adminFetch<Record<string, AgentGroupAssociation[]>>('/agents/groups'),
+};
+
+// Agent Detail Types
+export interface AgentDetail {
+  agent: {
+    id: string;
+    _id: string;
+    name: string;
+    description?: string;
+    isPublic: boolean;
+    author?: string;
+    createdAt: string;
+    updatedAt?: string;
+  };
+  stats: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+    transactions: number;
+    conversationCount: number;
+    userCount: number;
+  };
+  usageByDay: Array<{
+    date: string;
+    inputTokens: number;
+    outputTokens: number;
+    inputCost: number;
+    outputCost: number;
+  }>;
+  groups: Array<{
+    _id: string;
+    name: string;
+    description?: string;
+    source: string;
+    memberCount: number;
+  }>;
+  users: Array<{
+    _id: string;
+    name: string;
+    email: string;
+    username?: string;
+    avatar?: string;
+  }>;
+}
+
+// Conversation message type for agent conversations (reuses same structure as user conversations)
+export interface AgentConversationMessage {
+  messageId: string;
+  text: string;
+  sender: string;
+  isCreatedByUser: boolean;
+  model?: string;
+  createdAt: string;
+  tokenCount?: number;
+  error?: boolean;
+  isError?: boolean;
+  errorMessage?: string | null;
+}
+
+export interface AgentConversation {
+  _id?: string;
+  conversationId: string;
+  title: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  } | null;
+  endpoint: string;
+  model: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  errorCount?: number;
+  hasErrors?: boolean;
+  messages: AgentConversationMessage[];
+}
+
+export interface AgentConversationsResponse {
+  conversations: AgentConversation[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasNext: boolean;
+    totalPages: number;
+  };
+}
+
+// Agent Detail API
+export const agentDetailApi = {
+  getAgentDetail: (agentId: string) => 
+    adminFetch<AgentDetail>(`/agents/${agentId}`),
+  getAgentConversations: (agentId: string, page = 1, limit = 20) =>
+    adminFetch<AgentConversationsResponse>(`/agents/${agentId}/conversations?page=${page}&limit=${limit}`),
+  getConversationMessages: (conversationId: string) =>
+    adminFetch<{ messages: AgentConversation['messages'] }>(`/conversations/${conversationId}/messages`),
+  updateAgentAccess: (agentId: string, access: { groups: string[]; users: string[] }) =>
+    adminFetch<{ success: boolean; changes: { groupsAdded: number; groupsRemoved: number; usersAdded: number; usersRemoved: number } }>(`/agents/${agentId}/access`, {
+      method: 'PUT',
+      body: JSON.stringify(access),
+    }),
+};
+
 // User Management
 export interface UserListParams {
   page?: number;
@@ -364,6 +518,7 @@ export interface UserListParams {
   status?: 'active' | 'banned' | '';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  group?: string; // OIDC group filter
 }
 
 export interface User {
@@ -386,6 +541,8 @@ export interface User {
   outputTokens?: number;
   totalTokens?: number;
   totalCost?: number;
+  // OIDC groups assigned to the user
+  oidcGroups?: string[];
 }
 
 export interface UserListResponse {
@@ -581,49 +738,87 @@ export const usersApi = {
     adminFetch<{ message: string }>(`/users/${userId}?deleteData=${deleteData}`, {
       method: 'DELETE',
     }),
+
+  terminateSession: (userId: string, sessionId: string) =>
+    adminFetch<{ message: string }>(`/users/${userId}/sessions/${sessionId}`, {
+      method: 'DELETE',
+    }),
+
+  terminateAllUserSessions: (userId: string) =>
+    adminFetch<{ message: string; deletedCount: number }>(`/users/${userId}/sessions`, {
+      method: 'DELETE',
+    }),
+
+  clearAllSessions: () =>
+    adminFetch<{ message: string; deletedCount: number }>(`/users/active/sessions`, {
+      method: 'DELETE',
+    }),
+
+  clearAllBans: () =>
+    adminFetch<{ message: string; success: boolean; clearedFromLogs: number; unbannedUsers: number }>(`/bans`, {
+      method: 'DELETE',
+    }),
+
+  updateOidcGroups: (userId: string, oidcGroups: string[]) =>
+    adminFetch<{ message: string; user: User }>(`/users/${userId}/oidc-groups`, {
+      method: 'PUT',
+      body: JSON.stringify({ oidcGroups }),
+    }),
 };
 
 // Active Users API (for ActiveUsersPage)
 export const activeUsersApi = {
-  getActiveUsers: () => adminFetch<{ 
-    sessions: Array<{
-      sessionId: string;
-      userId: string;
-      user: { id: string; name: string; email: string; avatar?: string; role: string };
-      startTime: string;
-      lastActivity: string;
-      ipAddress?: string;
-      userAgent?: string;
-      conversationCount?: number;
-      messageCount?: number;
-      sessionCount?: number; // Number of active sessions for this user
-      sessionsCreatedToday?: number; // Sessions created today for this user
-      isOnline?: boolean;
-    }>;
-    summary: {
-      totalActiveSessions: number;
-      uniqueActiveUsers: number;
-      averageSessionDuration?: number;
-      sessionsToday?: number; // Sessions created today
-    };
-  }>('/users/active/sessions'),
+  getActiveUsers: (params?: { startDate?: string; endDate?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+    const queryString = searchParams.toString();
+    return adminFetch<{ 
+      sessions: Array<{
+        sessionId: string;
+        userId: string;
+        user: { id: string; name: string; email: string; avatar?: string; role: string };
+        startTime: string;
+        lastActivity: string;
+        ipAddress?: string;
+        userAgent?: string;
+        conversationCount?: number;
+        messageCount?: number;
+        sessionCount?: number; // Number of active sessions for this user
+        sessionsCreatedToday?: number; // Sessions created in date range
+        isOnline?: boolean;
+      }>;
+      summary: {
+        totalActiveSessions: number;
+        uniqueActiveUsers: number;
+        averageSessionDuration?: number;
+        sessionsToday?: number; // Sessions created in date range
+      };
+    }>(`/users/active/sessions${queryString ? `?${queryString}` : ''}`);
+  },
   
-  getMicrosoftSessions: () => adminFetch<{
-    sessions: Array<{
-      tokenId: string;
-      userId: string;
-      user: { id: string; name: string; email: string; username?: string; avatar?: string };
-      serverName: string;
-      createdAt: string;
-      expiresAt: string;
-      isActive: boolean;
-    }>;
-    summary: {
-      totalActiveSessions: number;
-      uniqueConnectedUsers: number;
-      sessionsToday: number;
-    };
-  }>('/users/active/microsoft'),
+  getMicrosoftSessions: (params?: { startDate?: string; endDate?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+    const queryString = searchParams.toString();
+    return adminFetch<{
+      sessions: Array<{
+        tokenId: string;
+        userId: string;
+        user: { id: string; name: string; email: string; username?: string; avatar?: string };
+        serverName: string;
+        createdAt: string;
+        expiresAt: string;
+        isActive: boolean;
+      }>;
+      summary: {
+        totalActiveSessions: number;
+        uniqueConnectedUsers: number;
+        sessionsToday: number;
+      };
+    }>(`/users/active/microsoft${queryString ? `?${queryString}` : ''}`);
+  },
 };
 
 // User Conversation types
@@ -839,6 +1034,7 @@ export interface LLMTracesParams {
   endDate?: string;
   toolName?: string;
   errorOnly?: boolean;
+  search?: string;
 }
 
 // LLM Traces API for Observability

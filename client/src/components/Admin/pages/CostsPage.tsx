@@ -323,8 +323,8 @@ function CostsPage() {
     ];
   }, [costsData, modelCosts]);
 
-  // Show full skeleton on initial load
-  if (loading && !costsData) {
+  // Show full skeleton on initial load OR when filter changes and data is loading
+  if (loading) {
     return <CostsPageSkeleton />;
   }
 

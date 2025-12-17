@@ -222,7 +222,7 @@ const getCostsMetrics = async (req, res) => {
  */
 const getLLMTraces = async (req, res) => {
   try {
-    const { page = 1, limit = 25, userId, conversationId, model, startDate, endDate, toolName, errorOnly } = req.query;
+    const { page = 1, limit = 25, userId, conversationId, model, startDate, endDate, toolName, errorOnly, agent, guardrails, search } = req.query;
     
     // Enforce maximum limit of 50 to prevent performance issues (default 25)
     const parsedLimit = Math.min(parseInt(limit, 10) || 25, 50);
@@ -239,6 +239,9 @@ const getLLMTraces = async (req, res) => {
       endDate,
       toolName,
       errorOnly: errorOnly === 'true' || errorOnly === true,
+      agent,
+      guardrails,
+      search,
     });
     
     res.json(traces);
@@ -306,6 +309,23 @@ const getAgentSummary = async (req, res) => {
 };
 
 /**
+ * Get all agents list (no date filtering)
+ * Returns all agents in the database for display
+ */
+const getAllAgents = async (req, res) => {
+  try {
+    const allAgents = await adminService.getAllAgents();
+    res.status(200).json(allAgents);
+  } catch (error) {
+    logger.error('[Admin] Error fetching all agents:', error);
+    res.status(500).json({ 
+      message: 'Error fetching all agents',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
  * Get tools summary only (fast endpoint for stats cards)
  * Returns only summary metrics, no detailed tool list
  */
@@ -341,6 +361,187 @@ const getGuardrailsSummary = async (req, res) => {
   }
 };
 
+/**
+ * Get all groups from the database
+ */
+const getGroups = async (req, res) => {
+  try {
+    const groups = await adminService.getGroups();
+    res.json(groups);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch groups',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Create a new group
+ */
+const createGroup = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Group name is required' });
+    }
+    const group = await adminService.createGroup({ name, description });
+    res.status(201).json(group);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to create group',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Update a group
+ */
+const updateGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { name, description } = req.body;
+    const group = await adminService.updateGroup(groupId, { name, description });
+    res.json(group);
+  } catch (error) {
+    if (error.message === 'Group not found') {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    res.status(500).json({
+      error: 'Failed to update group',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Delete a group
+ */
+const deleteGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const result = await adminService.deleteGroup(groupId);
+    res.json(result);
+  } catch (error) {
+    if (error.message === 'Group not found') {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    res.status(500).json({
+      error: 'Failed to delete group',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get agent-group associations
+ */
+const getAgentGroupAssociations = async (req, res) => {
+  try {
+    const associations = await adminService.getAgentGroupAssociations();
+    res.json(associations);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch agent group associations',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get detailed information about a specific agent
+ * Returns all-time stats (no date filtering for totals)
+ */
+const getAgentDetail = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    
+    const detail = await adminService.getAgentDetail(agentId);
+    
+    if (!detail) {
+      return res.status(404).json({
+        error: 'Agent not found',
+        message: `No agent found with ID: ${agentId}`,
+      });
+    }
+    
+    res.json(detail);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch agent details',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Update agent access (groups and users)
+ */
+const updateAgentAccess = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { groups, users } = req.body;
+    
+    const result = await adminService.updateAgentAccess(agentId, { groups, users });
+    
+    if (!result) {
+      return res.status(404).json({
+        error: 'Agent not found',
+        message: `No agent found with ID: ${agentId}`,
+      });
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to update agent access',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get conversations for a specific agent
+ */
+const getAgentConversations = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    
+    const result = await adminService.getAgentConversations(
+      agentId,
+      parseInt(page, 10),
+      parseInt(limit, 10)
+    );
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch agent conversations',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get messages for a specific conversation
+ */
+const getConversationMessages = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    const messages = await adminService.getConversationMessages(conversationId);
+    
+    res.json({ messages });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch conversation messages',
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getOverview,
   getUserMetrics,
@@ -349,6 +550,7 @@ module.exports = {
   getModelMetrics,
   getAgentMetrics,
   getAgentSummary,
+  getAllAgents,
   getActivityTimeline,
   getHourlyActivity,
   getUsageMetrics,
@@ -358,4 +560,13 @@ module.exports = {
   getToolSummary,
   getGuardrailsMetrics,
   getGuardrailsSummary,
+  getGroups,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  getAgentGroupAssociations,
+  getAgentDetail,
+  updateAgentAccess,
+  getAgentConversations,
+  getConversationMessages,
 };

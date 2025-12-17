@@ -10,6 +10,7 @@ export { default as SettingsPage } from './pages/SettingsPage';
 export { default as RolesPage } from './pages/RolesPage';
 export { default as CostsPage } from './pages/CostsPage';
 export { default as AgentsPage } from './pages/AgentsPage';
+export { default as AgentDetailPage } from './pages/AgentDetailPage';
 export { default as ToolsPage } from './pages/ToolsPage';
 export { default as GuardrailsPage } from './pages/GuardrailsPage';
 export { TracesPage } from './pages/TracesPage';

@@ -9,6 +9,7 @@ import {
   RolesPage,
   CostsPage,
   AgentsPage,
+  AgentDetailPage,
   TracesPage,
   ToolsPage,
   GuardrailsPage,
@@ -49,6 +50,10 @@ const adminRoutes = {
     {
       path: 'agents',
       element: <AgentsPage />,
+    },
+    {
+      path: 'agents/:agentId',
+      element: <AgentDetailPage />,
     },
     {
       path: 'tools',

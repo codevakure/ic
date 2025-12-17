@@ -47,7 +47,7 @@ export function AdminStats() {
           totalCost: todayCost,
           inputTokens: todayInputTokens,
           outputTokens: todayOutputTokens,
-          m365Logins: m365Data?.summary?.totalActiveSessions || 0,
+          m365Logins: m365Data?.summary?.sessionsToday || 0,
         });
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);

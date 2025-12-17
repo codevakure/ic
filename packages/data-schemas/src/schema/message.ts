@@ -167,4 +167,11 @@ messageSchema.index({ expiredAt: 1 }, { expireAfterSeconds: 0 });
 messageSchema.index({ createdAt: 1 });
 messageSchema.index({ messageId: 1, user: 1 }, { unique: true });
 
+// Admin dashboard indexes for efficient trace queries
+messageSchema.index({ isCreatedByUser: 1, createdAt: -1 }); // For getLLMTraces sorted query
+messageSchema.index({ isCreatedByUser: 1, error: 1, createdAt: -1 }); // For error filtering
+messageSchema.index({ isCreatedByUser: 1, model: 1, createdAt: -1 }); // For model filtering
+messageSchema.index({ parentMessageId: 1 }); // For finding user messages by parent
+messageSchema.index({ user: 1, createdAt: -1 }); // For user message queries
+
 export default messageSchema;

@@ -4,7 +4,7 @@
  * Agent usage metrics and token consumption.
  * Uses split API calls: summary (fast) + details (slower) for progressive loading.
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { AdminDateRangePicker } from '../components/AdminDateRangePicker';
-import { useAgentMetrics } from '../hooks/useAdminMetrics';
+import { dashboardApi, groupsApi, type AgentGroupAssociation } from '../services/adminApi';
 import { StatsGridSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
@@ -31,12 +31,22 @@ interface AgentData {
   totalCost: number;
   transactions: number;
   userCount: number;
+  directUserCount: number;
+  groups?: AgentGroupAssociation[];
+}
+
+interface AllAgentData {
+  agentId: string;
+  name: string;
+  description: string;
+  directUserCount?: number;
+  isPublic: boolean;
 }
 
 function AgentsPage() {
   const navigate = useNavigate();
 
-  // Date filters - default to today for faster page load
+  // Date filters - default to today for metrics
   const [startDate, setStartDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
@@ -44,37 +54,98 @@ function AgentsPage() {
     return new Date().toISOString().split('T')[0];
   });
 
+  // All agents (fetched once, no date filter)
+  const [allAgents, setAllAgents] = useState<AllAgentData[]>([]);
+  const [allAgentsLoading, setAllAgentsLoading] = useState(true);
+  
+  // Agent-group associations (fetched once)
+  const [agentGroups, setAgentGroups] = useState<Record<string, AgentGroupAssociation[]>>({});
+  
+  // Metrics (filtered by date range)
+  const [metricsData, setMetricsData] = useState<Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; totalCost: number; transactions: number; userCount: number }>>({});
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  // Fetch all agents and group associations once on mount
+  useEffect(() => {
+    const fetchAllAgents = async () => {
+      try {
+        setAllAgentsLoading(true);
+        const [agentsResponse, groupsResponse] = await Promise.all([
+          dashboardApi.getAllAgents(),
+          groupsApi.getAgentGroupAssociations(),
+        ]);
+        setAllAgents(agentsResponse.agents || []);
+        setAgentGroups(groupsResponse || {});
+      } catch (error) {
+        console.error('Error fetching all agents:', error);
+      } finally {
+        setAllAgentsLoading(false);
+      }
+    };
+    fetchAllAgents();
+  }, []);
+
+  // Fetch metrics whenever date range changes
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        setMetricsLoading(true);
+        const response = await dashboardApi.getAgentMetrics({ startDate, endDate });
+        // Build a map of agentId -> metrics
+        const metricsMap: Record<string, typeof metricsData[string]> = {};
+        (response.agents || []).forEach((agent: { agentId: string; inputTokens?: number; outputTokens?: number; totalTokens?: number; totalCost?: number; transactions?: number; userCount?: number }) => {
+          metricsMap[agent.agentId] = {
+            inputTokens: agent.inputTokens || 0,
+            outputTokens: agent.outputTokens || 0,
+            totalTokens: agent.totalTokens || 0,
+            totalCost: agent.totalCost || 0,
+            transactions: agent.transactions || 0,
+            userCount: agent.userCount || 0,
+          };
+        });
+        setMetricsData(metricsMap);
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+      } finally {
+        setMetricsLoading(false);
+      }
+    };
+    fetchMetrics();
+  }, [startDate, endDate]);
+
   // Handle date change from the picker
   const handleDateChange = useCallback(({ startDate: start, endDate: end }: { startDate: string; endDate: string }) => {
     setStartDate(start);
     setEndDate(end);
   }, []);
 
-  // Use the cached metrics hook - fetches summary (fast) and details (slower) separately
-  const {
-    summary,
-    summaryLoading,
-    agents: rawAgents,
-    detailsLoading,
-    refetch,
-  } = useAgentMetrics({ startDate, endDate });
+  const refetch = useCallback(() => {
+    setMetricsLoading(true);
+    // Trigger re-fetch by updating a dependency
+    setStartDate(prev => prev);
+  }, []);
 
-  // Transform data for table
+  // Combine all agents with their metrics and groups
   const agents: AgentData[] = useMemo(() => {
-    if (!rawAgents?.length) return [];
-    
-    return rawAgents.map((agent) => ({
-      agentId: agent.agentId,
-      name: agent.name || agent.agentId,
-      description: agent.description || '',
-      inputTokens: agent.inputTokens || 0,
-      outputTokens: agent.outputTokens || 0,
-      totalTokens: agent.totalTokens || 0,
-      totalCost: agent.totalCost || 0,
-      transactions: agent.transactions || 0,
-      userCount: agent.userCount || 0,
-    }));
-  }, [rawAgents]);
+    return allAgents.map((agent) => {
+      const metrics = metricsData[agent.agentId] || {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        totalCost: 0,
+        transactions: 0,
+        userCount: 0,
+      };
+      return {
+        agentId: agent.agentId,
+        name: agent.name || agent.agentId,
+        description: agent.description || '',
+        groups: agentGroups[agent.agentId] || [],
+        directUserCount: agent.directUserCount || 0,
+        ...metrics,
+      };
+    });
+  }, [allAgents, metricsData, agentGroups]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -104,7 +175,7 @@ function AgentsPage() {
         totalTokens: acc.totalTokens + agent.totalTokens,
         totalCost: acc.totalCost + agent.totalCost,
         transactions: acc.transactions + agent.transactions,
-        users: acc.users + agent.userCount,
+        users: acc.users + agent.directUserCount,
       }),
       { inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, transactions: 0, users: 0 }
     );
@@ -119,8 +190,8 @@ function AgentsPage() {
         cell: ({ row }) => (
           <div 
             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate(`/admin/traces?agent=${encodeURIComponent(row.original.agentId)}`)}
-            title="Click to view traces for this agent"
+            onClick={() => navigate(`/admin/agents/${encodeURIComponent(row.original.agentId)}`)}
+            title="Click to view agent details"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-tertiary">
               <Bot className="h-4 w-4 text-text-secondary" />
@@ -133,12 +204,35 @@ function AgentsPage() {
         ),
       },
       {
-        accessorKey: 'userCount',
+        id: 'groups',
+        header: 'Groups',
+        cell: ({ row }) => {
+          const groups = row.original.groups || [];
+          return (
+            <div className="flex flex-wrap gap-1">
+              {groups.length === 0 ? (
+                <span className="text-xs text-text-tertiary italic">All users</span>
+              ) : (
+                groups.map(group => (
+                  <span
+                    key={group._id}
+                    className="px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full"
+                  >
+                    {group.name.replace('Ranger', '')}
+                  </span>
+                ))
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'directUserCount',
         header: ({ column }) => <SortableHeader column={column}>Users</SortableHeader>,
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-text-tertiary" />
-            <span className="text-sm text-text-secondary">{formatNumber(row.original.userCount)}</span>
+            <span className="text-sm text-text-secondary">{formatNumber(row.original.directUserCount)}</span>
           </div>
         ),
       },
@@ -184,48 +278,47 @@ function AgentsPage() {
     [navigate]
   );
 
-  // Stats cards data - use summary for fast display, fall back to calculated totals
+  // Stats cards data - use agents list for total, metrics for usage data
   const stats = useMemo(() => {
-    // Summary loads first (fast), use it for quick display
-    const hasSummary = !summaryLoading && summary;
-    const hasDetails = !detailsLoading && agents.length > 0;
+    const hasAgents = !allAgentsLoading && allAgents.length > 0;
+    const hasMetrics = !metricsLoading;
     
     return [
       {
         label: 'Total Agents',
-        // Use summary count (fast) or fallback to agents list length
-        value: hasSummary ? summary.total.toString() : (hasDetails ? agents.length.toString() : '—'),
+        // Always show total agent count from allAgents (not date-filtered)
+        value: hasAgents ? allAgents.length.toString() : '—',
         icon: Bot,
         color: 'text-purple-600 dark:text-purple-400',
         bgColor: 'bg-purple-500/10',
       },
       {
         label: 'Total Cost',
-        // Cost comes from details (slower)
-        value: hasDetails ? formatCurrency(totals.totalCost) : '—',
+        // Cost is filtered by date range
+        value: hasMetrics ? formatCurrency(totals.totalCost) : '—',
         icon: DollarSign,
         color: 'text-green-600 dark:text-green-400',
         bgColor: 'bg-green-500/10',
       },
       {
         label: 'Total Tokens',
-        value: hasDetails ? formatCompact(totals.totalTokens) : '—',
+        value: hasMetrics ? formatCompact(totals.totalTokens) : '—',
         icon: Cpu,
         color: 'text-blue-600 dark:text-blue-400',
         bgColor: 'bg-blue-500/10',
       },
       {
         label: 'Total Requests',
-        value: hasDetails ? formatCompact(totals.transactions) : '—',
+        value: hasMetrics ? formatCompact(totals.transactions) : '—',
         icon: ArrowUpRight,
         color: 'text-orange-600 dark:text-orange-400',
         bgColor: 'bg-orange-500/10',
       },
     ];
-  }, [summaryLoading, summary, detailsLoading, agents.length, totals]);
+  }, [allAgentsLoading, allAgents.length, metricsLoading, totals]);
 
   // Combined loading state for UI feedback
-  const isLoading = summaryLoading || detailsLoading;
+  const isLoading = allAgentsLoading || metricsLoading;
 
   // Don't block the entire page - render header and filters immediately
   return (
@@ -247,8 +340,8 @@ function AgentsPage() {
         />
       </div>
 
-      {/* Stats Cards - show skeleton animation when loading summary */}
-      {summaryLoading ? (
+      {/* Stats Cards - show skeleton animation when loading */}
+      {allAgentsLoading ? (
         <StatsGridSkeleton count={4} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -281,8 +374,8 @@ function AgentsPage() {
           <AdminDataTable
             columns={columns}
             data={agents}
-            isLoading={detailsLoading}
-            emptyMessage="No agent data available for the selected date range"
+            isLoading={allAgentsLoading}
+            emptyMessage="No agents found"
           />
         </div>
       </div>

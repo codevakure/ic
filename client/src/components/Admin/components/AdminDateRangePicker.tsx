@@ -33,9 +33,12 @@ interface AdminDateRangePickerProps {
   className?: string;
 }
 
-// Format date for input (YYYY-MM-DD)
+// Format date for input (YYYY-MM-DD) - using local time consistently
 const formatDateForInput = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Get preset value from dates
@@ -150,7 +153,7 @@ export function AdminDateRangePicker({
           className={cn(
             'ml-1 flex items-center justify-center rounded p-1.5 transition-colors',
             showCustomDates
-              ? 'bg-[var(--surface-submit)] text-white'
+              ? 'bg-surface-submit text-white'
               : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
           )}
           title={showCustomDates ? 'Hide custom dates' : 'Show custom dates'}
@@ -166,7 +169,7 @@ export function AdminDateRangePicker({
             className={cn(
               'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
               activePreset === preset.value
-                ? 'bg-[var(--surface-submit)] text-white'
+                ? 'bg-surface-submit text-white'
                 : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
             )}
           >
@@ -180,7 +183,7 @@ export function AdminDateRangePicker({
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="flex items-center justify-center rounded-lg border border-border-light bg-[var(--surface-submit)] p-2 text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          className="flex items-center justify-center rounded-lg border border-border-light bg-surface-submit p-2 text-white transition-colors hover:opacity-90 disabled:opacity-50"
           title="Refresh data"
         >
           <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />

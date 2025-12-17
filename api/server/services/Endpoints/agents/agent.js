@@ -66,11 +66,16 @@ const initializeAgent = async ({
   }
   let currentFiles;
 
+  // Build model options - agent.model is authoritative (set by routing in loadEphemeralAgent)
+  // Don't let endpointOption.model_parameters.model override the routed model
+  const endpointModelParams = isInitialAgent === true ? endpointOption?.model_parameters : {};
+  const { model: _ignoredModel, ...endpointParamsWithoutModel } = endpointModelParams || {};
+  
   const _modelOptions = structuredClone(
     Object.assign(
       { model: agent.model },
       agent.model_parameters ?? { model: agent.model },
-      isInitialAgent === true ? endpointOption?.model_parameters : {},
+      endpointParamsWithoutModel,
     ),
   );
 

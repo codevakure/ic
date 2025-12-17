@@ -61,6 +61,7 @@ interface UserDetail {
   banned?: boolean;
   banReason?: string;
   bannedAt?: string;
+  oidcGroups?: string[];
 }
 
 interface UserStats {
@@ -340,12 +341,14 @@ export function UserDetailPage() {
   const [loading, setLoading] = useState(true);
   // Individual section loading states for progressive loading
   const [statsLoading, setStatsLoading] = useState(true);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
-  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [usageLoading, setUsageLoading] = useState(true);
-  const [conversationsLoading, setConversationsLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'conversations' | 'sessions' | 'transactions' | 'usage'>('overview');
+  // Track which tabs have been loaded (for lazy loading)
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(['overview']));
 
   // Dialogs
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -354,27 +357,25 @@ export function UserDetailPage() {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // OIDC Groups editing
+  const [oidcGroupsDialogOpen, setOidcGroupsDialogOpen] = useState(false);
+  const [editedOidcGroups, setEditedOidcGroups] = useState<string[]>([]);
+  const [newGroupName, setNewGroupName] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
     
     try {
       setLoading(true);
-      // Reset section loading states
       setStatsLoading(true);
-      setSessionsLoading(true);
-      setTransactionsLoading(true);
       setUsageLoading(true);
-      setConversationsLoading(true);
       
-      // Use Promise.allSettled for progressive loading - show data as it arrives
-      const [userResponse, statsResponse, sessionsResponse, transactionsResponse, usageResponse, conversationsResponse] = await Promise.allSettled([
+      // Only fetch user, stats, and usage on initial load (for metrics display)
+      const [userResponse, statsResponse, usageResponse] = await Promise.allSettled([
         usersApi.getUser(userId),
         userDetailApi.getUserStats(userId),
-        userDetailApi.getUserSessions(userId),
-        userDetailApi.getUserTransactions(userId),
         usersApi.getUsage(userId),
-        userDetailApi.getUserConversations(userId, 1, 20),
       ]);
       
       // Process user data first (required for page to render)
@@ -394,34 +395,11 @@ export function UserDetailPage() {
       }
       setStatsLoading(false);
       
-      // Process sessions
-      if (sessionsResponse.status === 'fulfilled') {
-        setSessions(sessionsResponse.value.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
-      }
-      setSessionsLoading(false);
-      
-      // Process transactions
-      if (transactionsResponse.status === 'fulfilled') {
-        setTransactions(transactionsResponse.value.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
-      }
-      setTransactionsLoading(false);
-      
       // Process usage
       if (usageResponse.status === 'fulfilled') {
         setUsageData(usageResponse.value);
       }
       setUsageLoading(false);
-      
-      // Process conversations
-      if (conversationsResponse.status === 'fulfilled') {
-        setConversations(conversationsResponse.value.conversations || []);
-        setConversationsPagination({
-          page: conversationsResponse.value.pagination?.page || 1,
-          total: conversationsResponse.value.pagination?.total || 0,
-          hasNext: conversationsResponse.value.pagination?.hasNext || false,
-        });
-      }
-      setConversationsLoading(false);
       
       setError(null);
     } catch (err) {
@@ -429,12 +407,55 @@ export function UserDetailPage() {
       console.error('Error fetching user details:', err);
       setLoading(false);
       setStatsLoading(false);
-      setSessionsLoading(false);
-      setTransactionsLoading(false);
       setUsageLoading(false);
-      setConversationsLoading(false);
     }
   }, [userId]);
+
+  // Lazy load tab data when tab is clicked
+  const fetchTabData = useCallback(async (tab: string) => {
+    if (!userId || loadedTabs.has(tab)) return;
+    
+    try {
+      switch (tab) {
+        case 'conversations':
+          setConversationsLoading(true);
+          const conversationsResponse = await userDetailApi.getUserConversations(userId, 1, 20);
+          setConversations(conversationsResponse.conversations || []);
+          setConversationsPagination({
+            page: conversationsResponse.pagination?.page || 1,
+            total: conversationsResponse.pagination?.total || 0,
+            hasNext: conversationsResponse.pagination?.hasNext || false,
+          });
+          setConversationsLoading(false);
+          break;
+        case 'sessions':
+          setSessionsLoading(true);
+          const sessionsResponse = await userDetailApi.getUserSessions(userId);
+          setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
+          setSessionsLoading(false);
+          break;
+        case 'transactions':
+          setTransactionsLoading(true);
+          const transactionsResponse = await userDetailApi.getUserTransactions(userId);
+          setTransactions(transactionsResponse.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
+          setTransactionsLoading(false);
+          break;
+      }
+      setLoadedTabs(prev => new Set([...prev, tab]));
+    } catch (err) {
+      console.error(`Error fetching ${tab} data:`, err);
+      // Reset loading state on error
+      if (tab === 'conversations') setConversationsLoading(false);
+      if (tab === 'sessions') setSessionsLoading(false);
+      if (tab === 'transactions') setTransactionsLoading(false);
+    }
+  }, [userId, loadedTabs]);
+
+  // Handle tab change with lazy loading
+  const handleTabChange = useCallback((tab: typeof activeTab) => {
+    setActiveTab(tab);
+    fetchTabData(tab);
+  }, [fetchTabData]);
 
   useEffect(() => {
     fetchData();
@@ -467,6 +488,37 @@ export function UserDetailPage() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleOidcGroupsUpdate = async () => {
+    if (!userId) return;
+    setActionLoading(true);
+    try {
+      await usersApi.updateOidcGroups(userId, editedOidcGroups);
+      await fetchData();
+      setOidcGroupsDialogOpen(false);
+    } catch (err) {
+      console.error('Error updating OIDC groups:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddGroup = () => {
+    if (newGroupName.trim() && !editedOidcGroups.includes(newGroupName.trim())) {
+      setEditedOidcGroups([...editedOidcGroups, newGroupName.trim()]);
+      setNewGroupName('');
+    }
+  };
+
+  const handleRemoveGroup = (group: string) => {
+    setEditedOidcGroups(editedOidcGroups.filter(g => g !== group));
+  };
+
+  const openOidcGroupsDialog = () => {
+    setEditedOidcGroups(user?.oidcGroups || []);
+    setNewGroupName('');
+    setOidcGroupsDialogOpen(true);
   };
 
   const handleDeleteUser = async () => {
@@ -615,6 +667,14 @@ export function UserDetailPage() {
                 }`}>
                   {user.role}
                 </span>
+                {/* Groups label - clickable */}
+                <button
+                  onClick={openOidcGroupsDialog}
+                  className="px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full flex items-center gap-1 hover:bg-purple-500/30 transition-colors"
+                >
+                  <Globe className="h-3 w-3" />
+                  Groups {user.oidcGroups && user.oidcGroups.length > 0 ? `(${user.oidcGroups.length})` : ''}
+                </button>
               </div>
               <p className="text-sm md:text-base text-[var(--text-secondary)] flex items-center gap-2 mt-1 truncate">
                 <Mail className="h-4 w-4 flex-shrink-0" />
@@ -723,7 +783,7 @@ export function UserDetailPage() {
           {(['overview', 'conversations', 'usage', 'sessions', 'transactions'] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabChange(tab)}
               className={`px-3 md:px-4 py-2.5 md:py-3 font-medium text-xs md:text-sm border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-400'
@@ -928,29 +988,65 @@ export function UserDetailPage() {
                   </div>
                 </button>
               ))}
-              
-              {/* Load More */}
-              {conversationsPagination.hasNext && (
-                <button
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {conversationsPagination.total > 20 && (
+            <div className="p-4 border-t border-[var(--border-light)] flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">
+                Page {conversationsPagination.page} of {Math.ceil(conversationsPagination.total / 20)}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={conversationsPagination.page <= 1 || conversationsLoading}
                   onClick={async () => {
                     try {
-                      const nextPage = conversationsPagination.page + 1;
-                      const response = await userDetailApi.getUserConversations(userId!, nextPage, 20);
-                      setConversations(prev => [...prev, ...response.conversations]);
+                      setConversationsLoading(true);
+                      const prevPage = conversationsPagination.page - 1;
+                      const response = await userDetailApi.getUserConversations(userId!, prevPage, 20);
+                      setConversations(response.conversations);
                       setConversationsPagination({
                         page: response.pagination.page,
                         total: response.pagination.total,
                         hasNext: response.pagination.hasNext,
                       });
                     } catch (err) {
-                      console.error('Error loading more conversations:', err);
+                      console.error('Error loading conversations:', err);
+                    } finally {
+                      setConversationsLoading(false);
                     }
                   }}
-                  className="w-full py-3 text-center text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Load more conversations...
-                </button>
-              )}
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!conversationsPagination.hasNext || conversationsLoading}
+                  onClick={async () => {
+                    try {
+                      setConversationsLoading(true);
+                      const nextPage = conversationsPagination.page + 1;
+                      const response = await userDetailApi.getUserConversations(userId!, nextPage, 20);
+                      setConversations(response.conversations);
+                      setConversationsPagination({
+                        page: response.pagination.page,
+                        total: response.pagination.total,
+                        hasNext: response.pagination.hasNext,
+                      });
+                    } catch (err) {
+                      console.error('Error loading conversations:', err);
+                    } finally {
+                      setConversationsLoading(false);
+                    }
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -1260,7 +1356,7 @@ export function UserDetailPage() {
 
       {/* Ban Dialog */}
       <Dialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
-        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)]">
+        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[var(--text-primary)]">
               {user.banned ? 'Unban User' : 'Ban User'}
@@ -1273,13 +1369,13 @@ export function UserDetailPage() {
             </DialogDescription>
           </DialogHeader>
           {!user.banned && (
-            <div className="space-y-2">
+            <div className="space-y-2 py-4">
               <Label className="text-[var(--text-primary)]">Ban Reason</Label>
               <Input
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
                 placeholder="Enter reason for ban..."
-                className="bg-[var(--surface-primary-alt)] border-[var(--border-light)]"
+                className="bg-[var(--surface-secondary)] border-[var(--border-light)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
               />
             </div>
           )}
@@ -1368,6 +1464,83 @@ export function UserDetailPage() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {actionLoading ? <Spinner className="h-4 w-4" /> : 'Delete User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OIDC Groups Dialog */}
+      <Dialog open={oidcGroupsDialogOpen} onOpenChange={setOidcGroupsDialogOpen}>
+        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-primary)]">Manage OIDC Groups</DialogTitle>
+            <DialogDescription className="text-[var(--text-secondary)]">
+              Add or remove OIDC groups for {user.name}. These groups control access to agents and features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Current Groups */}
+            <div>
+              <Label className="text-sm font-medium text-[var(--text-primary)]">Current Groups</Label>
+              <div className="mt-2 flex flex-wrap gap-2 min-h-[40px] p-2 bg-[var(--surface-secondary)] rounded-lg border border-[var(--border-light)]">
+                {editedOidcGroups.length === 0 ? (
+                  <span className="text-sm text-[var(--text-tertiary)] italic">No groups assigned</span>
+                ) : (
+                  editedOidcGroups.map((group) => (
+                    <span
+                      key={group}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full"
+                    >
+                      {group}
+                      <button
+                        onClick={() => handleRemoveGroup(group)}
+                        className="ml-1 hover:text-red-400 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            {/* Add New Group */}
+            <div>
+              <Label className="text-sm font-medium text-[var(--text-primary)]">Add Group</Label>
+              <div className="mt-2 flex gap-2">
+                <Input
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  className="flex-1 bg-[var(--surface-secondary)] border-[var(--border-light)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
+                />
+                <Button
+                  onClick={handleAddGroup}
+                  disabled={!newGroupName.trim()}
+                  size="sm"
+                >
+                  Add
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                Common groups: RangerAdmin, RangerConsumer, RangerEconomic
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOidcGroupsDialogOpen(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOidcGroupsUpdate}
+              disabled={actionLoading}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {actionLoading ? <Spinner className="h-4 w-4" /> : 'Save Groups'}
             </Button>
           </DialogFooter>
         </DialogContent>

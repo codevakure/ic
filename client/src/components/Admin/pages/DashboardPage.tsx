@@ -32,6 +32,7 @@ import {
   AdminAreaChart,
   AdminBarChart,
   AdminMultiBarChart,
+  AdminMultiAreaChart,
   CHART_COLORS,
 } from '../components/Charts';
 import {
@@ -77,9 +78,12 @@ const formatCurrency = (num: number): string => {
   return `$${num.toFixed(2)}`;
 };
 
-// Format date for input
+// Format date for input (using local time consistently)
 const formatDateForInput = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Metric card component
@@ -125,7 +129,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
           'mt-1 font-bold text-text-primary',
           size === 'large' ? 'text-3xl' : 'text-2xl'
         )}>
-          {loading ? '...' : typeof value === 'number' ? formatNumber(value) : value}
+          {loading ? (
+            <span className="inline-block h-7 w-16 animate-pulse rounded bg-surface-tertiary" />
+          ) : typeof value === 'number' ? formatNumber(value) : value}
         </p>
         {(subtitle || trend) && (
           <div className="mt-1 flex items-center gap-2">
@@ -162,6 +168,14 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<string>('today');
+  
+  // Individual metric loading states for filter changes
+  const [metricsLoading, setMetricsLoading] = useState({
+    overview: true,
+    tokens: true,
+    conversations: true,
+    users: true,
+  });
   
   // Custom date range
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -245,7 +259,14 @@ function DashboardPage() {
   } = useGuardrailsMetrics(hookDateRange);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // Set loading states for metrics affected by date filter
+    setMetricsLoading(prev => ({
+      ...prev,
+      overview: true,
+      tokens: true,
+      conversations: true,
+      users: true,
+    }));
     setError(null);
 
     try {
@@ -267,10 +288,22 @@ function DashboardPage() {
         dashboardApi.getHourlyActivity('America/Chicago'),
       ]);
 
-      if (overviewRes.status === 'fulfilled') setOverview(overviewRes.value);
-      if (tokensRes.status === 'fulfilled') setTokenMetrics(tokensRes.value);
-      if (conversationsRes.status === 'fulfilled') setConversationMetrics(conversationsRes.value);
-      if (usersRes.status === 'fulfilled') setUserMetrics(usersRes.value);
+      if (overviewRes.status === 'fulfilled') {
+        setOverview(overviewRes.value);
+        setMetricsLoading(prev => ({ ...prev, overview: false }));
+      }
+      if (tokensRes.status === 'fulfilled') {
+        setTokenMetrics(tokensRes.value);
+        setMetricsLoading(prev => ({ ...prev, tokens: false }));
+      }
+      if (conversationsRes.status === 'fulfilled') {
+        setConversationMetrics(conversationsRes.value);
+        setMetricsLoading(prev => ({ ...prev, conversations: false }));
+      }
+      if (usersRes.status === 'fulfilled') {
+        setUserMetrics(usersRes.value);
+        setMetricsLoading(prev => ({ ...prev, users: false }));
+      }
       if (healthRes.status === 'fulfilled') setSystemHealth(healthRes.value);
       if (hourlyRes.status === 'fulfilled') setHourlyActivity(hourlyRes.value);
 
@@ -285,6 +318,7 @@ function DashboardPage() {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+      setMetricsLoading({ overview: false, tokens: false, conversations: false, users: false });
     }
   }, [dateRange]);
 
@@ -320,14 +354,17 @@ function DashboardPage() {
     setDatePreset(value);
   };
 
-  // Transform hourly API data for chart - using real data only
+  // Transform hourly API data for chart - using real data only with separate series
   const hourlyData = useMemo(() => {
     if (!hourlyActivity?.hourlyData?.length) {
       return [];
     }
     return hourlyActivity.hourlyData.map(h => ({
       name: h.label,
-      value: h.conversations + h.messages + h.sessions,
+      conversations: h.conversations,
+      messages: h.messages,
+      sessions: h.sessions,
+      activeUsers: h.activeUsers,
     }));
   }, [hourlyActivity]);
 
@@ -519,7 +556,7 @@ function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-text-primary">Activity (24h)</h3>
-              <p className="text-xs text-text-secondary">Conversations + Messages + Sessions (CST)</p>
+              <p className="text-xs text-text-secondary">Conversations, Messages & Sessions (CST)</p>
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-surface-tertiary px-2 py-1">
               <Clock className="h-3 w-3 text-text-tertiary" />
@@ -529,11 +566,14 @@ function DashboardPage() {
           {loading && !hourlyActivity ? (
             <div className="h-[220px] w-full rounded bg-surface-tertiary animate-pulse" />
           ) : hourlyData.length > 0 ? (
-            <AdminAreaChart
+            <AdminMultiAreaChart
               data={hourlyData}
-              dataKey="value"
+              dataKeys={[
+                { key: 'conversations', color: CHART_COLORS.primary, name: 'Conversations' },
+                { key: 'messages', color: CHART_COLORS.success, name: 'Messages' },
+                { key: 'activeUsers', color: CHART_COLORS.orange, name: 'Active Users' },
+              ]}
               height={220}
-              color={CHART_COLORS.success}
               formatter={formatNumber}
             />
           ) : (
@@ -552,7 +592,7 @@ function DashboardPage() {
             icon={<MessageSquare className="h-4 w-4" />}
             iconColor="text-teal-600 dark:text-teal-400"
             iconBg="bg-teal-500/10"
-            loading={loading}
+            loading={metricsLoading.conversations}
             size="large"
           />
           <MetricCard
@@ -562,7 +602,7 @@ function DashboardPage() {
             icon={<Hash className="h-4 w-4" />}
             iconColor="text-cyan-600 dark:text-cyan-400"
             iconBg="bg-cyan-500/10"
-            loading={loading}
+            loading={metricsLoading.conversations}
             size="large"
           />
           <MetricCard
@@ -572,7 +612,7 @@ function DashboardPage() {
             icon={<Zap className="h-4 w-4" />}
             iconColor="text-yellow-600 dark:text-yellow-400"
             iconBg="bg-yellow-500/10"
-            loading={loading}
+            loading={metricsLoading.tokens}
             size="large"
           />
           <MetricCard
@@ -583,7 +623,7 @@ function DashboardPage() {
             iconColor="text-orange-600 dark:text-orange-400"
             iconBg="bg-orange-500/10"
             onClick={() => navigate('/admin/costs')}
-            loading={loading}
+            loading={metricsLoading.tokens}
             size="large"
           />
         </div>
@@ -598,16 +638,16 @@ function DashboardPage() {
           icon={<UserCheck className="h-4 w-4" />}
           iconColor="text-blue-600 dark:text-blue-400"
           iconBg="bg-blue-500/10"
-          loading={loading}
+          loading={metricsLoading.users}
         />
         <MetricCard
           title="New Users"
-          value={overview?.users?.today ?? 0}
-          subtitle={`${overview?.users?.thisWeek ?? 0} this week`}
+          value={overview?.users?.inRange ?? overview?.users?.today ?? 0}
+          subtitle={datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`}
           icon={<TrendingUp className="h-4 w-4" />}
           iconColor="text-emerald-600 dark:text-emerald-400"
           iconBg="bg-emerald-500/10"
-          loading={loading}
+          loading={metricsLoading.overview}
         />
         <MetricCard
           title="Transactions"
@@ -616,7 +656,7 @@ function DashboardPage() {
           icon={<Activity className="h-4 w-4" />}
           iconColor="text-violet-600 dark:text-violet-400"
           iconBg="bg-violet-500/10"
-          loading={loading}
+          loading={metricsLoading.tokens}
         />
         <MetricCard
           title="Avg Tokens/Conv"
@@ -625,7 +665,7 @@ function DashboardPage() {
           icon={<BarChart3 className="h-4 w-4" />}
           iconColor="text-rose-600 dark:text-rose-400"
           iconBg="bg-rose-500/10"
-          loading={loading}
+          loading={metricsLoading.conversations || metricsLoading.tokens}
         />
       </div>
 

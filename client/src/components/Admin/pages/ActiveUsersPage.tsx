@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
-  Clock,
+  UserPlus,
   Activity,
   RefreshCw,
   Search,
@@ -15,11 +15,13 @@ import {
   ArrowUpRight,
   Cloud,
   Calendar,
+  Clock,
 } from 'lucide-react';
 import { Button, Input } from '@ranger/client';
 import { StatsCard } from '../components/StatsCard';
 import { ActiveUsersPageSkeleton } from '../components/Skeletons';
-import { activeUsersApi } from '../services/adminApi';
+import { AdminDateRangePicker } from '../components/AdminDateRangePicker';
+import { activeUsersApi, dashboardApi } from '../services/adminApi';
 
 interface Session {
   sessionId: string;
@@ -148,18 +150,30 @@ export function ActiveUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  
+  // Date filters - default to today (using local time)
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [newUsersCount, setNewUsersCount] = useState(0);
   const [activeTab, setActiveTab] = useState<'sessions' | 'microsoft'>('sessions');
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const [sessionsResponse, microsoftResponse] = await Promise.all([
-        activeUsersApi.getActiveUsers(),
-        activeUsersApi.getMicrosoftSessions(),
+      const [sessionsResponse, microsoftResponse, overview] = await Promise.all([
+        activeUsersApi.getActiveUsers({ startDate, endDate }),
+        activeUsersApi.getMicrosoftSessions({ startDate, endDate }),
+        dashboardApi.getOverview({ startDate, endDate }),
       ]);
       setData(sessionsResponse);
       setMicrosoftData(microsoftResponse);
-      setLastRefresh(new Date());
+      setNewUsersCount(overview?.users?.inRange ?? overview?.users?.today ?? 0);
       setError(null);
     } catch (err) {
       setError('Failed to load active users data');
@@ -167,7 +181,7 @@ export function ActiveUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchData();
@@ -180,9 +194,13 @@ export function ActiveUsersPage() {
   }, [autoRefresh, fetchData]);
 
   const handleRefresh = () => {
-    setLoading(true);
     fetchData();
   };
+
+  const handleDateChange = useCallback(({ startDate: start, endDate: end }: { startDate: string; endDate: string }) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
 
   // Filter sessions based on search (backend already groups by user)
   const filteredSessions = data?.sessions?.filter((session) => {
@@ -213,36 +231,40 @@ export function ActiveUsersPage() {
 
   const stats = [
     {
-      title: 'Active Users Today',
+      title: 'Active Users',
       value: data?.summary?.uniqueActiveUsers || data?.sessions?.length || 0,
       icon: Users,
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
-      info: 'Unique users with active sessions today',
+      info: 'Unique users with active sessions in selected period',
+      loading: loading,
     },
     {
-      title: 'Logins Today',
+      title: 'Logins',
       value: data?.summary?.sessionsToday ?? 0,
       icon: Activity,
       color: 'text-green-400',
       bgColor: 'bg-green-500/10',
-      info: 'New login sessions created today',
+      info: 'Login sessions created in selected period',
+      loading: loading,
     },
     {
-      title: 'Avg Login Duration',
-      value: formatDuration(data?.summary?.averageSessionDuration || 0),
-      icon: Clock,
+      title: 'New Users',
+      value: newUsersCount,
+      icon: UserPlus,
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      info: 'Average duration of login sessions',
+      info: 'Users created in selected period',
+      loading: loading,
     },
     {
       title: 'M365 Logins',
-      value: microsoftData?.summary?.totalActiveSessions || 0,
+      value: microsoftData?.summary?.sessionsToday || 0,
       icon: Cloud,
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-500/10',
-      info: 'Active Microsoft 365 connections',
+      info: 'MS365 connections in selected period',
+      loading: loading,
     },
   ];
 
@@ -268,10 +290,13 @@ export function ActiveUsersPage() {
             Monitor currently active sessions in real-time
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-text-tertiary">
-            Last updated: {lastRefresh.toLocaleTimeString()}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminDateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            isLoading={loading}
+          />
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
@@ -286,10 +311,10 @@ export function ActiveUsersPage() {
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            className="flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-2 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+            title="Refresh data"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
         </div>
       </div>
@@ -307,7 +332,9 @@ export function ActiveUsersPage() {
                 </div>
               </div>
               <p className="mt-1 text-xl font-bold text-text-primary">
-                {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                {stat.loading ? (
+                  <span className="inline-block h-6 w-12 animate-pulse rounded bg-surface-tertiary" />
+                ) : typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
               </p>
             </div>
           );
@@ -507,28 +534,6 @@ export function ActiveUsersPage() {
       {/* Microsoft 365 Tab Content */}
       {activeTab === 'microsoft' && (
         <div className="space-y-4">
-          {/* Microsoft Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatsCard
-              title="Connected Users"
-              value={microsoftData?.summary?.uniqueConnectedUsers || 0}
-              icon={<Users className="h-5 w-5 text-cyan-500" />}
-              info="Users with active Microsoft 365 OAuth connections"
-            />
-            <StatsCard
-              title="Active Connections"
-              value={microsoftData?.summary?.totalActiveSessions || 0}
-              icon={<Cloud className="h-5 w-5 text-blue-500" />}
-              info="Total active OAuth tokens (90-minute duration)"
-            />
-            <StatsCard
-              title="Connections Today"
-              value={microsoftData?.summary?.sessionsToday || 0}
-              icon={<Zap className="h-5 w-5 text-yellow-500" />}
-              info="New Microsoft 365 connections established today"
-            />
-          </div>
-
           {/* Microsoft Sessions List */}
           <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
             <div className="p-4 border-b border-[var(--border-light)]">

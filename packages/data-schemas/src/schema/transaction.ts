@@ -152,4 +152,10 @@ const transactionSchema: Schema<ITransaction> = new Schema(
   },
 );
 
+// Admin dashboard indexes for efficient metrics queries
+transactionSchema.index({ createdAt: 1 }); // For date range queries
+transactionSchema.index({ tokenType: 1, createdAt: 1 }); // For token type aggregations
+transactionSchema.index({ conversationId: 1, createdAt: 1 }); // For conversation cost lookups
+transactionSchema.index({ model: 1, tokenType: 1 }); // For model-specific aggregations
+
 export default transactionSchema;

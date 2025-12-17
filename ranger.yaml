@@ -301,7 +301,9 @@ fileConfig:
         # Microsoft Office documents
         - "^application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document$"  # .docx
         - "^application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet$"  # .xlsx
+        - "^application/vnd\\.ms-excel\\.sheet\\.macroenabled\\.12$"  # .xlsm (lowercase)
         - "^application/vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation$"  # .pptx
+        - "^application/vnd\\.ms-outlook$"  # .msg (Outlook messages)
         # Archive files
         - "^application/(zip|x-tar)$"
         # Programming and markup files

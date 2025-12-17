@@ -35,6 +35,7 @@ import {
 } from '@ranger/client';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { usersApi, type User, type UserListParams } from '../services/adminApi';
+import { UsersPageSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 // Role options
@@ -70,6 +71,7 @@ function UsersPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [status, setStatus] = useState<string>(searchParams.get('status') || '');
   const [role, setRole] = useState(searchParams.get('role') || '');
+  const [groupFilter, setGroupFilter] = useState(searchParams.get('group') || '');
 
   // Dialogs
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -108,8 +110,10 @@ function UsersPage() {
         search,
         status: status as 'active' | 'banned' | '',
         role,
+        group: groupFilter, // Server-side group filtering for performance
       };
       const result = await usersApi.list(params);
+      
       setUsers(result.users);
       setPagination(result.pagination);
     } catch (error) {
@@ -117,7 +121,7 @@ function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search, status, role]);
+  }, [pagination.page, pagination.limit, search, status, role, groupFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -129,8 +133,9 @@ function UsersPage() {
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     if (role) params.set('role', role);
+    if (groupFilter) params.set('group', groupFilter);
     setSearchParams(params, { replace: true });
-  }, [search, status, role, setSearchParams]);
+  }, [search, status, role, groupFilter, setSearchParams]);
 
   // Actions
   const handleBanToggle = async () => {
@@ -421,6 +426,11 @@ function UsersPage() {
     [navigate]
   );
 
+  // Show skeleton on initial load
+  if (loading && users.length === 0) {
+    return <UsersPageSkeleton />;
+  }
+
   return (
     <div className="space-y-4 p-4 md:p-5">
       {/* Page Header with Search */}
@@ -467,6 +477,18 @@ function UsersPage() {
               </option>
             ))}
           </select>
+          {/* Group Filter Badge */}
+          {groupFilter && (
+            <div className="flex items-center gap-2 rounded-lg border border-purple-500/50 bg-purple-500/10 px-3 py-1.5">
+              <span className="text-xs text-purple-400">Group: {groupFilter}</span>
+              <button
+                onClick={() => setGroupFilter('')}
+                className="text-purple-400 hover:text-purple-300"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <span className="text-xs text-text-tertiary">
             {pagination.total} users
           </span>

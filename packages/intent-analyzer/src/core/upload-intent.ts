@@ -27,10 +27,14 @@ const EXTENSION_MAP: Record<string, UploadIntent> = {
 
   // Spreadsheets → CODE_INTERPRETER
   '.xlsx': UploadIntent.CODE_INTERPRETER,
+  '.xlsm': UploadIntent.CODE_INTERPRETER,
   '.xls': UploadIntent.CODE_INTERPRETER,
   '.csv': UploadIntent.CODE_INTERPRETER,
   '.tsv': UploadIntent.CODE_INTERPRETER,
   '.ods': UploadIntent.CODE_INTERPRETER,
+
+  // Email/Message files → CODE_INTERPRETER (extract-msg handles .msg)
+  '.msg': UploadIntent.CODE_INTERPRETER,
 
   // Code files → CODE_INTERPRETER
   '.py': UploadIntent.CODE_INTERPRETER,

@@ -736,7 +736,9 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
     // Spreadsheets - pandas/openpyxl handles these better
     '.xlsx', '.xls', '.csv', '.tsv',
     // Structured data - code parsing is more accurate
-    '.json', '.xml', '.yaml', '.yml',
+    '.json','.xlsm', '.xml', '.yaml', '.yml',
+    // Email/Message Files - exact-mdg handles .msg
+    '.msg',
     // Archives - need code to extract
     '.zip', '.tar', '.gz', '.tgz', '.7z', '.rar',
     // Code files - code execution/analysis is better than semantic search
