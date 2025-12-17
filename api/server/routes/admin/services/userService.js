@@ -4,7 +4,10 @@
  * Service for user management operations.
  */
 
+const { Keyv } = require('keyv');
 const { logger } = require('@librechat/data-schemas');
+const { isEnabled, keyvMongo } = require('@librechat/api');
+const { ViolationTypes } = require('librechat-data-provider');
 const {
   User,
   Conversation,
@@ -12,6 +15,7 @@ const {
   Transaction,
   Balance,
   Session,
+  Token,
 } = require('~/db/models');
 const {
   deleteAllUserSessions,
@@ -19,6 +23,10 @@ const {
   deleteConvos,
   deleteFiles,
 } = require('~/models');
+const { getLogStores } = require('~/cache');
+
+// Ban cache for clearing on unban
+const banCache = new Keyv({ store: keyvMongo, namespace: ViolationTypes.BAN, ttl: 0 });
 
 /**
  * Model pricing per MILLION tokens (AWS Bedrock pricing)
@@ -52,6 +60,7 @@ const listUsers = async ({
   sortBy = 'createdAt',
   sortOrder = 'desc',
   status = '',
+  group = '',
 }) => {
   try {
     const query = {};
@@ -75,6 +84,11 @@ const listUsers = async ({
       query.banned = true;
     } else if (status === 'active') {
       query.banned = { $ne: true };
+    }
+
+    // OIDC Group filter - server-side for performance
+    if (group) {
+      query.oidcGroups = group;
     }
 
     // Build sort object
@@ -158,27 +172,22 @@ const listUsers = async ({
  */
 const getUserById = async (userId) => {
   try {
-    const user = await User.findById(userId)
-      .select('-password -totpSecret -backupCodes')
-      .lean();
+    // Run all queries in parallel for better performance
+    const [user, balance, conversationCount, messageCount] = await Promise.all([
+      User.findById(userId)
+        .select('-password -totpSecret -backupCodes')
+        .lean(),
+      Balance.findOne({ user: userId }).lean().catch(err => {
+        logger.warn('[Admin UserService] Could not fetch user balance:', err.message);
+        return null;
+      }),
+      Conversation.countDocuments({ user: userId }),
+      Message.countDocuments({ user: userId }),
+    ]);
 
     if (!user) {
       return null;
     }
-
-    // Get user's balance
-    let balance = null;
-    try {
-      balance = await Balance.findOne({ user: userId }).lean();
-    } catch (error) {
-      logger.warn('[Admin UserService] Could not fetch user balance:', error.message);
-    }
-
-    // Get conversation count
-    const conversationCount = await Conversation.countDocuments({ user: userId });
-
-    // Get message count
-    const messageCount = await Message.countDocuments({ user: userId });
 
     return {
       ...user,
@@ -233,7 +242,29 @@ const updateUserRole = async (userId, role) => {
 };
 
 /**
+ * Update user OIDC groups
+ */
+const updateUserOidcGroups = async (userId, oidcGroups) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { oidcGroups } },
+      { new: true }
+    )
+      .select('-password -totpSecret -backupCodes')
+      .lean();
+
+    return user;
+  } catch (error) {
+    logger.error('[Admin UserService] Error updating user OIDC groups:', error);
+    throw error;
+  }
+};
+
+/**
  * Ban or unban a user
+ * When banning: adds entry to logs collection (ban logs)
+ * When unbanning: removes entry from logs collection
  */
 const toggleUserBan = async (userId, banned, reason = '') => {
   try {
@@ -251,12 +282,59 @@ const toggleUserBan = async (userId, banned, reason = '') => {
       .select('-password -totpSecret -backupCodes')
       .lean();
 
-    // If banning, also invalidate all sessions
-    if (banned && user) {
+    if (!user) {
+      return null;
+    }
+
+    // Get ban logs store
+    const banLogs = getLogStores(ViolationTypes.BAN);
+
+    // If banning, add to ban logs and invalidate sessions
+    if (banned) {
       try {
+        // Add ban entry to logs collection
+        const banEntry = {
+          odified: Date.now(),
+          count: 1,
+          type: ViolationTypes.BAN,
+          user: userId,
+          reason: reason || 'Banned by admin',
+          bannedAt: new Date().toISOString(),
+          expiresAt: Date.now() + (banLogs.opts?.ttl || 0),
+        };
+        await banLogs.set(userId, banEntry);
+        
+        // Also set in ban cache for immediate effect
+        const userKey = isEnabled(process.env.USE_REDIS) ? `ban_cache:user:${userId}` : userId;
+        await banCache.set(userKey, banEntry, banLogs.opts?.ttl || 0);
+        
+        logger.info(`[Admin UserService] Added ban entry to logs for user ${userId}`);
+        
+        // Invalidate all user sessions
         await deleteAllUserSessions(userId);
       } catch (error) {
-        logger.warn('[Admin UserService] Could not delete user sessions:', error.message);
+        logger.warn('[Admin UserService] Could not add ban to logs:', error.message);
+      }
+    }
+
+    // If unbanning, clear ban cache AND remove from logs collection
+    if (!banned) {
+      try {
+        // Clear ban cache (both Redis key format and direct key format)
+        const userKey = isEnabled(process.env.USE_REDIS) ? `ban_cache:user:${userId}` : userId;
+        await banCache.delete(userKey);
+        
+        // Also try to delete the raw userId key in case it was stored that way
+        if (isEnabled(process.env.USE_REDIS)) {
+          await banCache.delete(userId);
+        }
+        
+        // IMPORTANT: Remove from ban logs collection
+        await banLogs.delete(userId);
+        
+        logger.info(`[Admin UserService] Cleared ban cache and logs for user ${userId}`);
+      } catch (error) {
+        logger.warn('[Admin UserService] Could not clear ban cache/logs:', error.message);
       }
     }
 
@@ -411,7 +489,8 @@ const getUserSessions = async (userId) => {
 
     return {
       activeSessions: activeSessions.map(s => ({
-        id: s._id,
+        id: s._id.toString(),
+        createdAt: s.createdAt || null,
         expiration: s.expiration,
         isActive: true,
       })),
@@ -419,6 +498,49 @@ const getUserSessions = async (userId) => {
     };
   } catch (error) {
     logger.error('[Admin UserService] Error getting user sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Terminate a specific user session
+ */
+const terminateUserSession = async (userId, sessionId) => {
+  try {
+    const mongoose = require('mongoose');
+    
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      logger.warn(`[Admin UserService] Invalid session ID format: ${sessionId}`);
+      return { success: false, message: 'Invalid session ID format' };
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      logger.warn(`[Admin UserService] Invalid user ID format: ${userId}`);
+      return { success: false, message: 'Invalid user ID format' };
+    }
+
+    // Verify the session belongs to the user
+    const session = await Session.findOne({
+      _id: new mongoose.Types.ObjectId(sessionId),
+      user: new mongoose.Types.ObjectId(userId),
+    }).lean();
+
+    if (!session) {
+      logger.warn(`[Admin UserService] Session ${sessionId} not found for user ${userId}`);
+      return { success: false, message: 'Session not found or does not belong to this user' };
+    }
+
+    // Delete the session directly using the Session model for reliability
+    const result = await Session.deleteOne({ _id: new mongoose.Types.ObjectId(sessionId) });
+
+    if (result.deletedCount === 0) {
+      return { success: false, message: 'Failed to delete session' };
+    }
+
+    logger.info(`[Admin UserService] Session ${sessionId} terminated for user ${userId}`);
+    return { success: true };
+  } catch (error) {
+    logger.error('[Admin UserService] Error terminating user session:', error);
     throw error;
   }
 };
@@ -515,6 +637,7 @@ const getUserTransactions = async (userId, { page = 1, limit = 20, startDate, en
 
 /**
  * Get detailed statistics for a user
+ * Optimized with parallel queries for better performance
  */
 const getUserStats = async (userId) => {
   try {
@@ -526,34 +649,39 @@ const getUserStats = async (userId) => {
       return null;
     }
 
-    // Get conversation stats
-    const conversationCount = await Conversation.countDocuments({ user: userId });
-    const messageCount = await Message.countDocuments({ user: userId });
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Get conversations by endpoint
-    const conversationsByEndpoint = await Conversation.aggregate([
-      { $match: { user: user._id } },
-      { $group: { _id: '$endpoint', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
-
-    // Get conversations by model
-    const conversationsByModel = await Conversation.aggregate([
-      { $match: { user: user._id } },
-      { $group: { _id: '$model', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-    ]);
-
-    // Get token usage
-    let tokenStats = {
-      totalTokens: 0,
-      totalCost: 0,
-      transactionCount: 0,
-    };
-
-    try {
-      const tokenAgg = await Transaction.aggregate([
+    // Run all queries in parallel for better performance
+    const [
+      conversationCount,
+      messageCount,
+      conversationsByEndpoint,
+      conversationsByModel,
+      tokenAggResult,
+      balanceDoc,
+      activityTimeline,
+      recentConversations,
+    ] = await Promise.all([
+      // Get conversation count
+      Conversation.countDocuments({ user: userId }),
+      // Get message count
+      Message.countDocuments({ user: userId }),
+      // Get conversations by endpoint
+      Conversation.aggregate([
+        { $match: { user: user._id } },
+        { $group: { _id: '$endpoint', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      // Get conversations by model
+      Conversation.aggregate([
+        { $match: { user: user._id } },
+        { $group: { _id: '$model', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      // Get token usage
+      Transaction.aggregate([
         { $match: { user: user._id } },
         {
           $group: {
@@ -563,73 +691,63 @@ const getUserStats = async (userId) => {
             count: { $sum: 1 },
           },
         },
-      ]);
-
-      if (tokenAgg.length > 0) {
-        tokenStats = {
-          totalTokens: tokenAgg[0].totalTokens || 0,
-          totalCost: tokenAgg[0].totalCost || 0,
-          transactionCount: tokenAgg[0].count || 0,
-        };
-      }
-    } catch (error) {
-      logger.warn('[Admin UserService] Could not fetch token stats:', error.message);
-    }
-
-    // Get balance
-    let balance = 0;
-    try {
-      const balanceDoc = await Balance.findOne({ user: userId }).lean();
-      balance = balanceDoc?.tokenCredits || 0;
-    } catch (error) {
-      logger.warn('[Admin UserService] Could not fetch balance:', error.message);
-    }
-
-    // Get activity timeline (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const activityTimeline = await Conversation.aggregate([
-      {
-        $match: {
-          user: user._id,
-          createdAt: { $gte: thirtyDaysAgo },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-            day: { $dayOfMonth: '$createdAt' },
+      ]).catch(err => {
+        logger.warn('[Admin UserService] Could not fetch token stats:', err.message);
+        return [];
+      }),
+      // Get balance
+      Balance.findOne({ user: userId }).lean().catch(err => {
+        logger.warn('[Admin UserService] Could not fetch balance:', err.message);
+        return null;
+      }),
+      // Get activity timeline (last 30 days)
+      Conversation.aggregate([
+        {
+          $match: {
+            user: user._id,
+            createdAt: { $gte: thirtyDaysAgo },
           },
-          count: { $sum: 1 },
         },
-      },
-      {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: {
-            $dateFromParts: {
-              year: '$_id.year',
-              month: '$_id.month',
-              day: '$_id.day',
-            },
+        {
+          $addFields: {
+            dateStr: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
           },
-          count: 1,
         },
-      },
+        {
+          $group: {
+            _id: '$dateStr',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { '_id': 1 },
+        },
+        {
+          $project: {
+            _id: 0,
+            date: { $toDate: '$_id' },
+            count: 1,
+          },
+        },
+      ]),
+      // Recent conversations
+      Conversation.find({ user: userId })
+        .sort({ updatedAt: -1 })
+        .limit(10)
+        .select('conversationId title endpoint model createdAt updatedAt')
+        .lean(),
     ]);
 
-    // Recent conversations
-    const recentConversations = await Conversation.find({ user: userId })
-      .sort({ updatedAt: -1 })
-      .limit(10)
-      .select('conversationId title endpoint model createdAt updatedAt')
-      .lean();
+    // Process token stats
+    const tokenStats = tokenAggResult.length > 0
+      ? {
+          totalTokens: tokenAggResult[0].totalTokens || 0,
+          totalCost: tokenAggResult[0].totalCost || 0,
+          transactionCount: tokenAggResult[0].count || 0,
+        }
+      : { totalTokens: 0, totalCost: 0, transactionCount: 0 };
+
+    const balance = balanceDoc?.tokenCredits || 0;
 
     return {
       user,
@@ -662,28 +780,53 @@ const getUserStats = async (userId) => {
 /**
  * Get active sessions with full session data for live monitoring
  * Groups sessions by user - each user appears once with aggregated session data
+ * Uses createdAt date to determine logins in the date range
+ * @param {string} startDateStr - Start date string (YYYY-MM-DD)
+ * @param {string} endDateStr - End date string (YYYY-MM-DD)
  */
-const getActiveSessions = async () => {
+const getActiveSessions = async (startDateStr, endDateStr) => {
   try {
     const now = new Date();
+    
+    // Parse date range - use CST timezone (UTC-6)
+    // When user selects "Today" in CST, we need to query from CST midnight to CST end of day
+    // CST midnight = 06:00 UTC, CST end of day = 05:59:59 UTC next day
+    let startDate, endDate;
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      // CST is UTC-6, so CST midnight = UTC 06:00
+      startDate = new Date(startDateStr + 'T06:00:00.000Z');
+      // CST end of day (23:59:59) = next day UTC 05:59:59
+      const endDateObj = new Date(endDateStr + 'T00:00:00.000Z');
+      endDateObj.setDate(endDateObj.getDate() + 1);
+      endDate = new Date(endDateObj.getTime() + (6 * 60 * 60 * 1000) - 1); // 05:59:59.999 UTC next day
+    } else {
+      // Default to today in CST
+      const cstOffset = -6 * 60 * 60 * 1000; // CST offset in ms
+      const cstNow = new Date(now.getTime() + cstOffset);
+      const todayStr = cstNow.toISOString().split('T')[0];
+      startDate = new Date(todayStr + 'T06:00:00.000Z');
+      const endDateObj = new Date(todayStr + 'T00:00:00.000Z');
+      endDateObj.setDate(endDateObj.getDate() + 1);
+      endDate = new Date(endDateObj.getTime() + (6 * 60 * 60 * 1000) - 1);
+    }
 
-    // Get all active sessions grouped by user
+    // Get sessions created in date range (based on createdAt)
     const groupedUsers = await Session.aggregate([
-      // Only non-expired sessions
-      { $match: { expiration: { $gt: now } } },
+      // Match sessions created in date range
+      { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
       // Group by user to aggregate session data
       {
         $group: {
           _id: '$user',
           sessionCount: { $sum: 1 },
-          latestActivity: { $max: '$expiration' },
+          latestActivity: { $max: '$createdAt' },
           earliestSession: { $min: '$createdAt' },
           // Collect session details for reference
           sessions: {
             $push: {
               sessionId: '$_id',
-              startTime: '$createdAt',
-              lastActivity: '$expiration',
+              createdAt: '$createdAt',
+              expiration: '$expiration',
               ipAddress: '$payload.ip',
               userAgent: '$payload.userAgent',
             },
@@ -725,8 +868,8 @@ const getActiveSessions = async () => {
       { $sort: { lastActivity: -1 } },
     ]);
 
-    // Total number of individual sessions (for stats)
-    const totalSessions = groupedUsers.reduce((sum, user) => sum + user.sessionCount, 0);
+    // Total number of individual sessions created today
+    const totalSessions = groupedUsers.reduce((sum, user) => sum + (user.sessionCount || 0), 0);
 
     return {
       sessions: groupedUsers,
@@ -734,10 +877,50 @@ const getActiveSessions = async () => {
         totalActiveSessions: totalSessions,
         uniqueActiveUsers: groupedUsers.length,
         averageSessionDuration: 0, // Can calculate if needed
+        sessionsToday: totalSessions,
       },
     };
   } catch (error) {
     logger.error('[Admin UserService] Error getting active sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Clear all sessions from the database
+ * Used for admin maintenance
+ */
+const clearAllSessions = async () => {
+  try {
+    const result = await Session.deleteMany({});
+    logger.info(`[Admin UserService] Cleared ${result.deletedCount} sessions from database`);
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+    };
+  } catch (error) {
+    logger.error('[Admin UserService] Error clearing all sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Terminate all sessions for a specific user
+ */
+const terminateAllUserSessions = async (userId) => {
+  try {
+    const mongoose = require('mongoose');
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    
+    const result = await Session.deleteMany({ user: userObjectId });
+    logger.info(`[Admin UserService] Terminated ${result.deletedCount} sessions for user ${userId}`);
+    
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+    };
+  } catch (error) {
+    logger.error('[Admin UserService] Error terminating all user sessions:', error);
     throw error;
   }
 };
@@ -765,8 +948,20 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
       conversations.map(async (conv) => {
         const messages = await Message.find({ conversationId: conv.conversationId })
           .sort({ createdAt: 1 })
-      .select('messageId text content sender isCreatedByUser model createdAt tokenCount')
-      .lean();        return {
+      .select('messageId text content sender isCreatedByUser model createdAt tokenCount error finish_reason')
+      .lean();
+
+        // Count errors in this conversation (including content array errors)
+        const errorCount = messages.filter(m => {
+          if (m.error === true) return true;
+          // Also check for error type in content array
+          if (m.content && Array.isArray(m.content)) {
+            return m.content.some(c => c.type === 'error');
+          }
+          return false;
+        }).length;
+
+        return {
           _id: conv._id,
           conversationId: conv.conversationId,
           title: conv.title || 'Untitled',
@@ -775,16 +970,53 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
           createdAt: conv.createdAt,
           updatedAt: conv.updatedAt,
           messageCount: messages.length,
+          errorCount,
+          hasErrors: errorCount > 0,
           messages: messages.map(msg => {
             // For AI messages, text may be empty and content stored in 'content' array
             let displayText = msg.text;
-            if (!displayText && msg.content && Array.isArray(msg.content)) {
+            let hasContentError = false;
+            let errorMessage = null;
+            
+            if (msg.content && Array.isArray(msg.content)) {
+              // Check for error in content array
+              const errorPart = msg.content.find(c => c.type === 'error');
+              if (errorPart) {
+                hasContentError = true;
+                errorMessage = errorPart.error || errorPart[errorPart.type] || 'Unknown error';
+              }
+              
               // Extract text from content array (structured content format)
-              const textParts = msg.content
-                .filter(c => c.type === 'text' && c.text)
-                .map(c => c.text);
-              displayText = textParts.join('\n') || '';
+              if (!displayText) {
+                const textParts = msg.content
+                  .filter(c => c.type === 'text' && c.text)
+                  .map(c => c.text);
+                displayText = textParts.join('\n') || '';
+              }
+
+              // Check for tool_use blocks - if message only has tool calls, indicate that
+              if (!displayText) {
+                const toolUseParts = msg.content.filter(c => c.type === 'tool_use');
+                if (toolUseParts.length > 0) {
+                  const toolNames = toolUseParts.map(t => t.name || 'tool').join(', ');
+                  displayText = `[Using tools: ${toolNames}]`;
+                }
+              }
+
+              // Check for thinking blocks
+              if (!displayText) {
+                const thinkingPart = msg.content.find(c => c.type === 'thinking' && c.thinking);
+                if (thinkingPart) {
+                  displayText = `[Thinking...]\n${thinkingPart.thinking.substring(0, 200)}${thinkingPart.thinking.length > 200 ? '...' : ''}`;
+                }
+              }
             }
+            
+            // If there's an error but no display text, show the error message
+            if ((msg.error || hasContentError) && !displayText && errorMessage) {
+              displayText = errorMessage;
+            }
+            
             return {
               messageId: msg.messageId,
               text: displayText,
@@ -793,6 +1025,9 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
               model: msg.model,
               createdAt: msg.createdAt,
               tokenCount: msg.tokenCount,
+              error: msg.error || hasContentError,
+              isError: msg.error === true || hasContentError,
+              errorMessage: errorMessage,
             };
           }),
         };
@@ -816,17 +1051,200 @@ const getUserConversations = async (userId, { page = 1, limit = 20 } = {}) => {
   }
 };
 
+/**
+ * Get Microsoft 365 OAuth sessions
+ * Returns users with active MCP OAuth tokens (type: 'mcp_oauth' with identifier containing 'ms365' or 'microsoft')
+ * @param {string} startDateStr - Start date string (YYYY-MM-DD)
+ * @param {string} endDateStr - End date string (YYYY-MM-DD)
+ */
+const getMicrosoftSessions = async (startDateStr, endDateStr) => {
+  try {
+    const now = new Date();
+
+    // Parse date range - use CST timezone (UTC-6)
+    let startDate, endDate;
+    if (typeof startDateStr === 'string' && typeof endDateStr === 'string') {
+      // CST is UTC-6, so CST midnight = UTC 06:00
+      startDate = new Date(startDateStr + 'T06:00:00.000Z');
+      // CST end of day (23:59:59) = next day UTC 05:59:59
+      const endDateObj = new Date(endDateStr + 'T00:00:00.000Z');
+      endDateObj.setDate(endDateObj.getDate() + 1);
+      endDate = new Date(endDateObj.getTime() + (6 * 60 * 60 * 1000) - 1);
+    } else {
+      // Default to today in CST
+      const cstOffset = -6 * 60 * 60 * 1000;
+      const cstNow = new Date(now.getTime() + cstOffset);
+      const todayStr = cstNow.toISOString().split('T')[0];
+      startDate = new Date(todayStr + 'T06:00:00.000Z');
+      const endDateObj = new Date(todayStr + 'T00:00:00.000Z');
+      endDateObj.setDate(endDateObj.getDate() + 1);
+      endDate = new Date(endDateObj.getTime() + (6 * 60 * 60 * 1000) - 1);
+    }
+
+    // Find MCP OAuth tokens for Microsoft 365 in the date range
+    const m365Tokens = await Token.aggregate([
+      {
+        $match: {
+          type: 'mcp_oauth',
+          // Match MS365/Microsoft MCP server identifiers
+          identifier: { $regex: /mcp:(ms365|microsoft|m365)/i },
+          // Tokens that expire in date range
+          expiresAt: {
+            $gte: startDate,
+            $lte: endDate
+          }
+        }
+      },
+      // Lookup user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+      { $unwind: '$userDetails' },
+      // Project fields
+      {
+        $project: {
+          tokenId: '$_id',
+          userId: '$userId',
+          user: {
+            id: '$userDetails._id',
+            name: '$userDetails.name',
+            email: '$userDetails.email',
+            username: '$userDetails.username',
+            avatar: '$userDetails.avatar',
+          },
+          serverName: { $arrayElemAt: [{ $split: ['$identifier', ':'] }, 1] },
+          createdAt: '$createdAt',
+          expiresAt: '$expiresAt',
+          isActive: { $literal: true },
+        },
+      },
+      // Sort by most recent expiration (most recently active first)
+      { $sort: { expiresAt: -1 } },
+    ]);
+
+    // Count unique users
+    const uniqueUsers = new Set(m365Tokens.map(t => t.userId?.toString()).filter(Boolean));
+
+    return {
+      sessions: m365Tokens || [],
+      summary: {
+        totalActiveSessions: m365Tokens?.length || 0,
+        uniqueConnectedUsers: uniqueUsers.size || 0,
+        sessionsToday: uniqueUsers.size || 0,
+      },
+    };
+  } catch (error) {
+    logger.error('[Admin UserService] Error getting Microsoft 365 sessions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Clear all bans from the system:
+ * 1. Remove all entries from ban logs collection
+ * 2. Clear ban cache
+ * 3. Unban all users in the User collection
+ */
+const clearAllBans = async () => {
+  try {
+    // Get all banned users first
+    const bannedUsers = await User.find({ banned: true }).select('_id').lean();
+    const bannedUserIds = bannedUsers.map(u => u._id.toString());
+    
+    logger.info(`[Admin UserService] Clearing bans for ${bannedUserIds.length} users`);
+
+    // Get ban logs store
+    const banLogs = getLogStores(ViolationTypes.BAN);
+    
+    // Clear each user's ban from logs
+    let clearedCount = 0;
+    for (const userId of bannedUserIds) {
+      try {
+        // Clear from ban logs
+        await banLogs.delete(userId);
+        
+        // Clear from ban cache
+        const userKey = isEnabled(process.env.USE_REDIS) ? `ban_cache:user:${userId}` : userId;
+        await banCache.delete(userKey);
+        
+        // Also try direct key
+        if (isEnabled(process.env.USE_REDIS)) {
+          await banCache.delete(userId);
+        }
+        
+        clearedCount++;
+      } catch (error) {
+        logger.warn(`[Admin UserService] Could not clear ban for user ${userId}:`, error.message);
+      }
+    }
+
+    // Also try to clear the entire ban logs store if it has a clear method
+    try {
+      if (typeof banLogs.clear === 'function') {
+        await banLogs.clear();
+        logger.info('[Admin UserService] Cleared entire ban logs store');
+      }
+    } catch (error) {
+      logger.warn('[Admin UserService] Could not clear entire ban logs store:', error.message);
+    }
+
+    // Also try to clear the entire ban cache if it has a clear method
+    try {
+      if (typeof banCache.clear === 'function') {
+        await banCache.clear();
+        logger.info('[Admin UserService] Cleared entire ban cache');
+      }
+    } catch (error) {
+      logger.warn('[Admin UserService] Could not clear entire ban cache:', error.message);
+    }
+
+    // Unban all users in the database
+    const updateResult = await User.updateMany(
+      { banned: true },
+      { 
+        $set: { 
+          banned: false, 
+          banReason: '', 
+          bannedAt: null 
+        } 
+      }
+    );
+
+    logger.info(`[Admin UserService] Unbanned ${updateResult.modifiedCount} users from database`);
+
+    return {
+      success: true,
+      clearedFromLogs: clearedCount,
+      unbannedUsers: updateResult.modifiedCount,
+    };
+  } catch (error) {
+    logger.error('[Admin UserService] Error clearing all bans:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   listUsers,
   getUserById,
   updateUser,
   updateUserRole,
+  updateUserOidcGroups,
   toggleUserBan,
   deleteUser,
   getUserStats,
   getActiveUsers,
   getActiveSessions,
+  clearAllSessions,
+  terminateAllUserSessions,
+  clearAllBans,
   getUserSessions,
+  terminateUserSession,
   getUserTransactions,
   getUserConversations,
+  getMicrosoftSessions,
 };

@@ -4,12 +4,25 @@ import type { Citation, CitationNode } from './types';
 import { SPAN_REGEX, STANDALONE_PATTERN, CLEANUP_REGEX, COMPOSITE_REGEX } from '~/utils/citations';
 
 /**
- * Checks if a standalone marker is truly standalone (not inside a composite block)
+ * Checks if a standalone marker is truly standalone (not inside a composite block).
+ * A marker is inside a composite if there's an opening \ue200 without a closing \ue201 after it.
+ *
+ * Handles both literal text format ("\\ue200") and actual Unicode (U+E200) by checking
+ * for both and using the rightmost occurrence. This correctly handles:
+ * - Pure literal format: "\\ue200...\\ue201"
+ * - Pure Unicode format: "\ue200...\ue201"
+ * - Mixed formats: "\\ue200...\ue201" (different formats for open/close)
  */
 function isStandaloneMarker(text: string, position: number): boolean {
   const beforeText = text.substring(0, position);
-  const lastUe200 = beforeText.lastIndexOf('\\ue200');
-  const lastUe201 = beforeText.lastIndexOf('\\ue201');
+  // Check for both literal escape sequence and actual Unicode character
+  const lastLiteralUe200 = beforeText.lastIndexOf('\\ue200');
+  const lastActualUe200 = beforeText.lastIndexOf('\ue200');
+  const lastUe200 = Math.max(lastLiteralUe200, lastActualUe200);
+
+  const lastLiteralUe201 = beforeText.lastIndexOf('\\ue201');
+  const lastActualUe201 = beforeText.lastIndexOf('\ue201');
+  const lastUe201 = Math.max(lastLiteralUe201, lastActualUe201);
 
   return lastUe200 === -1 || (lastUe201 !== -1 && lastUe201 > lastUe200);
 }

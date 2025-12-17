@@ -1,6 +1,6 @@
 # AWS Bedrock Guardrails Documentation
 
-This folder contains documentation and command references for managing AWS Bedrock Guardrails for the Ranger Chat banking application.
+This folder contains documentation and command references for managing AWS Bedrock Guardrails for the LibreChat Chat banking application.
 
 ## 📁 Files
 

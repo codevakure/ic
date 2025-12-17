@@ -70,20 +70,23 @@ function ToolSelectDialog({
     const addFunction = () => {
       const installedToolIds: string[] = getValues('tools') || [];
       installedToolIds.push(pluginAction.pluginKey);
-      setValue('tools', Array.from(new Set(installedToolIds)));
+      setValue('tools', Array.from(new Set(installedToolIds))); // no duplicates just in case
     };
 
     if (!pluginAction.auth) {
       return addFunction();
     }
 
-    updateUserPlugins.mutate(pluginAction, {
-      onError: (error: unknown) => {
-        handleInstallError(error as TError);
-      },
-      onSuccess: addFunction,
-    });
+    // Store credentials in the form data instead of saving to database immediately
+    // They will be saved as part of the agent model during agent creation
+    const currentCredentials = getValues('tool_credentials') || {};
+    const toolCredentials: Record<string, Record<string, string>> = {
+      ...currentCredentials,
+      [pluginAction.pluginKey]: pluginAction.auth as Record<string, string>,
+    };
+    setValue('tool_credentials', toolCredentials);
 
+    addFunction();
     setShowPluginAuthForm(false);
   };
 
@@ -95,6 +98,13 @@ function ToolSelectDialog({
         onSuccess: () => {
           const remainingToolIds = getValues('tools')?.filter((id) => id !== toolId) || [];
           setValue('tools', remainingToolIds);
+          
+          // Also remove credentials for this tool from the form
+          const currentCredentials = getValues('tool_credentials') || {};
+          if (currentCredentials[toolId]) {
+            const { [toolId]: _, ...remainingCredentials } = currentCredentials;
+            setValue('tool_credentials', remainingCredentials);
+          }
         },
       },
     );

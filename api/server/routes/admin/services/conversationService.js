@@ -127,8 +127,81 @@ const getConversationById = async (conversationId, includeMessages = false) => {
     if (includeMessages) {
       const messages = await Message.find({ conversationId })
         .sort({ createdAt: 1 })
+        .select('messageId text content sender isCreatedByUser model createdAt tokenCount error finish_reason')
         .lean();
-      result.messages = messages;
+      
+      // Count errors in this conversation (including content array errors)
+      const errorCount = messages.filter(m => {
+        if (m.error === true) return true;
+        // Also check for error type in content array
+        if (m.content && Array.isArray(m.content)) {
+          return m.content.some(c => c.type === 'error');
+        }
+        return false;
+      }).length;
+      
+      result.errorCount = errorCount;
+      result.hasErrors = errorCount > 0;
+      
+      // Transform messages with error extraction
+      result.messages = messages.map(msg => {
+        // For AI messages, text may be empty and content stored in 'content' array
+        let displayText = msg.text;
+        let hasContentError = false;
+        let errorMessage = null;
+        
+        if (msg.content && Array.isArray(msg.content)) {
+          // Check for error in content array
+          const errorPart = msg.content.find(c => c.type === 'error');
+          if (errorPart) {
+            hasContentError = true;
+            errorMessage = errorPart.error || errorPart[errorPart.type] || 'Unknown error';
+          }
+          
+          // Extract text from content array (structured content format)
+          if (!displayText) {
+            const textParts = msg.content
+              .filter(c => c.type === 'text' && c.text)
+              .map(c => c.text);
+            displayText = textParts.join('\n') || '';
+          }
+
+          // Check for tool_use blocks - if message only has tool calls, indicate that
+          if (!displayText) {
+            const toolUseParts = msg.content.filter(c => c.type === 'tool_use');
+            if (toolUseParts.length > 0) {
+              const toolNames = toolUseParts.map(t => t.name || 'tool').join(', ');
+              displayText = `[Using tools: ${toolNames}]`;
+            }
+          }
+
+          // Check for thinking blocks
+          if (!displayText) {
+            const thinkingPart = msg.content.find(c => c.type === 'thinking' && c.thinking);
+            if (thinkingPart) {
+              displayText = `[Thinking...]\n${thinkingPart.thinking.substring(0, 200)}${thinkingPart.thinking.length > 200 ? '...' : ''}`;
+            }
+          }
+        }
+        
+        // If there's an error but no display text, show the error message
+        if ((msg.error || hasContentError) && !displayText && errorMessage) {
+          displayText = errorMessage;
+        }
+        
+        return {
+          messageId: msg.messageId,
+          text: displayText,
+          sender: msg.sender,
+          isCreatedByUser: msg.isCreatedByUser,
+          model: msg.model,
+          createdAt: msg.createdAt,
+          tokenCount: msg.tokenCount,
+          error: msg.error || hasContentError,
+          isError: msg.error === true || hasContentError,
+          errorMessage: errorMessage,
+        };
+      });
     }
 
     return result;

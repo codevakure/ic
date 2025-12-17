@@ -4,11 +4,14 @@
  * Determines which model tier to use based on query complexity.
  * Ported from @librechat/llm-router for unified interface.
  * 
- * 4-TIER MAPPING (score ranges):
- * - 0.80-1.00: expert   - System architecture, PhD-level research (Opus 4.5)
- * - 0.60-0.80: complex  - Debugging, code review, detailed analysis (Sonnet 4.5)
- * - 0.35-0.60: moderate - Explanations, standard code generation (Haiku 4.5)
- * - 0.00-0.35: simple   - Basic Q&A, greetings, simple tools (Nova Pro)
+ * 3-TIER MAPPING (score ranges):
+ * - 0.70-1.00: complex/expert - ONLY explicit deep analysis requests (Sonnet 4.5)
+ * - 0.10-0.70: moderate - DEFAULT for 90%+ of tasks (Haiku 4.5)
+ * - 0.00-0.10: simple   - Basic Q&A, greetings (Nova Micro)
+ * 
+ * CONSERVATIVE ROUTING: Sonnet 4.5 is ONLY used when user explicitly requests
+ * comprehensive/detailed/in-depth analysis, research, or debugging.
+ * Everything else stays on Haiku 4.5.
  * 
  * Note: Nova Micro is only for titleModel/classifierModel, NOT for routing
  */
@@ -38,39 +41,38 @@ const CODE_PATTERNS: RegExp[] = [
   /\b(component|props|state|render|jsx|tsx)\b/i,
 ];
 
+// REASONING_PATTERNS - These boost score but DON'T trigger Sonnet alone
+// They're used for moderate tier, not to escalate to complex/expert
 const REASONING_PATTERNS: RegExp[] = [
-  /\b(explain|analyze|compare|evaluate|assess|examine|investigate)\b/i,
-  /\b(why|how does|what if|suppose|consider|imagine)\b/i,
-  /\b(pros and cons|trade-?offs?|advantages?|disadvantages?|benefits?|drawbacks?)\b/i,
-  /\b(step by step|break down|walk through|elaborate|detail)\b/i,
-  /\b(reasoning|logic|argument|evidence|justify|rationale)\b/i,
-  /\b(implications?|consequences?|impact|effect|result)\b/i,
-  /\b(difference between|similarities?|contrast|versus|vs\.?)\b/i,
-  /\b(complex|complicated|intricate|sophisticated)\b/i,
-  /\b(architecture|design|system|framework)\b/i,
-  /\b(fix|solve|resolve|diagnose|troubleshoot|debug)\b/i,
-  /\b(race condition|deadlock|memory leak|bottleneck)\b/i,
+  /\b(explain|compare|evaluate)\b/i,
+  /\b(why|how does)\b/i,
+  /\b(pros and cons|trade-?offs?)\b/i,
+  /\b(step by step)\b/i,
+  /\b(difference between)\b/i,
 ];
 
 const EXPERT_PATTERNS: RegExp[] = [
-  /\b(comprehensive|thorough|in-?depth|exhaustive|detailed)\b.*\b(research|analysis|review|study|report)\b/i,
-  /\b(research|investigate|explore)\b.*\b(comprehensive|thorough|all|every)\b/i,
-  /\bcomprehensive\b/i,
-  /\bthorough(ly)?\b/i,
-  /\bin-?depth\b/i,
-  /\bexhaustive\b/i,
-  /\b(rag|retrieval|knowledge base|document)\b.*\b(search|query|analysis)\b/i,
-  /\b(multi-?step|complex)\b.*\b(reasoning|analysis|research)\b/i,
-  /\b(critical|deep)\b.*\b(analysis|thinking|review|dive|look)\b/i,
-  /\b(synthesize|integrate|consolidate)\b.*\b(information|sources|data)\b/i,
-  // Deep analysis patterns - route to Opus 4.5
-  /\bdeep\s*(analysis|dive|look|exploration|investigation|review|research)\b/i,
-  /\b(detailed|complete|full)\s*(analysis|view|breakdown|examination|assessment)\b/i,
-  /\bdig\s*(deep|deeper|into)\b/i,
-  /\b(analyze|examine|review)\s*(in\s*detail|thoroughly|comprehensively|deeply)\b/i,
-  /\b(comprehensive|thorough|exhaustive|complete)\s*(analysis|overview|review|assessment|evaluation)\b/i,
-  /\bdetailed\s*view\b/i,
-  /\b(full|complete)\s*(picture|understanding|breakdown)\b/i,
+  // ONLY explicit requests for comprehensive/detailed/in-depth work
+  // Must have both the qualifier AND the task type together
+  
+  // Explicit comprehensive/thorough research or analysis requests
+  /\b(comprehensive|thorough|exhaustive|in-?depth)\s+(research|analysis|review|study|report|investigation)\b/i,
+  /\b(research|analyze|review|investigate)\s+(comprehensively|thoroughly|exhaustively|in-?depth)\b/i,
+  
+  // Explicit deep dive requests
+  /\bdeep\s*(dive|analysis|research|investigation)\b/i,
+  /\bdig\s*(deep|deeper)\s*(into)?\b/i,
+  
+  // Explicit detailed analysis (not just "detailed" alone)
+  /\b(detailed|complete|full)\s+(analysis|breakdown|examination|assessment|investigation)\b/i,
+  
+  // Explicit debugging requests with context
+  /\b(debug|troubleshoot|diagnose)\s+(this|the|my)\s+(code|error|issue|problem|bug)\b/i,
+  /\b(fix|solve|resolve)\s+(this|the|my)\s+(bug|error|issue|crash)\b/i,
+  
+  // Explicit architecture/design work
+  /\b(design|architect)\s+(a|the|an)\s+(system|architecture|solution)\b/i,
+  /\bsystem\s+architecture\b/i,
 ];
 
 const MATH_PATTERNS: RegExp[] = [
@@ -118,6 +120,38 @@ const TECHNICAL_DOMAIN_PATTERNS: RegExp[] = [
   /\b(microservices?|serverless|cloud-?native|devops|cicd)\b/i,
   /\b(blockchain|cryptocurrency|smart contract|defi|nft)\b/i,
   /\b(machine learning|deep learning|nlp|computer vision|llm)\b/i,
+];
+
+// LOW COMPLEXITY PATTERNS - Simple tool-based tasks that should stay on Haiku 4.5
+// These tasks are straightforward tool calls, NOT complex analysis
+const LOW_COMPLEXITY_TOOL_PATTERNS: RegExp[] = [
+  // Email/Calendar - Simple tool calls
+  /\b(email|emails|mail|mails|inbox)\b.*\b(summary|summaries|summarize|unread|recent|latest|new)\b/i,
+  /\b(summarize|summary|summaries)\b.*\b(email|emails|mail|mails|inbox)\b/i,
+  /\b(check|get|show|list|read|fetch)\b.*\b(email|emails|mail|mails|inbox|messages?)\b/i,
+  /\b(calendar|schedule|meeting|meetings|appointment|appointments)\b/i,
+  /\b(send|reply|forward)\b.*\b(email|mail|message)\b/i,
+  
+  // Weather - Simple API call
+  /\b(weather|forecast|temperature|rain|sunny|cloudy)\b/i,
+  
+  // News/Information lookup - Simple retrieval
+  /\b(news|headlines|latest)\b.*\b(about|on|for|today)\b/i,
+  /\b(what('s| is) happening|what's new)\b/i,
+  
+  // File operations - Simple tool calls
+  /\b(list|show|get|find)\b.*\b(files?|documents?|folders?)\b/i,
+  /\b(search|look for|find)\b.*\b(in|on)\b.*\b(sharepoint|onedrive|drive|teams)\b/i,
+  
+  // Simple lookups and queries
+  /\b(look up|lookup|search for|find)\b.*\b(information|info|details?)\b/i,
+  /\b(what|when|where|who)\b.*\b(is|are|was|were)\b/i,
+  
+  // Time/Date queries
+  /\b(what time|current time|date today|today's date)\b/i,
+  
+  // Simple data retrieval
+  /\b(get|fetch|retrieve|pull)\b.*\b(data|info|information|details?|status)\b/i,
 ];
 
 const MULTI_STEP_PATTERNS: RegExp[] = [
@@ -185,21 +219,35 @@ function hasExpertComplexity(text: string, tokenCount: number): boolean {
 }
 
 /**
- * Convert score to tier - 4-tier system
+ * Check if query is a simple tool-based task that should stay on Haiku 4.5
+ * These are straightforward tool calls like email summaries, calendar checks, etc.
+ */
+function isLowComplexityToolTask(text: string): boolean {
+  return LOW_COMPLEXITY_TOOL_PATTERNS.some(p => p.test(text));
+}
+
+/**
+ * Check if query EXPLICITLY requests deep/comprehensive analysis (Sonnet 4.5 trigger)
+ * This is the ONLY way to get to Sonnet 4.5 - user must explicitly ask
+ */
+function isExplicitExpertRequest(text: string): boolean {
+  return EXPERT_PATTERNS.some(p => p.test(text));
+}
+
+/**
+ * Convert score to tier - 3-tier system (CONSERVATIVE)
  * 
- * Target distribution: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
+ * Target distribution: Simple ~1%, Moderate ~90%, Complex/Expert ~9%
  * 
- * Score thresholds adjusted to achieve target distribution:
- * - 0.85+ → Expert (Opus 4.5) - Deep analysis, architecture, research
- * - 0.55+ → Complex (Sonnet 4.5) - Debugging, detailed analysis
- * - 0.10+ → Moderate (Haiku 4.5) - Most tasks, tool usage, standard code
- * - 0.00+ → Simple (Nova Micro) - Greetings, text-only simple responses
+ * CONSERVATIVE: Sonnet 4.5 ONLY for explicit expert requests
+ * - 0.70+ → Complex/Expert (Sonnet 4.5) - ONLY explicit deep analysis/debugging
+ * - 0.10+ → Moderate (Haiku 4.5) - DEFAULT for 90%+ of tasks
+ * - 0.00+ → Simple (Nova Micro) - Greetings only
  */
 function scoreToTier(score: number): ModelTier {
-  if (score >= 0.85) return 'expert';   // ~4% - deep analysis, architecture
-  if (score >= 0.55) return 'complex';  // ~15% - debugging, detailed analysis  
-  if (score >= 0.10) return 'moderate'; // ~80% - most tasks, tools, standard code
-  return 'simple';                       // ~1% - greetings, simple text-only
+  if (score >= 0.70) return 'complex';  // ~9% - ONLY explicit expert requests
+  if (score >= 0.10) return 'moderate'; // ~90% - DEFAULT for most tasks
+  return 'simple';                       // ~1% - greetings only
 }
 
 /**
@@ -210,28 +258,21 @@ export function getTierFromScore(score: number): ModelTier {
 }
 
 function getRoutingReason(score: number, query: string): string {
-  if (countPatternMatches(query, CODE_PATTERNS) > 0) {
-    return 'Code-related query detected';
-  }
-  if (countPatternMatches(query, MATH_PATTERNS) > 0) {
-    return 'Mathematical content detected';
-  }
-  if (countPatternMatches(query, REASONING_PATTERNS) > 0) {
-    return 'Reasoning or analysis required';
-  }
-  if (countPatternMatches(query, CREATIVE_PATTERNS) > 0) {
-    return 'Creative writing task';
-  }
-  if (countPatternMatches(query, EXPERT_PATTERNS) > 0) {
-    return 'Comprehensive research or analysis';
-  }
-  if (countPatternMatches(query, UI_GENERATION_PATTERNS) > 0) {
-    return 'UI/dashboard generation';
+  // Check explicit expert request first
+  if (isExplicitExpertRequest(query)) {
+    return 'Explicit request for comprehensive/detailed analysis';
   }
   if (isSimpleQuery(query)) {
     return 'Simple greeting or acknowledgment';
   }
-  return 'General query complexity assessment';
+  // Everything else is moderate tier
+  if (countPatternMatches(query, CODE_PATTERNS) > 0) {
+    return 'Code-related query (Haiku 4.5)';
+  }
+  if (isLowComplexityToolTask(query)) {
+    return 'Tool-based task (Haiku 4.5)';
+  }
+  return 'Standard query (Haiku 4.5 default)';
 }
 
 // ============================================================================
@@ -241,67 +282,50 @@ function getRoutingReason(score: number, query: string): string {
 /**
  * Calculate complexity score for model routing.
  * Returns a score from 0-1 that maps to model tiers.
+ * 
+ * CONSERVATIVE APPROACH:
+ * - Default to moderate tier (Haiku 4.5) for 90%+ of queries
+ * - Only reach complex tier (Sonnet 4.5) for EXPLICIT expert requests
+ * - Simple tier (Nova Micro) only for greetings
  */
 function calculateComplexityScore(query: string): number {
   const tokenCount = estimateTokens(query);
-  let score = 0.25; // Base score - SIMPLE tier
 
-  // TRIVIAL: Simple greetings
+  // TRIVIAL: Simple greetings → Nova Micro (simple tier)
   if (isSimpleQuery(query)) {
-    score = Math.max(0, Math.min(0.12, 0.05 + getLengthAdjustment(tokenCount)));
-    return Math.max(0, Math.min(1, score));
+    return Math.max(0, Math.min(0.09, 0.05)); // Always simple tier
   }
 
-  // Pattern scores
-  const codeScore = getPatternScore(query, CODE_PATTERNS, 0.35);
-  const reasoningScore = getPatternScore(query, REASONING_PATTERNS, 0.25);
-  const expertScore = getPatternScore(query, EXPERT_PATTERNS, 0.45);
-  const mathScore = getPatternScore(query, MATH_PATTERNS, 0.15);
-  const creativeScore = getPatternScore(query, CREATIVE_PATTERNS, 0.15);
-  const uiScore = getPatternScore(query, UI_GENERATION_PATTERNS, 0.20);
-
-  let skipLengthPenalty = false;
-
-  // EXPERT (0.80+)
-  if (expertScore > 0) {
-    score = 0.80 + expertScore * 0.15;
-    skipLengthPenalty = true;
-  }
-  else if (hasExpertComplexity(query, tokenCount)) {
-    score = 0.85;
-    skipLengthPenalty = true;
-  }
-  // COMPLEX (0.60-0.80)
-  else if (codeScore > 0 && (reasoningScore > 0 || hasTechnicalTerms(query))) {
-    score = 0.65 + codeScore * 0.10;
-    skipLengthPenalty = true;
-  }
-  // MODERATE (0.35-0.60)
-  else if (uiScore > 0 || codeScore > 0 || reasoningScore > 0 || mathScore > 0) {
-    score = 0.40 + uiScore * 0.1 + codeScore * 0.1 + reasoningScore * 0.05 + mathScore * 0.05;
-  }
-  else if (creativeScore > 0) {
-    score = 0.35 + creativeScore * 0.1;
-  }
-  // SIMPLE (0.15-0.35)
-  else {
-    score = 0.20;
+  // EXPLICIT EXPERT REQUEST: User explicitly asks for comprehensive/detailed analysis
+  // This is the ONLY way to get to Sonnet 4.5
+  if (isExplicitExpertRequest(query)) {
+    return 0.75; // Complex tier → Sonnet 4.5
   }
 
-  // Length adjustments
-  if (!skipLengthPenalty) {
-    score += getLengthAdjustment(tokenCount);
-  }
+  // EVERYTHING ELSE: Default to moderate tier (Haiku 4.5)
+  // This includes:
+  // - Code questions (write code, explain code, etc.)
+  // - Tool tasks (email, calendar, weather, search)
+  // - Creative tasks (write an email, draft a message)
+  // - General Q&A
+  // - Reasoning/explanation tasks
+  // - Math questions
+  // - UI generation
+  
+  let score = 0.35; // Base moderate score
 
-  // Complexity boosters
-  if (hasTechnicalTerms(query) && score < 0.60) {
-    score += 0.15;
-  }
-  if (hasMultiStep(query)) {
-    score += 0.20;
-  }
+  // Small adjustments based on complexity indicators (but NEVER exceed 0.65)
+  const codeScore = getPatternScore(query, CODE_PATTERNS, 0.10);
+  const reasoningScore = getPatternScore(query, REASONING_PATTERNS, 0.05);
+  const mathScore = getPatternScore(query, MATH_PATTERNS, 0.05);
+  
+  score += codeScore + reasoningScore + mathScore;
+  
+  // Length adjustment (longer queries slightly higher, but still moderate)
+  score += getLengthAdjustment(tokenCount) * 0.5; // Reduce length impact
 
-  return Math.max(0, Math.min(1, score));
+  // CAP at 0.65 - NEVER reach complex tier without explicit expert request
+  return Math.max(0.15, Math.min(0.65, score));
 }
 
 /**

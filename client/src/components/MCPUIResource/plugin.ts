@@ -39,26 +39,20 @@ function processTree(tree: Node) {
         }
       }
 
-      if (idValues.length === 1) {
-        segments.push({
-          type: 'mcp-ui-resource',
-          data: {
-            hName: 'mcp-ui-resource',
-            hProperties: {
-              resourceId: idValues[0],
+      if (idValues.length >= 1) {
+        // Always render each resource as a separate button that opens in sidepanel
+        // (Previously comma-separated IDs created a carousel, now they create multiple buttons)
+        for (const resourceId of idValues) {
+          segments.push({
+            type: 'mcp-ui-resource',
+            data: {
+              hName: 'mcp-ui-resource',
+              hProperties: {
+                resourceId,
+              },
             },
-          },
-        });
-      } else if (idValues.length > 1) {
-        segments.push({
-          type: 'mcp-ui-carousel',
-          data: {
-            hName: 'mcp-ui-carousel',
-            hProperties: {
-              resourceIds: idValues,
-            },
-          },
-        });
+          });
+        }
       } else {
         // Unable to parse marker; keep original text
         segments.push({ type: 'text', value: matchText });

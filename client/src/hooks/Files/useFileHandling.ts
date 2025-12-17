@@ -95,7 +95,6 @@ const useFileHandling = (params?: UseFileHandling) => {
     {
       onSuccess: (data) => {
         clearUploadTimer(data.temp_file_id);
-        console.log('upload success', data);
         if (agent_id) {
           queryClient.refetchQueries([QueryKeys.agent, agent_id]);
           return;
@@ -130,7 +129,6 @@ const useFileHandling = (params?: UseFileHandling) => {
       },
       onError: (_error, body) => {
         const error = _error as TError | undefined;
-        console.log('upload error', error);
         const file_id = body.get('file_id');
         const tool_resource = body.get('tool_resource');
         if (tool_resource === EToolResources.execute_code) {
@@ -400,7 +398,6 @@ const useFileHandling = (params?: UseFileHandling) => {
         }
       } catch (error) {
         deleteFileById(file_id);
-        console.log('file handling error', error);
         if (error instanceof Error && error.message.includes('HEIC')) {
           setError('com_error_heic_conversion');
         } else {

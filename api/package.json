@@ -1,6 +1,6 @@
 {
   "name": "@librechat/backend",
-  "version": "v0.8.1-rc2",
+  "version": "v1.0.0",
   "description": "",
   "scripts": {
     "start": "echo 'please run this from the root directory'",
@@ -30,9 +30,9 @@
     "~/*": "./*"
   },
   "bugs": {
-    "url": "https://github.com/danny-avila/LibreChat/issues"
+    "url": ""
   },
-  "homepage": "https://librechat.ai",
+  "homepage": "https://www.librechat.ai",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "@aws-sdk/client-s3": "^3.758.0",

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
-  Clock,
+  UserPlus,
   Activity,
   RefreshCw,
   Search,
@@ -13,10 +13,15 @@ import {
   MessageSquare,
   Zap,
   ArrowUpRight,
+  Cloud,
+  Calendar,
+  Clock,
 } from 'lucide-react';
-import { Button, Input, Spinner } from '@librechat/client';
+import { Button, Input } from '@librechat/client';
 import { StatsCard } from '../components/StatsCard';
-import { activeUsersApi } from '../services/adminApi';
+import { ActiveUsersPageSkeleton } from '../components/Skeletons';
+import { AdminDateRangePicker } from '../components/AdminDateRangePicker';
+import { activeUsersApi, dashboardApi } from '../services/adminApi';
 
 interface Session {
   sessionId: string;
@@ -43,15 +48,35 @@ interface Session {
   sessionCount?: number; // Number of active sessions for this user (grouped by backend)
 }
 
+interface MicrosoftSession {
+  tokenId: string;
+  userId: string;
+  user: { id: string; name: string; email: string; username?: string; avatar?: string };
+  serverName: string;
+  createdAt: string;
+  expiresAt: string;
+  isActive: boolean;
+}
+
 interface ActiveUsersData {
   sessions: Session[];
   summary: {
     totalActiveSessions: number;
     uniqueActiveUsers: number;
     averageSessionDuration?: number;
+    sessionsToday?: number;
   };
   byDevice?: Record<string, number>;
   byLocation?: Record<string, number>;
+}
+
+interface MicrosoftSessionsData {
+  sessions: MicrosoftSession[];
+  summary: {
+    totalActiveSessions: number;
+    uniqueConnectedUsers: number;
+    sessionsToday: number;
+  };
 }
 
 function getTimeAgo(dateString: string): string {
@@ -74,6 +99,23 @@ function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   return `${hours}h ${mins}m`;
+}
+
+function formatDateTime(dateString: string | undefined | null): string {
+  if (!dateString) return 'Unknown';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return 'Unknown';
+  }
 }
 
 function parseUserAgent(ua?: string): { device: string; browser: string; os: string } {
@@ -103,17 +145,35 @@ function parseUserAgent(ua?: string): { device: string; browser: string; os: str
 export function ActiveUsersPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<ActiveUsersData | null>(null);
+  const [microsoftData, setMicrosoftData] = useState<MicrosoftSessionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  
+  // Date filters - default to today (using local time)
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [newUsersCount, setNewUsersCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<'sessions' | 'microsoft'>('sessions');
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await activeUsersApi.getActiveUsers();
-      setData(response);
-      setLastRefresh(new Date());
+      const [sessionsResponse, microsoftResponse, overview] = await Promise.all([
+        activeUsersApi.getActiveUsers({ startDate, endDate }),
+        activeUsersApi.getMicrosoftSessions({ startDate, endDate }),
+        dashboardApi.getOverview({ startDate, endDate }),
+      ]);
+      setData(sessionsResponse);
+      setMicrosoftData(microsoftResponse);
+      setNewUsersCount(overview?.users?.inRange ?? overview?.users?.today ?? 0);
       setError(null);
     } catch (err) {
       setError('Failed to load active users data');
@@ -121,7 +181,7 @@ export function ActiveUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     fetchData();
@@ -134,9 +194,13 @@ export function ActiveUsersPage() {
   }, [autoRefresh, fetchData]);
 
   const handleRefresh = () => {
-    setLoading(true);
     fetchData();
   };
+
+  const handleDateChange = useCallback(({ startDate: start, endDate: end }: { startDate: string; endDate: string }) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, []);
 
   // Filter sessions based on search (backend already groups by user)
   const filteredSessions = data?.sessions?.filter((session) => {
@@ -151,11 +215,7 @@ export function ActiveUsersPage() {
   }) || [];
 
   if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <ActiveUsersPageSkeleton />;
   }
 
   if (error && !data) {
@@ -171,101 +231,175 @@ export function ActiveUsersPage() {
 
   const stats = [
     {
-      title: 'Active Sessions',
-      value: data?.summary?.totalActiveSessions || 0,
-      icon: Activity,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      info: 'Total number of active sessions across all users',
-    },
-    {
-      title: 'Unique Users',
+      title: 'Active Users',
       value: data?.summary?.uniqueActiveUsers || data?.sessions?.length || 0,
       icon: Users,
-      color: 'text-blue-500',
+      color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
-      info: 'Distinct users with active sessions',
+      info: 'Unique users with active sessions in selected period',
+      loading: loading,
     },
     {
-      title: 'Avg Session Duration',
-      value: formatDuration(data?.summary?.averageSessionDuration || 0),
-      icon: Clock,
-      color: 'text-purple-500',
+      title: 'Logins',
+      value: data?.summary?.sessionsToday ?? 0,
+      icon: Activity,
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      info: 'Login sessions created in selected period',
+      loading: loading,
+    },
+    {
+      title: 'New Users',
+      value: newUsersCount,
+      icon: UserPlus,
+      color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      info: 'Average length of current active sessions',
+      info: 'Users created in selected period',
+      loading: loading,
     },
     {
-      title: 'Sessions Today',
-      value: data?.summary?.totalActiveSessions || 0,
-      icon: Zap,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10',
-      info: 'Total number of sessions today',
+      title: 'M365 Logins',
+      value: microsoftData?.summary?.sessionsToday || 0,
+      icon: Cloud,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+      info: 'MS365 connections in selected period',
+      loading: loading,
     },
   ];
 
+  // Filter Microsoft sessions based on search
+  const filteredMicrosoftSessions = microsoftData?.sessions?.filter((session) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      session.user.name?.toLowerCase().includes(query) ||
+      session.user.email?.toLowerCase().includes(query) ||
+      session.user.username?.toLowerCase().includes(query) ||
+      session.serverName?.toLowerCase().includes(query)
+    );
+  }) || [];
+
   return (
-    <div className="space-y-6 p-6 md:p-8">
+    <div className="space-y-4 p-4 md:p-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Active Users</h1>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">
+          <h1 className="text-xl font-bold text-text-primary">Active Users</h1>
+          <p className="text-sm text-text-secondary">
             Monitor currently active sessions in real-time
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-[var(--text-secondary)]">
-            Last updated: {lastRefresh.toLocaleTimeString()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminDateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            isLoading={loading}
+          />
+          <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={autoRefresh ? 'border-green-500 text-green-500' : ''}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              autoRefresh 
+                ? 'border-green-500/50 bg-green-500/10 text-green-400' 
+                : 'border-border-light bg-surface-secondary text-text-secondary hover:bg-surface-hover'
+            }`}
           >
-            <Circle className={`h-2 w-2 mr-2 ${autoRefresh ? 'fill-green-500 text-green-500' : ''}`} />
+            <Circle className={`h-2 w-2 ${autoRefresh ? 'fill-green-500 text-green-500' : ''}`} />
             {autoRefresh ? 'Live' : 'Paused'}
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-2 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+            title="Refresh data"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((stat) => {
           const IconComponent = stat.icon;
           return (
-            <StatsCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              icon={<IconComponent className={`h-5 w-5 ${stat.color}`} />}
-              info={stat.info}
-            />
+            <div key={stat.title} className="rounded-lg border border-border-light bg-surface-secondary p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-secondary">{stat.title}</span>
+                <div className={`rounded-lg p-1.5 ${stat.bgColor}`}>
+                  <IconComponent className={`h-3.5 w-3.5 ${stat.color}`} />
+                </div>
+              </div>
+              <p className="mt-1 text-xl font-bold text-text-primary">
+                {stat.loading ? (
+                  <span className="inline-block h-6 w-12 animate-pulse rounded bg-surface-tertiary" />
+                ) : typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+              </p>
+            </div>
           );
         })}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border-light">
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'sessions'
+              ? 'text-blue-400'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Sessions
+            {data?.summary?.totalActiveSessions ? (
+              <span className="px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded">
+                {data.summary.totalActiveSessions}
+              </span>
+            ) : null}
+          </div>
+          {activeTab === 'sessions' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('microsoft')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'microsoft'
+              ? 'text-blue-400'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4" />
+            Microsoft 365
+            {microsoftData?.summary?.totalActiveSessions ? (
+              <span className="px-1.5 py-0.5 text-xs bg-cyan-500/20 text-cyan-400 rounded">
+                {microsoftData.summary.totalActiveSessions}
+              </span>
+            ) : null}
+          </div>
+          {activeTab === 'microsoft' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+          )}
+        </button>
       </div>
 
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-secondary)]" />
         <Input
-          placeholder="Search by name, email, or IP..."
+          placeholder={activeTab === 'sessions' ? "Search by name, email, or IP..." : "Search by name, email, or server..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10 bg-[var(--surface-primary)] border-[var(--border-light)]"
         />
       </div>
 
-      {/* Sessions List - Grouped by User (backend groups by user) */}
+      {/* Sessions Tab Content */}
+      {activeTab === 'sessions' && (
       <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
         <div className="p-4 border-b border-[var(--border-light)]">
           <h2 className="font-semibold text-[var(--text-primary)]">
@@ -333,9 +467,15 @@ export function ActiveUsersPage() {
                           {session.user.email}
                         </p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                          {session.startTime && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Created {formatDateTime(session.startTime)}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {getTimeAgo(session.lastActivity)}
+                            Expires {formatDateTime(session.lastActivity)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Monitor className="h-3 w-3" />
@@ -389,9 +529,90 @@ export function ActiveUsersPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Microsoft 365 Tab Content */}
+      {activeTab === 'microsoft' && (
+        <div className="space-y-4">
+          {/* Microsoft Sessions List */}
+          <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
+            <div className="p-4 border-b border-[var(--border-light)]">
+              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-cyan-400" />
+                Microsoft 365 Connections ({filteredMicrosoftSessions.length})
+              </h2>
+            </div>
+
+            {filteredMicrosoftSessions.length === 0 ? (
+              <div className="p-8 text-center text-[var(--text-secondary)]">
+                {searchQuery ? 'No users match your search' : 'No active Microsoft 365 connections'}
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border-light)]">
+                {filteredMicrosoftSessions.map((session) => (
+                  <div
+                    key={session.tokenId}
+                    className="p-4 hover:bg-[var(--surface-primary-alt)] cursor-pointer transition-colors"
+                    onClick={() => navigate(`/admin/users/${session.userId}`)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {/* Avatar with online indicator */}
+                        <div className="relative">
+                          {session.user.avatar ? (
+                            <img
+                              src={session.user.avatar}
+                              alt={session.user.name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-cyan-600 flex items-center justify-center text-white font-semibold">
+                              {session.user.name?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--surface-primary)] bg-green-500" />
+                        </div>
+
+                        {/* User info */}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {session.user.name}
+                            </span>
+                            <span className="px-1.5 py-0.5 text-xs font-medium bg-cyan-500/20 text-cyan-400 rounded">
+                              {session.serverName}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            {session.user.email}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Connected {formatDateTime(session.createdAt)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Expires {formatDateTime(session.expiresAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300">
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Device & Location Distribution */}
-      {(data?.byDevice || data?.byLocation) && (
+      {activeTab === 'sessions' && (data?.byDevice || data?.byLocation) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.byDevice && Object.keys(data.byDevice).length > 0 && (
             <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-6">

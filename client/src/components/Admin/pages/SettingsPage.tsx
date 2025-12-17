@@ -18,10 +18,10 @@ import {
   Button,
   Input,
   Label,
-  Spinner,
   Switch,
 } from '@librechat/client';
 import { StatsCard } from '../components/StatsCard';
+import { SettingsPageSkeleton } from '../components/Skeletons';
 import { systemApi, usersApi } from '../services/adminApi';
 
 interface SystemHealth {
@@ -99,8 +99,8 @@ export function SettingsPage() {
       try {
         const stats = await systemApi.getCacheStats?.() || null;
         setCacheStats(stats as unknown as CacheStats);
-      } catch (err) {
-        console.warn('Could not fetch cache stats:', err);
+      } catch {
+        // Cache stats not available
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -123,26 +123,9 @@ export function SettingsPage() {
 
   const handleClearBannedUsers = async () => {
     try {
-      // Get all banned users and unban them
-      const result = await usersApi.list({ status: 'banned', limit: 100 });
-      if (result.users.length === 0) {
-        setActionResult({ type: 'success', message: 'No banned users to clear' });
-        setTimeout(() => setActionResult(null), 3000);
-        return;
-      }
-      
-      // Unban all users
-      let unbanCount = 0;
-      for (const user of result.users) {
-        try {
-          await usersApi.toggleBan(user._id, false);
-          unbanCount++;
-        } catch (e) {
-          console.error('Failed to unban user:', user._id, e);
-        }
-      }
-      
-      setActionResult({ type: 'success', message: `Cleared ${unbanCount} banned user(s)` });
+      // Use the new bulk clear bans endpoint
+      const result = await usersApi.clearAllBans();
+      setActionResult({ type: 'success', message: `Cleared ${result.unbannedUsers || 0} banned user(s) and ${result.clearedFromLogs || 0} from logs` });
       setTimeout(() => setActionResult(null), 3000);
     } catch (err) {
       setActionResult({ type: 'error', message: 'Failed to clear banned users' });
@@ -169,11 +152,7 @@ export function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   return (

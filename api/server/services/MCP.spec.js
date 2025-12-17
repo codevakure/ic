@@ -110,6 +110,7 @@ describe('tests for the new helper functions used by the MCP connection status e
     mockGetMCPManager = require('~/config').getMCPManager;
     mockGetFlowStateManager = require('~/config').getFlowStateManager;
     mockGetLogStores = require('~/cache').getLogStores;
+    mockGetOAuthReconnectionManager = require('~/config').getOAuthReconnectionManager;
     mockMcpServersRegistry = require('@librechat/api').mcpServersRegistry;
     mockFindToken = require('~/models').findToken;
   });

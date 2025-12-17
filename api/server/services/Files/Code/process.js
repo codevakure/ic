@@ -212,9 +212,9 @@ const primeFiles = async (options, apiKey) => {
   // These are files uploaded to file_search that were also uploaded to code executor
   const fileSearchFileIds = tool_resources?.[EToolResources.file_search]?.file_ids ?? [];
   
-  logger.info(`[primeFiles] Starting. execute_code file_ids: ${file_ids.length}, file_search file_ids: ${fileSearchFileIds.length}, resourceFiles: ${resourceFiles.length}`);
+  logger.debug(`[primeFiles] Starting. execute_code file_ids: ${file_ids.length}, file_search file_ids: ${fileSearchFileIds.length}, resourceFiles: ${resourceFiles.length}`);
   if (resourceFiles.length > 0) {
-    logger.info(`[primeFiles] Resource files: ${resourceFiles.map(f => `${f.filename} (fileIdentifier: ${f.metadata?.fileIdentifier || 'none'}, tool_resource: ${f.metadata?.tool_resource || 'none'})`).join(', ')}`);
+    logger.debug(`[primeFiles] Resource files: ${resourceFiles.map(f => `${f.filename} (fileIdentifier: ${f.metadata?.fileIdentifier || 'none'}, tool_resource: ${f.metadata?.tool_resource || 'none'})`).join(', ')}`);
   }
 
   // Get execute_code files
@@ -227,7 +227,7 @@ const primeFiles = async (options, apiKey) => {
     // Only include file_search files that have fileIdentifier (were dual-uploaded to code executor)
     fileSearchFiles = allFileSearchFiles.filter(f => f.metadata?.fileIdentifier);
     if (fileSearchFiles.length > 0) {
-      logger.info(`[primeFiles] Found ${fileSearchFiles.length} file_search files with fileIdentifier (dual-uploaded): ${fileSearchFiles.map(f => f.filename).join(', ')}`);
+      logger.debug(`[primeFiles] Found ${fileSearchFiles.length} file_search files with fileIdentifier (dual-uploaded): ${fileSearchFiles.map(f => f.filename).join(', ')}`);
     }
   }
 
@@ -306,7 +306,7 @@ const primeFiles = async (options, apiKey) => {
           return null;
         }
         
-        logger.info(`[primeFiles] Uploaded file ${file.filename} to code executor. Session: ${parsed.session_id}, FileId: ${parsed.file_id}`);
+        logger.debug(`[primeFiles] Uploaded file ${file.filename} to code executor. Session: ${parsed.session_id}, FileId: ${parsed.file_id}`);
         
         return { session_id: parsed.session_id, id: parsed.file_id };
       } catch (error) {
@@ -321,7 +321,7 @@ const primeFiles = async (options, apiKey) => {
     // Handle files that have tool_resource=execute_code but no fileIdentifier
     // This happens when fileIdentifier was deleted or file was categorized by tool_resource metadata
     if (!file.metadata?.fileIdentifier && file.metadata?.tool_resource === EToolResources.execute_code) {
-      logger.info(`[primeFiles] File ${file.filename} has tool_resource=execute_code but no fileIdentifier, uploading to code executor`);
+      logger.debug(`[primeFiles] File ${file.filename} has tool_resource=execute_code but no fileIdentifier, uploading to code executor`);
       const uploadResult = await uploadFileToCodeExecutor(file);
       if (uploadResult) {
         if (!toolContext) {
@@ -385,10 +385,10 @@ const primeFiles = async (options, apiKey) => {
       }
 
       const reuploadFile = async () => {
-        logger.info(`[primeFiles] Re-uploading file ${file.filename} to code executor (session expired or not found)`);
+        logger.debug(`[primeFiles] Re-uploading file ${file.filename} to code executor (session expired or not found)`);
         const uploadResult = await uploadFileToCodeExecutor(file);
         if (uploadResult) {
-          logger.info(`[primeFiles] Re-upload successful. New session: ${uploadResult.session_id}, fileId: ${uploadResult.id}`);
+          logger.debug(`[primeFiles] Re-upload successful. New session: ${uploadResult.session_id}, fileId: ${uploadResult.id}`);
           // Update local variables to use new session/file IDs
           if (!toolContext) {
             toolContext = `- Note: The following files are available in the "${Tools.execute_code}" tool environment:`;
@@ -407,7 +407,7 @@ const primeFiles = async (options, apiKey) => {
         }
       };
       
-      logger.info(`[primeFiles] Checking session for file ${file.filename} with fileIdentifier: ${file.metadata.fileIdentifier}`);
+      logger.debug(`[primeFiles] Checking session for file ${file.filename} with fileIdentifier: ${file.metadata.fileIdentifier}`);
       const uploadTime = await getSessionInfo(file.metadata.fileIdentifier, apiKey);
       if (!uploadTime) {
         logger.warn(`[primeFiles] Session not found or expired for file ${file.filename} (session: ${session_id}). Re-uploading...`);
@@ -419,7 +419,7 @@ const primeFiles = async (options, apiKey) => {
         await reuploadFile();
         continue;
       }
-      logger.info(`[primeFiles] Session ${session_id} is active. File ${file.filename} is available.`);
+      logger.debug(`[primeFiles] Session ${session_id} is active. File ${file.filename} is available.`);
       sessions.set(session_id, true);
       pushFile();
     }
@@ -430,7 +430,7 @@ const primeFiles = async (options, apiKey) => {
     toolContext += `\n\n**IMPORTANT**: To read, analyze, or process these files (SQL, Excel, CSV, JSON, Python, etc.), you MUST use the "${Tools.execute_code}" tool. These files are NOT available through file_search - they can only be accessed by executing code. Write Python code to load and analyze them.`;
   }
 
-  logger.info(`[primeFiles] Completed. Files ready: ${files.length}, toolContext: ${toolContext ? 'yes' : 'no'}`);
+  logger.debug(`[primeFiles] Completed. Files ready: ${files.length}, toolContext: ${toolContext ? 'yes' : 'no'}`);
   return { files, toolContext };
 };
 

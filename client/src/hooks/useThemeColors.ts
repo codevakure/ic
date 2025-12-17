@@ -4,12 +4,12 @@ import type { TStartupConfig } from 'librechat-data-provider';
 
 /**
  * Hook that applies custom theme colors from the startup config to CSS variables.
- * This allows the primary color to be configured via ranger.yaml themeColors setting.
+ * This allows the primary color to be configured via librechat.yaml themeColors setting.
  * 
  * This hook fetches the config directly (not via react-query) to ensure it runs
  * immediately on app load, before authentication/queriesEnabled.
  * 
- * Usage in ranger.yaml:
+ * Usage in librechat.yaml:
  * interface:
  *   themeColors:
  *     primary: "rgb(25, 25, 71)"
@@ -25,7 +25,6 @@ export function useThemeColors() {
     dataService.getStartupConfig()
       .then((config) => {
         if (mounted && config?.interface?.themeColors) {
-          console.log('[useThemeColors] Config loaded:', config.interface.themeColors);
           setThemeColors(config.interface);
         }
       })
@@ -43,10 +42,8 @@ export function useThemeColors() {
     const colors = themeColors?.themeColors;
     
     if (!colors) {
-      console.log('[useThemeColors] No themeColors found, skipping');
       return;
     }
-    console.log('[useThemeColors] Applying theme colors:', colors);
 
     const root = document.documentElement;
 

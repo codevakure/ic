@@ -24,7 +24,7 @@ interface StatsCardProps {
 }
 
 const variantStyles = {
-  default: 'bg-surface-secondary border-border-light',
+  default: 'bg-surface-primary border-border-light',
   primary: 'bg-blue-500/10 border-blue-500/20',
   success: 'bg-green-500/10 border-green-500/20',
   warning: 'bg-yellow-500/10 border-yellow-500/20',
@@ -32,11 +32,11 @@ const variantStyles = {
 };
 
 const iconStyles = {
-  default: 'bg-surface-tertiary text-text-secondary',
-  primary: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
-  success: 'bg-green-500/20 text-green-600 dark:text-green-400',
-  warning: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
-  danger: 'bg-red-500/20 text-red-600 dark:text-red-400',
+  default: 'bg-surface-tertiary',
+  primary: 'bg-blue-500/10',
+  success: 'bg-green-500/10',
+  warning: 'bg-yellow-500/10',
+  danger: 'bg-red-500/10',
 };
 
 export const StatsCard: React.FC<StatsCardProps> = ({
@@ -73,7 +73,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   return (
     <div
       className={cn(
-        'rounded-lg border p-4 transition-all hover:shadow-md',
+        'rounded-lg border p-3 transition-all',
         variantStyles[variant],
         className
       )}
@@ -81,20 +81,20 @@ export const StatsCard: React.FC<StatsCardProps> = ({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-text-secondary">{title}</p>
+            <p className="text-xs text-text-secondary">{title}</p>
             {info && (
               <TooltipAnchor
                 description={info}
                 side="top"
                 render={
                   <button className="text-text-tertiary hover:text-text-secondary">
-                    <Info className="h-3.5 w-3.5" />
+                    <Info className="h-3 w-3" />
                   </button>
                 }
               />
             )}
           </div>
-          <p className="mt-2 text-2xl font-bold text-text-primary">
+          <p className="mt-1 text-xl font-bold text-text-primary">
             {typeof value === 'number' ? value.toLocaleString() : value}
           </p>
           {(subtitle || trend) && (
@@ -115,7 +115,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </div>
         {icon && (
-          <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', iconStyles[variant])}>
+          <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', iconStyles[variant])}>
             {icon}
           </div>
         )}

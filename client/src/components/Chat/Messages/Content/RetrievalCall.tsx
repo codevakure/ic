@@ -1,3 +1,4 @@
+import StreamingLoader from '~/components/Chat/Messages/ui/StreamingLoader';
 import ProgressCircle from './ProgressCircle';
 import InProgressCall from './InProgressCall';
 import RetrievalIcon from './RetrievalIcon';
@@ -9,9 +10,11 @@ import { useProgress } from '~/hooks';
 export default function RetrievalCall({
   initialProgress = 0.1,
   isSubmitting,
+  isLast,
 }: {
   initialProgress: number;
   isSubmitting: boolean;
+  isLast?: boolean;
 }) {
   const progress = useProgress(initialProgress);
   const radius = 56.08695652173913;
@@ -20,34 +23,42 @@ export default function RetrievalCall({
   const error = progress >= 2;
 
   return (
-    <div className="my-2.5 flex items-center gap-2.5">
-      <div className="relative h-5 w-5 shrink-0">
-        {progress < 1 ? (
-          <InProgressCall progress={progress} isSubmitting={isSubmitting} error={error}>
-            <div
-              className="absolute left-0 top-0 flex h-full w-full items-center justify-center rounded-full bg-transparent text-white"
-              style={{ opacity: 1, transform: 'none' }}
-            >
-              <div>
-                <RetrievalIcon />
+    <>
+      <div className="my-2.5 flex items-center gap-2.5">
+        <div className="relative h-5 w-5 shrink-0">
+          {progress < 1 ? (
+            <InProgressCall progress={progress} isSubmitting={isSubmitting} error={error}>
+              <div
+                className="absolute left-0 top-0 flex h-full w-full items-center justify-center rounded-full bg-transparent text-white"
+                style={{ opacity: 1, transform: 'none' }}
+              >
+                <div>
+                  <RetrievalIcon />
+                </div>
+                <ProgressCircle radius={radius} circumference={circumference} offset={offset} />
               </div>
-              <ProgressCircle radius={radius} circumference={circumference} offset={offset} />
-            </div>
-          </InProgressCall>
-        ) : error ? (
-          <CancelledIcon />
-        ) : (
-          <FinishedIcon />
-        )}
+            </InProgressCall>
+          ) : error ? (
+            <CancelledIcon />
+          ) : (
+            <FinishedIcon />
+          )}
+        </div>
+        <ProgressText
+          progress={progress}
+          onClick={() => ({})}
+          inProgressText={'Searching my knowledge'}
+          finishedText={'Used Retrieval'}
+          hasInput={false}
+          popover={false}
+        />
       </div>
-      <ProgressText
-        progress={progress}
-        onClick={() => ({})}
-        inProgressText={'Searching my knowledge'}
-        finishedText={'Used Retrieval'}
-        hasInput={false}
-        popover={false}
-      />
-    </div>
+      {/* Show streaming loader after retrieval completes but model is still processing */}
+      {isLast && isSubmitting && progress >= 1 && !error && (
+        <div className="mt-2">
+          <StreamingLoader />
+        </div>
+      )}
+    </>
   );
 }

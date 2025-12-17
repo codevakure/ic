@@ -43,6 +43,7 @@ import {
 } from '@librechat/client';
 import { StatsCard } from '../components/StatsCard';
 import { AdminAreaChart as AreaChart, AdminBarChart as BarChart } from '../components/Charts';
+import { UserDetailPageSkeleton, StatsGridSkeleton, TableSkeleton } from '../components/Skeletons';
 import { usersApi, userDetailApi, type UserUsageResponse, type UserConversation, type UserConversationsResponse } from '../services/adminApi';
 
 interface UserDetail {
@@ -60,6 +61,7 @@ interface UserDetail {
   banned?: boolean;
   banReason?: string;
   bannedAt?: string;
+  oidcGroups?: string[];
 }
 
 interface UserStats {
@@ -112,6 +114,7 @@ interface Session {
   id?: string;
   sessionId?: string;
   startTime?: string;
+  createdAt?: string;
   expiration?: string;
   lastActivity?: string;
   ipAddress?: string;
@@ -176,11 +179,24 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
         {/* Header */}
         <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-            <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg bg-blue-500/20 flex-shrink-0">
-              <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+            <div className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg flex-shrink-0 ${
+              conversation.hasErrors ? 'bg-red-500/20' : 'bg-blue-500/20'
+            }`}>
+              {conversation.hasErrors ? (
+                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-400" />
+              ) : (
+                <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">{conversation.title}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm md:text-base font-medium text-[var(--text-primary)] truncate">{conversation.title}</h2>
+                {conversation.hasErrors && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-400 rounded flex-shrink-0">
+                    {conversation.errorCount} error{conversation.errorCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] md:text-xs text-[var(--text-tertiary)]">
                 {conversation.messageCount} messages • {conversation.model?.split('/').pop() || conversation.endpoint}
               </p>
@@ -222,15 +238,21 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
                 className={`max-w-[85%] md:max-w-[75%] rounded-xl p-3 md:p-4 ${
                   msg.isCreatedByUser
                     ? 'bg-blue-600 text-white'
+                    : msg.isError || msg.error
+                    ? 'bg-red-500/10 border border-red-500/30 text-[var(--text-primary)]'
                     : 'bg-[var(--surface-tertiary)] text-[var(--text-primary)]'
                 }`}
               >
                 {/* Message Header */}
                 <div className="flex items-center gap-2 mb-2">
+                  {(msg.isError || msg.error) && !msg.isCreatedByUser && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                  )}
                   <span className={`text-[10px] md:text-xs font-medium ${
-                    msg.isCreatedByUser ? 'text-blue-200' : 'text-[var(--text-tertiary)]'
+                    msg.isCreatedByUser ? 'text-blue-200' : msg.isError || msg.error ? 'text-red-400' : 'text-[var(--text-tertiary)]'
                   }`}>
                     {msg.sender}
+                    {(msg.isError || msg.error) && !msg.isCreatedByUser && ' - Error'}
                   </span>
                   {msg.tokenCount && (
                     <span className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded ${
@@ -241,8 +263,10 @@ function ConversationDrawer({ conversation, isOpen, onClose, userName }: Convers
                   )}
                 </div>
                 
-                {/* Message Text */}
-                <p className="text-xs md:text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                {/* Message Text or Error Message */}
+                <p className={`text-xs md:text-sm whitespace-pre-wrap leading-relaxed ${
+                  (msg.isError || msg.error) && !msg.isCreatedByUser ? 'text-red-300' : ''
+                }`}>{msg.text || (msg.errorMessage ? msg.errorMessage : '_No message text_')}</p>
                 
                 {/* Timestamp */}
                 <p className={`text-[10px] md:text-xs mt-2 ${
@@ -315,8 +339,16 @@ export function UserDetailPage() {
   const [selectedConversation, setSelectedConversation] = useState<UserConversation | null>(null);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Individual section loading states for progressive loading
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'conversations' | 'sessions' | 'transactions' | 'usage'>('overview');
+  // Track which tabs have been loaded (for lazy loading)
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(['overview']));
 
   // Dialogs
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -325,41 +357,105 @@ export function UserDetailPage() {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // OIDC Groups editing
+  const [oidcGroupsDialogOpen, setOidcGroupsDialogOpen] = useState(false);
+  const [editedOidcGroups, setEditedOidcGroups] = useState<string[]>([]);
+  const [newGroupName, setNewGroupName] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
     
     try {
       setLoading(true);
-      const [userResponse, statsResponse, sessionsResponse, transactionsResponse, usageResponse, conversationsResponse] = await Promise.all([
+      setStatsLoading(true);
+      setUsageLoading(true);
+      
+      // Only fetch user, stats, and usage on initial load (for metrics display)
+      const [userResponse, statsResponse, usageResponse] = await Promise.allSettled([
         usersApi.getUser(userId),
         userDetailApi.getUserStats(userId),
-        userDetailApi.getUserSessions(userId),
-        userDetailApi.getUserTransactions(userId),
         usersApi.getUsage(userId),
-        userDetailApi.getUserConversations(userId, 1, 20),
       ]);
       
-      setUser(userResponse as unknown as UserDetail);
-      setStats(statsResponse as unknown as UserStats);
-      setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
-      setTransactions(transactionsResponse.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
-      setUsageData(usageResponse);
-      setConversations(conversationsResponse.conversations || []);
-      setConversationsPagination({
-        page: conversationsResponse.pagination?.page || 1,
-        total: conversationsResponse.pagination?.total || 0,
-        hasNext: conversationsResponse.pagination?.hasNext || false,
-      });
-      setSelectedRole(userResponse.role);
+      // Process user data first (required for page to render)
+      if (userResponse.status === 'fulfilled') {
+        setUser(userResponse.value as unknown as UserDetail);
+        setSelectedRole(userResponse.value.role);
+        setLoading(false); // Page can render once we have user
+      } else {
+        setError('Failed to load user details');
+        setLoading(false);
+        return;
+      }
+      
+      // Process stats
+      if (statsResponse.status === 'fulfilled') {
+        setStats(statsResponse.value as unknown as UserStats);
+      }
+      setStatsLoading(false);
+      
+      // Process usage
+      if (usageResponse.status === 'fulfilled') {
+        setUsageData(usageResponse.value);
+      }
+      setUsageLoading(false);
+      
       setError(null);
     } catch (err) {
       setError('Failed to load user details');
       console.error('Error fetching user details:', err);
-    } finally {
       setLoading(false);
+      setStatsLoading(false);
+      setUsageLoading(false);
     }
   }, [userId]);
+
+  // Lazy load tab data when tab is clicked
+  const fetchTabData = useCallback(async (tab: string) => {
+    if (!userId || loadedTabs.has(tab)) return;
+    
+    try {
+      switch (tab) {
+        case 'conversations':
+          setConversationsLoading(true);
+          const conversationsResponse = await userDetailApi.getUserConversations(userId, 1, 20);
+          setConversations(conversationsResponse.conversations || []);
+          setConversationsPagination({
+            page: conversationsResponse.pagination?.page || 1,
+            total: conversationsResponse.pagination?.total || 0,
+            hasNext: conversationsResponse.pagination?.hasNext || false,
+          });
+          setConversationsLoading(false);
+          break;
+        case 'sessions':
+          setSessionsLoading(true);
+          const sessionsResponse = await userDetailApi.getUserSessions(userId);
+          setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
+          setSessionsLoading(false);
+          break;
+        case 'transactions':
+          setTransactionsLoading(true);
+          const transactionsResponse = await userDetailApi.getUserTransactions(userId);
+          setTransactions(transactionsResponse.transactions?.map(t => ({ ...t, createdAt: t.createdAt })) || []);
+          setTransactionsLoading(false);
+          break;
+      }
+      setLoadedTabs(prev => new Set([...prev, tab]));
+    } catch (err) {
+      console.error(`Error fetching ${tab} data:`, err);
+      // Reset loading state on error
+      if (tab === 'conversations') setConversationsLoading(false);
+      if (tab === 'sessions') setSessionsLoading(false);
+      if (tab === 'transactions') setTransactionsLoading(false);
+    }
+  }, [userId, loadedTabs]);
+
+  // Handle tab change with lazy loading
+  const handleTabChange = useCallback((tab: typeof activeTab) => {
+    setActiveTab(tab);
+    fetchTabData(tab);
+  }, [fetchTabData]);
 
   useEffect(() => {
     fetchData();
@@ -394,6 +490,37 @@ export function UserDetailPage() {
     }
   };
 
+  const handleOidcGroupsUpdate = async () => {
+    if (!userId) return;
+    setActionLoading(true);
+    try {
+      await usersApi.updateOidcGroups(userId, editedOidcGroups);
+      await fetchData();
+      setOidcGroupsDialogOpen(false);
+    } catch (err) {
+      console.error('Error updating OIDC groups:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddGroup = () => {
+    if (newGroupName.trim() && !editedOidcGroups.includes(newGroupName.trim())) {
+      setEditedOidcGroups([...editedOidcGroups, newGroupName.trim()]);
+      setNewGroupName('');
+    }
+  };
+
+  const handleRemoveGroup = (group: string) => {
+    setEditedOidcGroups(editedOidcGroups.filter(g => g !== group));
+  };
+
+  const openOidcGroupsDialog = () => {
+    setEditedOidcGroups(user?.oidcGroups || []);
+    setNewGroupName('');
+    setOidcGroupsDialogOpen(true);
+  };
+
   const handleDeleteUser = async () => {
     if (!userId) return;
     setActionLoading(true);
@@ -407,21 +534,32 @@ export function UserDetailPage() {
     }
   };
 
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
+
   const handleTerminateSession = async (sessionId: string) => {
+    if (!sessionId || terminatingSessionId) return;
+    
     try {
+      setTerminatingSessionId(sessionId);
       await userDetailApi.terminateSession(userId!, sessionId);
-      await fetchData();
+      // Optimistically remove the session from the list
+      setSessions(prev => prev.filter(s => (s.sessionId || s.id) !== sessionId));
     } catch (err) {
       console.error('Error terminating session:', err);
+      // On error, refresh sessions to get accurate state
+      try {
+        const sessionsResponse = await userDetailApi.getUserSessions(userId!);
+        setSessions(sessionsResponse.activeSessions?.map(s => ({ ...s, isActive: s.isActive ?? true })) || []);
+      } catch {
+        // Ignore refresh errors
+      }
+    } finally {
+      setTerminatingSessionId(null);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Spinner className="text-blue-600" />
-      </div>
-    );
+    return <UserDetailPageSkeleton />;
   }
 
   if (error || !user) {
@@ -529,6 +667,14 @@ export function UserDetailPage() {
                 }`}>
                   {user.role}
                 </span>
+                {/* Groups label - clickable */}
+                <button
+                  onClick={openOidcGroupsDialog}
+                  className="px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full flex items-center gap-1 hover:bg-purple-500/30 transition-colors"
+                >
+                  <Globe className="h-3 w-3" />
+                  Groups {user.oidcGroups && user.oidcGroups.length > 0 ? `(${user.oidcGroups.length})` : ''}
+                </button>
               </div>
               <p className="text-sm md:text-base text-[var(--text-secondary)] flex items-center gap-2 mt-1 truncate">
                 <Mail className="h-4 w-4 flex-shrink-0" />
@@ -612,20 +758,24 @@ export function UserDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {overviewStats.map((stat) => {
-          const IconComponent = stat.icon;
-          return (
-            <StatsCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              icon={<IconComponent className="h-5 w-5 text-blue-500" />}
-              info={stat.info}
-            />
-          );
-        })}
-      </div>
+      {statsLoading || usageLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {overviewStats.map((stat) => {
+            const IconComponent = stat.icon;
+            return (
+              <StatsCard
+                key={stat.title}
+                title={stat.title}
+                value={stat.value}
+                icon={<IconComponent className="h-5 w-5 text-blue-500" />}
+                info={stat.info}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabs - Horizontally scrollable on mobile */}
       <div className="border-b border-[var(--border-light)] overflow-x-auto scrollbar-hide">
@@ -633,7 +783,7 @@ export function UserDetailPage() {
           {(['overview', 'conversations', 'usage', 'sessions', 'transactions'] as const).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabChange(tab)}
               className={`px-3 md:px-4 py-2.5 md:py-3 font-medium text-xs md:text-sm border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-400'
@@ -784,12 +934,16 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] bg-[var(--surface-secondary)]">
             <h3 className="text-sm md:text-base font-medium text-[var(--text-primary)]">
-              Conversations ({conversationsPagination.total})
+              Conversations ({conversationsLoading ? '...' : conversationsPagination.total})
             </h3>
             <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] mt-0.5">Click on a conversation to view messages</p>
           </div>
           
-          {conversations.length === 0 ? (
+          {conversationsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={5} columns={2} showHeader={false} />
+            </div>
+          ) : conversations.length === 0 ? (
             <div className="text-center py-8 md:py-12 text-[var(--text-secondary)] text-sm">
               No conversations found
             </div>
@@ -805,11 +959,22 @@ export function UserDetailPage() {
                   className="w-full p-3 md:p-4 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors text-left group"
                 >
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 flex-shrink-0">
-                      <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                    <div className={`p-1.5 md:p-2 rounded-lg flex-shrink-0 ${conv.hasErrors ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
+                      {conv.hasErrors ? (
+                        <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
+                      ) : (
+                        <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-medium text-xs md:text-sm text-[var(--text-primary)] truncate">{conv.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-xs md:text-sm text-[var(--text-primary)] truncate">{conv.title}</h4>
+                        {conv.hasErrors && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-400 rounded flex-shrink-0">
+                            {conv.errorCount} error{conv.errorCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] md:text-xs text-[var(--text-tertiary)] truncate">
                         {conv.messageCount} messages • {conv.model?.split('/').pop() || conv.endpoint}
                       </p>
@@ -823,29 +988,65 @@ export function UserDetailPage() {
                   </div>
                 </button>
               ))}
-              
-              {/* Load More */}
-              {conversationsPagination.hasNext && (
-                <button
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {conversationsPagination.total > 20 && (
+            <div className="p-4 border-t border-[var(--border-light)] flex items-center justify-between">
+              <span className="text-sm text-[var(--text-secondary)]">
+                Page {conversationsPagination.page} of {Math.ceil(conversationsPagination.total / 20)}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={conversationsPagination.page <= 1 || conversationsLoading}
                   onClick={async () => {
                     try {
-                      const nextPage = conversationsPagination.page + 1;
-                      const response = await userDetailApi.getUserConversations(userId!, nextPage, 20);
-                      setConversations(prev => [...prev, ...response.conversations]);
+                      setConversationsLoading(true);
+                      const prevPage = conversationsPagination.page - 1;
+                      const response = await userDetailApi.getUserConversations(userId!, prevPage, 20);
+                      setConversations(response.conversations);
                       setConversationsPagination({
                         page: response.pagination.page,
                         total: response.pagination.total,
                         hasNext: response.pagination.hasNext,
                       });
                     } catch (err) {
-                      console.error('Error loading more conversations:', err);
+                      console.error('Error loading conversations:', err);
+                    } finally {
+                      setConversationsLoading(false);
                     }
                   }}
-                  className="w-full py-3 text-center text-xs md:text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Load more conversations...
-                </button>
-              )}
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!conversationsPagination.hasNext || conversationsLoading}
+                  onClick={async () => {
+                    try {
+                      setConversationsLoading(true);
+                      const nextPage = conversationsPagination.page + 1;
+                      const response = await userDetailApi.getUserConversations(userId!, nextPage, 20);
+                      setConversations(response.conversations);
+                      setConversationsPagination({
+                        page: response.pagination.page,
+                        total: response.pagination.total,
+                        hasNext: response.pagination.hasNext,
+                      });
+                    } catch (err) {
+                      console.error('Error loading conversations:', err);
+                    } finally {
+                      setConversationsLoading(false);
+                    }
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -853,6 +1054,27 @@ export function UserDetailPage() {
 
       {activeTab === 'usage' && (
         <div className="space-y-4 md:space-y-6">
+          {usageLoading ? (
+            <>
+              {/* Usage Summary Cards Skeleton */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-3 md:p-6">
+                    <div className="flex items-center gap-2 md:gap-3 mb-1 md:mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-[var(--surface-primary-alt)] animate-pulse" />
+                      <div className="h-4 w-12 bg-[var(--surface-primary-alt)] rounded animate-pulse" />
+                    </div>
+                    <div className="h-8 w-16 bg-[var(--surface-primary-alt)] rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+              {/* Model Breakdown Table Skeleton */}
+              <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden p-4">
+                <TableSkeleton rows={5} columns={6} />
+              </div>
+            </>
+          ) : (
+            <>
           {/* Usage Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] p-3 md:p-6">
@@ -988,6 +1210,8 @@ export function UserDetailPage() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       )}
 
@@ -995,10 +1219,14 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] flex items-center justify-between">
             <h3 className="font-medium md:font-semibold text-sm md:text-base text-[var(--text-primary)]">
-              Sessions ({sessions.length})
+              Sessions ({sessionsLoading ? '...' : sessions.length})
             </h3>
           </div>
-          {sessions.length === 0 ? (
+          {sessionsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={3} columns={3} showHeader={false} />
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="p-6 md:p-8 text-center text-[var(--text-secondary)] text-sm">
               No session history available
             </div>
@@ -1021,13 +1249,16 @@ export function UserDetailPage() {
                           <Globe className="h-2.5 w-2.5 md:h-3 md:w-3" />
                           {session.ipAddress || 'Unknown IP'}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                          {session.startTime ? `Started ${formatDateTime(session.startTime)}` : session.expiration ? `Expires ${formatDateTime(session.expiration)}` : 'Unknown'}
-                        </span>
-                        {session.isActive && session.lastActivity && (
-                          <span className="flex items-center gap-1 text-green-400">
-                            Last active {getTimeAgo(session.lastActivity)}
+                        {(session.createdAt || session.startTime) && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Created {formatDateTime(session.createdAt || session.startTime || '')}
+                          </span>
+                        )}
+                        {session.expiration && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                            Expires {formatDateTime(session.expiration)}
                           </span>
                         )}
                       </div>
@@ -1038,9 +1269,10 @@ export function UserDetailPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleTerminateSession(session.sessionId || session.id || '')}
-                      className="border-red-500 text-red-400 hover:bg-red-500/10 text-xs self-end sm:self-auto"
+                      disabled={terminatingSessionId === (session.sessionId || session.id)}
+                      className="border-red-500 text-red-400 hover:bg-red-500/10 text-xs self-end sm:self-auto disabled:opacity-50"
                     >
-                      Terminate
+                      {terminatingSessionId === (session.sessionId || session.id) ? 'Terminating...' : 'Terminate'}
                     </Button>
                   )}
                 </div>
@@ -1054,14 +1286,18 @@ export function UserDetailPage() {
         <div className="bg-[var(--surface-primary)] rounded-xl border border-[var(--border-light)] overflow-hidden">
           <div className="p-3 md:p-4 border-b border-[var(--border-light)] flex items-center justify-between">
             <h3 className="font-medium md:font-semibold text-sm md:text-base text-[var(--text-primary)]">
-              Transactions ({transactions.length})
+              Transactions ({transactionsLoading ? '...' : transactions.length})
             </h3>
             <Button variant="outline" size="sm" className="text-[var(--text-secondary)] text-xs">
               <Download className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
               <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
-          {transactions.length === 0 ? (
+          {transactionsLoading ? (
+            <div className="p-4">
+              <TableSkeleton rows={4} columns={3} showHeader={false} />
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="p-6 md:p-8 text-center text-[var(--text-secondary)] text-sm">
               No transaction history available
             </div>
@@ -1120,7 +1356,7 @@ export function UserDetailPage() {
 
       {/* Ban Dialog */}
       <Dialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
-        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)]">
+        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[var(--text-primary)]">
               {user.banned ? 'Unban User' : 'Ban User'}
@@ -1133,13 +1369,13 @@ export function UserDetailPage() {
             </DialogDescription>
           </DialogHeader>
           {!user.banned && (
-            <div className="space-y-2">
+            <div className="space-y-2 py-4">
               <Label className="text-[var(--text-primary)]">Ban Reason</Label>
               <Input
                 value={banReason}
                 onChange={(e) => setBanReason(e.target.value)}
                 placeholder="Enter reason for ban..."
-                className="bg-[var(--surface-primary-alt)] border-[var(--border-light)]"
+                className="bg-[var(--surface-secondary)] border-[var(--border-light)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
               />
             </div>
           )}
@@ -1228,6 +1464,83 @@ export function UserDetailPage() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {actionLoading ? <Spinner className="h-4 w-4" /> : 'Delete User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OIDC Groups Dialog */}
+      <Dialog open={oidcGroupsDialogOpen} onOpenChange={setOidcGroupsDialogOpen}>
+        <DialogContent className="bg-[var(--surface-primary)] border-[var(--border-light)] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-primary)]">Manage OIDC Groups</DialogTitle>
+            <DialogDescription className="text-[var(--text-secondary)]">
+              Add or remove OIDC groups for {user.name}. These groups control access to agents and features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Current Groups */}
+            <div>
+              <Label className="text-sm font-medium text-[var(--text-primary)]">Current Groups</Label>
+              <div className="mt-2 flex flex-wrap gap-2 min-h-[40px] p-2 bg-[var(--surface-secondary)] rounded-lg border border-[var(--border-light)]">
+                {editedOidcGroups.length === 0 ? (
+                  <span className="text-sm text-[var(--text-tertiary)] italic">No groups assigned</span>
+                ) : (
+                  editedOidcGroups.map((group) => (
+                    <span
+                      key={group}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full"
+                    >
+                      {group}
+                      <button
+                        onClick={() => handleRemoveGroup(group)}
+                        className="ml-1 hover:text-red-400 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            {/* Add New Group */}
+            <div>
+              <Label className="text-sm font-medium text-[var(--text-primary)]">Add Group</Label>
+              <div className="mt-2 flex gap-2">
+                <Input
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  className="flex-1 bg-[var(--surface-secondary)] border-[var(--border-light)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGroup()}
+                />
+                <Button
+                  onClick={handleAddGroup}
+                  disabled={!newGroupName.trim()}
+                  size="sm"
+                >
+                  Add
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                Common groups: LibreChatAdmin, LibreChatConsumer, LibreChatEconomic
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOidcGroupsDialogOpen(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOidcGroupsUpdate}
+              disabled={actionLoading}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {actionLoading ? <Spinner className="h-4 w-4" /> : 'Save Groups'}
             </Button>
           </DialogFooter>
         </DialogContent>

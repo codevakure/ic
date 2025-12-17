@@ -100,7 +100,7 @@ const MobileHeader = memo(({ onMenuClick, showMenu = false }: MobileHeaderProps)
       return 'Prompt Details';
     }
 
-    return 'Ranger';
+    return 'LibreChat';
   }, [location.pathname, isChatPage, conversation?.title, localize]);
 
   // Handle back navigation

@@ -1,4 +1,4 @@
-# @ranger/doc-viewer
+# @librechat/doc-viewer
 
 Enterprise-grade document viewer for DOCX, XLSX, PPTX, and PDF formats with full client-side rendering.
 
@@ -16,7 +16,7 @@ Enterprise-grade document viewer for DOCX, XLSX, PPTX, and PDF formats with full
 ## Installation
 
 ```bash
-npm install @ranger/doc-viewer
+npm install @librechat/doc-viewer
 ```
 
 ## Quick Start
@@ -24,9 +24,9 @@ npm install @ranger/doc-viewer
 ### JavaScript/TypeScript
 
 ```typescript
-import { WordViewer, ExcelViewer, PDFViewer } from '@ranger/doc-viewer';
+import { WordViewer, ExcelViewer, PDFViewer } from '@librechat/doc-viewer';
 // Import merged styles for centering, dark mode, and theme support
-import '@ranger/doc-viewer/styles';
+import '@librechat/doc-viewer/styles';
 
 // Word Document
 const wordViewer = new WordViewer(containerElement, {
@@ -53,8 +53,8 @@ await pdfViewer.renderFile(arrayBuffer);
 ### React
 
 ```tsx
-import { useDocViewer } from '@ranger/doc-viewer/react';
-import '@ranger/doc-viewer/styles';
+import { useDocViewer } from '@librechat/doc-viewer/react';
+import '@librechat/doc-viewer/styles';
 
 function DocumentViewer({ file, type }) {
   const { containerRef, isLoading, error } = useDocViewer({
@@ -78,7 +78,7 @@ function DocumentViewer({ file, type }) {
 ### Core Structure
 
 ```
-@ranger/doc-viewer/
+@librechat/doc-viewer/
 ├── core/              # Core viewing engine
 │   ├── DocumentViewer.ts
 │   ├── RenderOptions.ts
@@ -168,7 +168,7 @@ interface PDFOptions {
 ### Custom Rendering
 
 ```typescript
-import { WordViewer, WordRenderer } from '@ranger/doc-viewer';
+import { WordViewer, WordRenderer } from '@librechat/doc-viewer';
 
 class CustomWordRenderer extends WordRenderer {
   renderParagraph(paragraph) {
@@ -203,7 +203,7 @@ viewer.on('pageChange', (pageNumber) => {
 ### Formula Calculation
 
 ```typescript
-import { ExcelViewer, FormulaEngine } from '@ranger/doc-viewer';
+import { ExcelViewer, FormulaEngine } from '@librechat/doc-viewer';
 
 const engine = new FormulaEngine();
 engine.setCell('A1', 10);

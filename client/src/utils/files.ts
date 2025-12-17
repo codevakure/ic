@@ -169,6 +169,12 @@ const artifact = {
   title: 'Code',
 };
 
+const emailFile = {
+  paths: TextPaths,
+  fill: '#0078D4', // Outlook blue
+  title: 'Email',
+};
+
 export const fileTypes: Record<string, { paths: React.FC; fill: string; title: string }> = {
   /* Category matches */
   file: {
@@ -209,11 +215,17 @@ export const fileTypes: Record<string, { paths: React.FC; fill: string; title: s
 
   /* Spreadsheet Files */
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': spreadsheet, // .xlsx
+  'application/vnd.ms-excel.sheet.macroenabled.12': spreadsheet, // .xlsm
   'application/vnd.ms-excel': spreadsheet, // .xls
   'application/vnd.oasis.opendocument.spreadsheet': spreadsheet, // .ods
   xlsx: spreadsheet,
+  xlsm: spreadsheet,
   xls: spreadsheet,
   ods: spreadsheet,
+
+  /* Email/Message Files */
+  'application/vnd.ms-outlook': emailFile, // .msg
+  msg: emailFile,
 
   /* Code Files - Language-specific icons */
   'text/javascript': javascriptFile,

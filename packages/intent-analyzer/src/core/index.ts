@@ -12,9 +12,9 @@
  *    - simple   → Nova Micro   - Greetings only
  *    - moderate → Haiku 4.5    - DEFAULT, most tasks
  *    - complex  → Sonnet 4.5   - Debugging, analysis
- *    - expert   → Opus 4.5     - Deep research
+ *    - expert   → Sonnet 4.5   - Deep research (maps to complex)
  * 
- * Tool selection is now config-driven (toolsAutoEnabled in ranger.yaml)
+ * Tool selection is now config-driven (toolsAutoEnabled in librechat.yaml)
  */
 
 // Types

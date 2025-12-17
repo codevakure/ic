@@ -8,18 +8,17 @@
  * Uses @librechat/intent-analyzer for:
  * - modelRouting - 4-Tier automatic model routing based on complexity
  * 
- * 4-TIER MODEL SYSTEM (target distribution):
+ * 3-TIER MODEL SYSTEM (target distribution):
  *   SIMPLE   (~1%)  : Nova Micro  - Greetings, text-only simple responses
  *   MODERATE (~80%) : Haiku 4.5   - Most tasks, tool usage, standard code
- *   COMPLEX  (~15%) : Sonnet 4.5  - Debugging, detailed analysis
- *   EXPERT   (~4%)  : Opus 4.5    - Deep analysis, architecture, research
+ *   COMPLEX/EXPERT (~19%) : Sonnet 4.5  - Debugging, detailed analysis, architecture
  * 
  * Routing Rules:
  * - Tool usage → Haiku 4.5 minimum (Claude models handle tools better)
- * - Deep analysis requests → Opus 4.5
+ * - Deep analysis requests → Sonnet 4.5
  * - Text-only simple queries → Nova Micro allowed
  * 
- * Configuration is loaded from ranger.yaml under the `intentAnalyzer` key.
+ * Configuration is loaded from librechat.yaml under the `intentAnalyzer` key.
  */
 
 const { logger } = require('@librechat/data-schemas');
@@ -47,7 +46,7 @@ const MODEL_PRICING = {
 /**
  * Default intent analyzer configuration
  * 
- * Tool selection is config-driven via toolsAutoEnabled in ranger.yaml + UI-selected MCP
+ * Tool selection is config-driven via toolsAutoEnabled in librechat.yaml + UI-selected MCP
  * Model routing selects appropriate model tier based on query complexity
  */
 const DEFAULT_CONFIG = {

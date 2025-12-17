@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
 import {
   SandpackPreview,
   SandpackProvider,
@@ -10,57 +10,21 @@ import type { TStartupConfig } from 'librechat-data-provider';
 import type { ArtifactFiles } from '~/common';
 import { sharedFiles, TAILWIND_CDN, DEFAULT_BUNDLER_URL } from '~/utils/artifacts';
 import ArtifactLoader from './ArtifactLoader';
-import { cn } from '~/utils';
-
-/** 
- * CSS to hide Sandpack's default loading cube overlay
- * The cube is rendered inside .sp-loading class
- */
-const hideSandpackLoadingStyles = `
-  .sp-preview-container .sp-loading,
-  .sp-preview-container .sp-cube-wrapper,
-  .sp-overlay.sp-loading,
-  .sp-cube-wrapper,
-  .sp-cube,
-  .sp-overlay,
-  div[class*="sp-cube"],
-  div[class*="sp-loading"] {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
-`;
 
 /** Custom loading overlay that shows our branded loader */
-const CustomLoadingOverlay = memo(function CustomLoadingOverlay() {
+const LoadingOverlay = memo(function LoadingOverlay() {
   const { sandpack, listen } = useSandpack();
-  const [showLoader, setShowLoader] = React.useState(true);
-  const [hasError, setHasError] = React.useState(false);
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [showLoader, setShowLoader] = useState(true);
   
-  React.useEffect(() => {
+  useEffect(() => {
     // Listen for sandpack messages
     const unsubscribe = listen((message) => {
-      // Log all messages for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Sandpack]', message.type, message);
-      }
-      
       if (message.type === 'done') {
         // Wait for content to fully render before hiding loader
-        setTimeout(() => setShowLoader(false), 1000);
+        setTimeout(() => setShowLoader(false), 2800);
       }
       if (message.type === 'start') {
         setShowLoader(true);
-        setHasError(false);
-        setErrorMessage(null);
-      }
-      // Handle errors
-      if (message.type === 'action' && (message as any).action === 'show-error') {
-        setHasError(true);
-        setErrorMessage((message as any).message || 'Bundle error');
-        setShowLoader(false);
       }
     });
     
@@ -68,70 +32,36 @@ const CustomLoadingOverlay = memo(function CustomLoadingOverlay() {
   }, [listen]);
 
   // Also track status changes as backup
-  React.useEffect(() => {
+  useEffect(() => {
     if (sandpack.status === 'running') {
-      // Shorter delay now that we have proper message handling
-      const timer = setTimeout(() => setShowLoader(false), 1500);
+      // Longer delay to ensure iframe content is fully loaded
+      const timer = setTimeout(() => setShowLoader(false), 3500);
       return () => clearTimeout(timer);
     } else if (sandpack.status === 'initial' || sandpack.status === 'idle') {
       setShowLoader(true);
     }
   }, [sandpack.status]);
 
-  // Check for bundler errors in sandpack state
-  React.useEffect(() => {
-    if (sandpack.error) {
-      setHasError(true);
-      setErrorMessage(sandpack.error.message || 'Bundler error');
-      setShowLoader(false);
-    }
-  }, [sandpack.error]);
-
-  // Show error state
-  if (hasError && errorMessage) {
-    return (
-      <div 
-        className={cn(
-          'absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 p-4',
-          'bg-surface-primary-alt/95',
-        )}
-      >
-        <div className="text-red-500 text-sm font-medium">Preview Error</div>
-        <div className="text-text-secondary text-xs max-w-md text-center overflow-auto max-h-32">
-          {errorMessage}
-        </div>
-      </div>
-    );
-  }
-
   if (!showLoader) {
     return null;
   }
 
   return (
-    <div 
-      className={cn(
-        'absolute inset-0 z-50 flex items-center justify-center',
-        'bg-surface-primary-alt/80 backdrop-blur-sm',
-      )}
-    >
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface-primary-alt">
       <ArtifactLoader size="lg" />
     </div>
   );
 });
 
-/** Preview wrapper that includes the custom loading overlay */
+/** Preview wrapper with loading overlay */
 const PreviewWithLoader = memo(function PreviewWithLoader({
   previewRef,
 }: {
   previewRef: React.MutableRefObject<SandpackPreviewRef>;
 }) {
   return (
-    <div className="relative h-full w-full bg-surface-primary-alt">
-      {/* Inject CSS to hide Sandpack's default loader */}
-      <style>{hideSandpackLoadingStyles}</style>
-      
-      <CustomLoadingOverlay />
+    <div className="relative h-full w-full">
+      <LoadingOverlay />
       <SandpackPreview
         showOpenInCodeSandbox={false}
         showRefreshButton={false}

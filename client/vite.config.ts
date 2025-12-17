@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 // @ts-ignore
 import path from 'path';
-import type { Plugin } from 'vite';
+import type { Plugin, PluginOption } from 'vite';
 import { defineConfig } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -35,7 +35,7 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     nodePolyfills(),
-    VitePWA({
+    ...VitePWA({
       injectRegister: 'auto', // 'auto' | 'manual' | 'disabled'
       registerType: 'autoUpdate', // 'prompt' | 'autoUpdate'
       devOptions: {
@@ -46,8 +46,6 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: [
           '**/*.{js,css,html}',
-          'assets/icon-dark.svg',
-          'manifest.webmanifest',
         ],
         globIgnores: ['images/**/*', '**/*.map', 'index.html'],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
@@ -55,8 +53,8 @@ export default defineConfig(({ command }) => ({
       },
       includeAssets: [],
       manifest: {
-        name: 'Ranger',
-        short_name: 'Ranger',
+        name: 'LibreChat',
+        short_name: 'LibreChat',
         description: 'Enterprise AI Chat Platform',
         start_url: '/',
         display: 'standalone',
@@ -83,7 +81,7 @@ export default defineConfig(({ command }) => ({
           },
         ],
       },
-    }),
+    }) as PluginOption[],
     sourcemapExclude({ excludeNodeModules: true }),
     compression({
       threshold: 10240,

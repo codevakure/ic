@@ -220,7 +220,7 @@ const loadTools = async ({
   const customConstructors = {
     youtube: async (_toolContextMap) => {
       const authFields = getAuthFields('youtube');
-      const authValues = await loadAuthValues({ userId: user, authFields });
+      const authValues = await loadAuthValues({ userId: user, authFields, agentId: options.agentId, toolKey: 'youtube' });
       return createYouTubeTools(authValues);
     },
     youtube_video: async (toolContextMap) => {
@@ -243,7 +243,7 @@ Returns: Video title, description, author, and full transcript text.`;
     },
     image_gen_oai: async (toolContextMap) => {
       const authFields = getAuthFields('image_gen_oai');
-      const authValues = await loadAuthValues({ userId: user, authFields });
+      const authValues = await loadAuthValues({ userId: user, authFields, agentId: options.agentId, toolKey: 'image_gen_oai' });
       const imageFiles = options.tool_resources?.[EToolResources.image_edit]?.files ?? [];
       let toolContext = '';
       for (let i = 0; i < imageFiles.length; i++) {
@@ -306,6 +306,8 @@ Returns: Video title, description, author, and full transcript text.`;
         const authValues = await loadAuthValues({
           userId: user,
           authFields: [EnvVar.CODE_API_KEY],
+          agentId: options.agentId,
+          toolKey: Tools.execute_code,
         });
         const codeApiKey = authValues[EnvVar.CODE_API_KEY];
         const { files, toolContext } = await primeCodeFiles(
@@ -351,7 +353,7 @@ Returns: Video title, description, author, and full transcript text.`;
               permissions: [Permissions.USE],
               getRoleByName,
             });
-            logger.info(`[handleTools] FILE_CITATIONS permission check result: ${fileCitations} for user ${options.req.user.id}`);
+            logger.debug(`[handleTools] FILE_CITATIONS permission check result: ${fileCitations} for user ${options.req.user.id}`);
           } catch (error) {
             logger.error('[handleTools] FILE_CITATIONS permission check failed:', error);
             fileCitations = false;
@@ -374,22 +376,40 @@ Returns: Video title, description, author, and full transcript text.`;
       };
       continue;
     } else if (tool === Tools.web_search) {
+      // Wrap loadAuthValues to include agentId and toolKey for agent-embedded credentials
+      const wrappedLoadAuthValues = async (params) => {
+        return loadAuthValues({
+          ...params,
+          agentId: options.agentId,
+          toolKey: Tools.web_search,
+        });
+      };
       const result = await loadWebSearchAuth({
         userId: user,
-        loadAuthValues,
+        loadAuthValues: wrappedLoadAuthValues,
         webSearchConfig: webSearch,
       });
       const { onSearchResults, onGetHighlights } = options?.[Tools.web_search] ?? {};
       requestedTools[tool] = async () => {
+        // NOTE: Date/time is NOT included here to preserve system prompt caching.
+        // Dynamic context (date, time, user info) is injected separately as a user message.
         toolContextMap[tool] = `# \`${tool}\`:
-Current Date & Time: ${replaceSpecialVars({ text: '{{iso_datetime}}' })}
-1. **Execute immediately without preface** when using \`${tool}\`.
-2. **After the search, begin with a brief summary** that directly addresses the query without headers or explaining your process.
-3. **Structure your response clearly** using Markdown formatting (Level 2 headers for sections, lists for multiple points, tables for comparisons).
-4. **Cite sources properly** according to the citation anchor format, utilizing group anchors when appropriate.
-5. **Tailor your approach to the query type** (academic, news, coding, etc.) while maintaining an expert, journalistic, unbiased tone.
-6. **Provide comprehensive information** with specific details, examples, and as much relevant context as possible from search results.
-7. **Avoid moralizing language.**
+
+**Execute immediately without preface.** After search, provide a brief summary addressing the query directly, then structure your response with clear Markdown formatting (## headers, lists, tables). Cite sources properly, tailor tone to query type, and provide comprehensive details.
+
+**CITATION FORMAT - UNICODE ESCAPE SEQUENCES ONLY:**
+Use these EXACT escape sequences (copy verbatim): \\ue202 (before each anchor), \\ue200 (group start), \\ue201 (group end), \\ue203 (highlight start), \\ue204 (highlight end)
+
+Anchor pattern: \\ue202turn{N}{type}{index} where N=turn number, type=search|news|image|ref, index=0,1,2...
+
+**Examples (copy these exactly):**
+- Single: "Statement.\\ue202turn0search0"
+- Multiple: "Statement.\\ue202turn0search0\\ue202turn0news1"
+- Group: "Statement. \\ue200\\ue202turn0search0\\ue202turn0news1\\ue201"
+- Highlight: "\\ue203Cited text.\\ue204\\ue202turn0search0"
+- Image: "See photo\\ue202turn0image0."
+
+**CRITICAL:** Output escape sequences EXACTLY as shown. Do NOT substitute with † or other symbols. Place anchors AFTER punctuation. Cite every non-obvious fact/quote. NEVER use markdown links, [1], footnotes, or HTML tags.
 `.trim();
         return createSearchTool({
           ...result.authResult,
@@ -436,12 +456,12 @@ Current Date & Time: ${replaceSpecialVars({ text: '{{iso_datetime}}' })}
     }
 
     if (toolConstructors[tool]) {
-      const options = toolOptions[tool] || {};
+      const toolSpecificOptions = toolOptions[tool] || {};
       const toolInstance = loadToolWithAuth(
         user,
         getAuthFields(tool),
         toolConstructors[tool],
-        options,
+        { ...toolSpecificOptions, agentId: options.agentId, toolKey: tool },
       );
       requestedTools[tool] = toolInstance;
       continue;

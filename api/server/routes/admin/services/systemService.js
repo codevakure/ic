@@ -282,7 +282,6 @@ const updateSystemSettings = async (settings) => {
   try {
     // In a real implementation, you would save these to a database
     // or update environment variables through a config service
-    logger.info('[Admin SystemService] Settings update requested:', settings);
     
     // For now, we just log the request
     // A full implementation would persist these settings
@@ -367,11 +366,9 @@ const flushCache = async () => {
         
         if (ioredisClient) {
           const status = ioredisClient.status || 'unknown';
-          logger.info('[Admin SystemService] Redis client status:', status);
           
           if (status === 'ready' || status === 'connect') {
             await ioredisClient.flushdb();
-            logger.info('[Admin SystemService] Cache flushed successfully via ioredis');
             return { success: true, message: 'Cache flushed successfully' };
           } else {
             logger.warn('[Admin SystemService] Redis client not ready, status:', status);
@@ -387,7 +384,6 @@ const flushCache = async () => {
     }
     
     // If no Redis, return success
-    logger.info('[Admin SystemService] No Redis configured, skipping cache flush');
     return { success: true, message: 'No cache to flush (Redis not configured)' };
   } catch (error) {
     logger.error('[Admin SystemService] Error flushing cache:', error.message);

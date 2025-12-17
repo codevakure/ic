@@ -133,7 +133,6 @@ const AuthContextProvider = ({
 
   const silentRefresh = useCallback(() => {
     if (authConfig?.test === true) {
-      console.log('Test mode. Skipping silent refresh.');
       return;
     }
     refreshToken.mutate(undefined, {
@@ -142,7 +141,6 @@ const AuthContextProvider = ({
         if (token) {
           setUserContext({ token, isAuthenticated: true, user });
         } else {
-          console.log('Token is not present. User is not authenticated.');
           if (authConfig?.test === true) {
             return;
           }
@@ -150,7 +148,7 @@ const AuthContextProvider = ({
         }
       },
       onError: (error) => {
-        console.log('refreshToken mutation error:', error);
+        console.error('refreshToken mutation error:', error);
         if (authConfig?.test === true) {
           return;
         }
@@ -187,7 +185,6 @@ const AuthContextProvider = ({
 
   useEffect(() => {
     const handleTokenUpdate = (event) => {
-      console.log('tokenUpdated event received event');
       const newToken = event.detail;
       setUserContext({
         token: newToken,

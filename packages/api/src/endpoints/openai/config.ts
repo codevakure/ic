@@ -119,7 +119,7 @@ export function getOpenAIConfig(
   if (useOpenRouter || isVercel) {
     configOptions.defaultHeaders = Object.assign(
       {
-        'HTTP-Referer': 'https://librechat.ai',
+        'HTTP-Referer': 'https://www.librechat.ai',
         'X-Title': 'LibreChat',
       },
       headers,

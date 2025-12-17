@@ -230,6 +230,7 @@ export type Agent = {
   /** @deprecated Use ACL permissions instead */
   isCollaborative?: boolean;
   tool_resources?: AgentToolResources;
+  tool_credentials?: Record<string, Record<string, string>>; // { toolName: { authField: "encrypted_value" } }
   /** @deprecated Use edges instead */
   agent_ids?: string[];
   edges?: GraphEdge[];
@@ -252,6 +253,7 @@ export type AgentCreateParams = {
   file_ids?: string[];
   instructions?: string | null;
   tools?: Array<FunctionTool | string>;
+  tool_credentials?: Record<string, Record<string, string>>; // Tool credentials to embed in agent
   provider: AgentProvider;
   model: string | null;
   model_parameters: AgentModelParameters;
@@ -274,6 +276,7 @@ export type AgentUpdateParams = {
   file_ids?: string[];
   instructions?: string | null;
   tools?: Array<FunctionTool | string>;
+  tool_credentials?: Record<string, Record<string, string>>; // Tool credentials to embed in agent
   tool_resources?: ToolResources;
   provider?: AgentProvider;
   model?: string | null;

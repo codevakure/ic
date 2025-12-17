@@ -86,7 +86,7 @@ aws bedrock create-guardrail-version --guardrail-identifier "6lbl3a9og630" --reg
 aws bedrock update-guardrail \
   --guardrail-identifier "6lbl3a9og630" \
   --name "pleach-guardrails" \
-  --description "Guardrails for Ranger Chat application - Version 2 (Banking-Optimized)" \
+  --description "Guardrails for LibreChat Chat application - Version 2 (Banking-Optimized)" \
   --region us-east-1 \
   --topic-policy-config file://topicPolicy.json \
   --content-policy-config file://contentPolicy.json \

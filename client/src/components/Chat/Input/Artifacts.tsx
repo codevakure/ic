@@ -1,7 +1,7 @@
 import React, { memo, useState, useCallback, useMemo } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { CheckboxButton } from '@librechat/client';
-import { ArtifactModes } from 'librechat-data-provider';
+import { ArtifactModes, AgentCapabilities } from 'librechat-data-provider';
 import { WandSparkles, ChevronDown } from 'lucide-react';
 import { useBadgeRowContext } from '~/Providers';
 import { useLocalize } from '~/hooks';
@@ -14,7 +14,7 @@ interface ArtifactsToggleState {
 
 function Artifacts() {
   const localize = useLocalize();
-  const { artifacts } = useBadgeRowContext();
+  const { artifacts, isAutoEnabled } = useBadgeRowContext();
   const { toggleState, debouncedChange, isPinned } = artifacts;
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -53,6 +53,11 @@ function Artifacts() {
       debouncedChange({ value: ArtifactModes.CUSTOM });
     }
   }, [isCustomEnabled, debouncedChange]);
+
+  // Don't show badge if tool is auto-enabled (handled by backend intent analyzer)
+  if (isAutoEnabled(AgentCapabilities.artifacts)) {
+    return null;
+  }
 
   if (!isEnabled && !isPinned) {
     return null;

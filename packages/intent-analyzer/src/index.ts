@@ -1,7 +1,7 @@
 /**
  * Intent Analyzer Package
  * 
- * Simplified routing for LibreChat/Ranger:
+ * Simplified routing for LibreChat:
  * 
  * 1. UPLOAD INTENT - Where to send uploaded files
  *    - IMAGE → Vision/image analysis
@@ -12,9 +12,9 @@
  *    - simple   (~1%)  - Nova Micro  - Greetings only
  *    - moderate (~80%) - Haiku 4.5   - DEFAULT, most tasks
  *    - complex  (~15%) - Sonnet 4.5  - Debugging, analysis
- *    - expert   (~4%)  - Opus 4.5    - Deep research
+ *    - expert   (~4%)  - Sonnet 4.5  - Deep research (maps to complex)
  * 
- * Tool selection is now config-driven (toolsAutoEnabled in ranger.yaml)
+ * Tool selection is now config-driven (toolsAutoEnabled in librechat.yaml)
  * No LLM classifier - uses regex patterns, defaults to Haiku 4.5
  * 
  * ## Quick Start

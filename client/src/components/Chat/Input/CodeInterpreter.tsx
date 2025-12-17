@@ -1,13 +1,13 @@
 import React, { memo } from 'react';
 import { TerminalSquareIcon } from 'lucide-react';
 import { CheckboxButton } from '@librechat/client';
-import { PermissionTypes, Permissions } from 'librechat-data-provider';
+import { PermissionTypes, Permissions, AgentCapabilities } from 'librechat-data-provider';
 import { useLocalize, useHasAccess } from '~/hooks';
 import { useBadgeRowContext } from '~/Providers';
 
 function CodeInterpreter() {
   const localize = useLocalize();
-  const { codeInterpreter, codeApiKeyForm } = useBadgeRowContext();
+  const { codeInterpreter, codeApiKeyForm, isAutoEnabled } = useBadgeRowContext();
   const { toggleState: runCode, debouncedChange, isPinned } = codeInterpreter;
   const { badgeTriggerRef } = codeApiKeyForm;
 
@@ -16,7 +16,8 @@ function CodeInterpreter() {
     permission: Permissions.USE,
   });
 
-  if (!canRunCode) {
+  // Don't show badge if tool is auto-enabled (handled by backend intent analyzer)
+  if (!canRunCode || isAutoEnabled(AgentCapabilities.execute_code)) {
     return null;
   }
 

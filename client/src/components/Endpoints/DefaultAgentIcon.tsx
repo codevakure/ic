@@ -2,7 +2,7 @@
  * Default Agent Icon Configuration
  * 
  * This file defines the default icon used for agents when they don't have a custom avatar.
- * The icon URL can be configured via ranger.yaml:
+ * The icon URL can be configured via librechat.yaml:
  * 
  * endpoints:
  *   agents:

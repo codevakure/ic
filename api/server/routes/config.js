@@ -53,7 +53,9 @@ const getMCPServers = async (payload, appConfig) => {
     if (!mcpManager) {
       return;
     }
+    const registryStart = Date.now();
     const mcpServers = await mcpServersRegistry.getAllServerConfigs();
+    logger.debug(`[Config API] mcpServersRegistry.getAllServerConfigs() took ${Date.now() - registryStart}ms`);
     if (!mcpServers) return;
     for (const serverName in mcpServers) {
       if (!payload.mcpServers) {
@@ -75,15 +77,17 @@ const getMCPServers = async (payload, appConfig) => {
 };
 
 router.get('/', async function (req, res) {
+  const startTime = Date.now();
   const cache = getLogStores(CacheKeys.CONFIG_STORE);
 
   const cachedStartupConfig = await cache.get(CacheKeys.STARTUP_CONFIG);
   if (cachedStartupConfig) {
-    const appConfig = await getAppConfig({ role: req.user?.role });
-    await getMCPServers(cachedStartupConfig, appConfig);
-    res.send(cachedStartupConfig);
-    return;
+    // Return cached config immediately - MCP servers are already included in cache
+    logger.debug(`[Config API] Returning cached config in ${Date.now() - startTime}ms`);
+    return res.send(cachedStartupConfig);
   }
+
+  logger.debug(`[Config API] Cache miss, building config...`);
 
   const isBirthday = () => {
     const today = new Date();
@@ -151,7 +155,8 @@ router.get('/', async function (req, res) {
         isBirthday() ||
         isEnabled(process.env.SHOW_BIRTHDAY_ICON) ||
         process.env.SHOW_BIRTHDAY_ICON === '',
-      helpAndFaqURL: process.env.HELP_AND_FAQ_URL || 'https://librechat.ai',
+      allowHolidayTheme: isEnabled(process.env.ALLOW_HOLIDAY_THEME),
+      helpAndFaqURL: process.env.HELP_AND_FAQ_URL || 'https://www.librechat.ai',
       interface: appConfig?.interfaceConfig,
       turnstile: appConfig?.turnstileConfig,
       modelSpecs: appConfig?.modelSpecs,
@@ -205,8 +210,13 @@ router.get('/', async function (req, res) {
       payload.customFooter = process.env.CUSTOM_FOOTER;
     }
 
-    await cache.set(CacheKeys.STARTUP_CONFIG, payload);
+    // Add MCP servers BEFORE caching so cached config includes them
+    const mcpStart = Date.now();
     await getMCPServers(payload, appConfig);
+    logger.debug(`[Config API] getMCPServers took ${Date.now() - mcpStart}ms`);
+    
+    await cache.set(CacheKeys.STARTUP_CONFIG, payload);
+    logger.debug(`[Config API] Config built and cached in ${Date.now() - startTime}ms`);
     return res.status(200).send(payload);
   } catch (err) {
     logger.error('Error in startup config', err);

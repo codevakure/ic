@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { useSourcesPanel } from '~/components/ui/SidePanel';
 import { useConversationUIResources } from '~/hooks/Messages/useConversationUIResources';
 import { useMessagesConversation, useMessagesOperations } from '~/Providers';
+import { useChatContext } from '~/Providers/ChatContext';
+import { useSourcesPanel } from '~/components/ui/SidePanel';
+import { setMCPAskRef } from '~/utils/mcpAskRef';
 import { MCPUIResourceButton } from './MCPUIResourceButton';
 import { MCPUIResourcePanel } from './MCPUIResourcePanel';
 import { useLocalize } from '~/hooks';
@@ -16,7 +18,8 @@ interface MCPUIResourceProps {
 
 /**
  * Component that renders an MCP UI resource as a card button in the chat.
- * When the resource is first detected, it automatically opens in the push side panel.
+ * Auto-opens in the side panel when first generated during an active conversation.
+ * Does NOT auto-open when switching between conversations (to avoid flashing).
  * Clicking the card toggles the side panel visibility.
  * 
  * Similar to Artifacts, but for MCP UI resources.
@@ -26,10 +29,21 @@ export function MCPUIResource(props: MCPUIResourceProps) {
   const localize = useLocalize();
   const { conversation } = useMessagesConversation();
   const { ask } = useMessagesOperations();
+  const { isSubmitting } = useChatContext();
   const { openPanel } = useSourcesPanel();
+  
+  // Update the global ask ref so MCPUIResourcePanel can access it
+  // This component is inside ChatContext, so ask is available here
+  useEffect(() => {
+    if (ask) {
+      setMCPAskRef(ask);
+    }
+  }, [ask]);
   
   // Track if this component instance has auto-opened (per mount)
   const hasAutoOpenedRef = useRef(false);
+  // Track if isSubmitting was true when we first mounted
+  const wasSubmittingOnMountRef = useRef(isSubmitting);
 
   const conversationResourceMap = useConversationUIResources(
     conversation?.conversationId ?? undefined,
@@ -37,38 +51,44 @@ export function MCPUIResource(props: MCPUIResourceProps) {
 
   const uiResource = conversationResourceMap.get(resourceId ?? '');
   
-  // Get resource name with fallback
-  const resourceName = uiResource?.name || localize('com_ui_ui_resources') || 'UI Resources';
+  // Use resourceId as unique identifier for panel state tracking
+  const uniquePanelTitle = `ui-resource-${resourceId}`;
+  // Display-friendly title for the panel header (without the ID)
+  const displayTitle = 'UI Resource';
 
-  // Auto-open the side panel when the UI resource data becomes available
-  // This component only mounts when a UI resource marker is detected in markdown
-  // So we just need to open once when uiResource data is ready
+  // Auto-open the side panel ONLY when:
+  // 1. The resource data is available
+  // 2. We haven't already auto-opened this instance
+  // 3. We were submitting when this component mounted (meaning this is a fresh generation, not loading existing conversation)
   useEffect(() => {
-    // Wait for resource data to be available
     if (!uiResource || !resourceId) {
       return;
     }
 
-    // Only auto-open once per component instance
     if (hasAutoOpenedRef.current) {
+      return;
+    }
+
+    // Only auto-open if we were submitting when mounted - this means the resource
+    // is being generated now, not loaded from an existing conversation
+    if (!wasSubmittingOnMountRef.current) {
       return;
     }
 
     hasAutoOpenedRef.current = true;
 
-    // Auto-open the panel
     openPanel(
-      String(resourceName),
+      uniquePanelTitle,
       <MCPUIResourcePanel 
         resource={uiResource} 
         conversationId={conversation?.conversationId ?? undefined}
-        ask={ask}
       />,
       'push',
       null,
-      40,
+      35,
+      displayTitle,
     );
-  }, [uiResource, resourceId, openPanel, conversation?.conversationId, resourceName, ask]);
+  }, [uiResource, resourceId, openPanel, conversation?.conversationId, uniquePanelTitle, displayTitle]);
 
   if (!uiResource) {
     return (
@@ -85,7 +105,6 @@ export function MCPUIResource(props: MCPUIResourceProps) {
     <MCPUIResourceButton 
       resource={uiResource} 
       conversationId={conversation?.conversationId ?? undefined}
-      ask={ask}
     />
   );
 }

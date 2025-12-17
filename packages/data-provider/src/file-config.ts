@@ -260,6 +260,10 @@ export const codeTypeMapping: { [key: string]: string } = {
   tsv: 'text/tab-separated-values',
   csv: 'text/csv',
   ipynb: 'application/x-ipynb+json',
+
+  // Microsoft Office (for files that browsers don't auto-detect)
+  xlsm: 'application/vnd.ms-excel.sheet.macroenabled.12',
+  msg: 'application/vnd.ms-outlook',
 };
 
 export const retrievalMimeTypes = [

@@ -151,7 +151,7 @@ export class FlowStateManager<T = unknown> {
     const flowState = (await this.keyv.get(flowKey)) as FlowState<T> | undefined;
 
     if (!flowState) {
-      logger.warn('[FlowStateManager] Cannot complete flow - flow state not found', {
+      logger.debug('[FlowStateManager] Cannot complete flow - flow state not found', {
         flowId,
         type,
       });

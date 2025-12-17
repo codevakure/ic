@@ -5,7 +5,7 @@ const { redactFormat, redactMessage, debugTraverse, jsonTruncateFormat } = requi
 
 const logDir = path.join(__dirname, '..', 'logs');
 
-const { NODE_ENV, DEBUG_LOGGING = true, CONSOLE_JSON = false, DEBUG_CONSOLE = false } = process.env;
+const { NODE_ENV, DEBUG_LOGGING = false, CONSOLE_JSON = false, DEBUG_CONSOLE = false } = process.env;
 
 const useConsoleJson =
   (typeof CONSOLE_JSON === 'string' && CONSOLE_JSON?.toLowerCase() === 'true') ||

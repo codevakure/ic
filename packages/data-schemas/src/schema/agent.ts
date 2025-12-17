@@ -107,6 +107,11 @@ const agentSchema = new Schema<IAgent>(
       type: Schema.Types.Mixed,
       default: undefined,
     },
+    tool_credentials: {
+      type: Schema.Types.Mixed,
+      default: {},
+      // Structure: { toolName: { authField1: "encrypted_value", authField2: "encrypted_value" } }
+    },
     is_promoted: {
       type: Boolean,
       default: false,

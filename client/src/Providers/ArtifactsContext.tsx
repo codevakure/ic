@@ -18,12 +18,7 @@ interface ArtifactsProviderProps {
 }
 
 export function ArtifactsProvider({ children, value }: ArtifactsProviderProps) {
-  const chatContext = useChatContext();
-  
-  // Destructure with defaults in case context is empty (outside ChatContext.Provider)
-  const isSubmitting = chatContext?.isSubmitting ?? false;
-  const latestMessage = chatContext?.latestMessage ?? null;
-  const conversation = chatContext?.conversation ?? null;
+  const { isSubmitting, latestMessage, conversation } = useChatContext();
 
   const chatLatestMessageText = useMemo(() => {
     return getLatestText({

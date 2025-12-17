@@ -170,7 +170,11 @@ export const handleUIAction = async (result: any, ask: any) => {
 
   const { type, payload } = result;
 
+  console.log('[handleUIAction] Received:', { type, payload });
+  console.log('[handleUIAction] ask function available:', !!ask);
+
   if (!supportedTypes.includes(type)) {
+    console.log('[handleUIAction] Unsupported type, ignoring:', type);
     return;
   }
 
@@ -227,9 +231,8 @@ Execute the intention of the prompt that is mentioned in the message using the t
     `;
   }
 
-  console.log('About to submit UI action:', actionSummary);
-
   try {
+    console.log('[handleUIAction] Calling ask() with:', { messageText: messageText.substring(0, 200) + '...', actionSummary });
     // Pass metadata to mark this as a UI action for minimal indicator rendering
     await ask({ 
       text: messageText,
@@ -239,8 +242,9 @@ Execute the intention of the prompt that is mentioned in the message using the t
         uiActionSummary: actionSummary,
       },
     });
-    console.log('UI action submitted successfully');
+    console.log('[handleUIAction] ask() completed successfully');
   } catch (error) {
+    console.error('[handleUIAction] Error submitting UI action:', error);
     console.error('Error submitting UI action:', error);
   }
 };

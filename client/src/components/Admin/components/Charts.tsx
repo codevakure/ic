@@ -38,6 +38,7 @@ const CHART_COLORS = {
   pink: '#ec4899', // Pink-500
   teal: '#14b8a6', // Teal-500
   orange: '#f97316', // Orange-500
+  indigo: '#23235f', // Dark indigo for sessions/active users
   // These will be used for grid lines - slightly transparent
   surface: 'rgba(107, 114, 128, 0.1)',
   border: 'rgba(107, 114, 128, 0.2)',
@@ -263,6 +264,73 @@ export const AdminMultiBarChart: React.FC<AdminMultiBarChartProps> = ({
           />
         ))}
       </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+// Multi-series Area Chart
+interface MultiAreaChartData {
+  name: string;
+  [key: string]: string | number;
+}
+
+interface AdminMultiAreaChartProps {
+  data: MultiAreaChartData[];
+  dataKeys: { key: string; color: string; name: string }[];
+  xAxisKey?: string;
+  height?: number;
+  formatter?: (value: number) => string;
+}
+
+export const AdminMultiAreaChart: React.FC<AdminMultiAreaChartProps> = ({
+  data,
+  dataKeys,
+  xAxisKey = 'name',
+  height = 200,
+  formatter,
+}) => {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <defs>
+          {dataKeys.map((dk) => (
+            <linearGradient key={`gradient-${dk.key}`} id={`gradient-${dk.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={dk.color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={dk.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+        <XAxis
+          dataKey={xAxisKey}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: CHART_COLORS.secondary, fontSize: 11 }}
+        />
+        <YAxis
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: CHART_COLORS.secondary, fontSize: 11 }}
+          tickFormatter={(value) => (formatter ? formatter(value) : value.toLocaleString())}
+        />
+        <Tooltip content={<ChartTooltip formatter={formatter} />} />
+        <Legend
+          wrapperStyle={{ fontSize: '12px' }}
+          formatter={(value) => <span className="text-text-secondary">{value}</span>}
+        />
+        {dataKeys.map((dk) => (
+          <Area
+            key={dk.key}
+            type="monotone"
+            dataKey={dk.key}
+            name={dk.name}
+            stroke={dk.color}
+            strokeWidth={2}
+            fill={`url(#gradient-${dk.key})`}
+            fillOpacity={1}
+          />
+        ))}
+      </AreaChart>
     </ResponsiveContainer>
   );
 };

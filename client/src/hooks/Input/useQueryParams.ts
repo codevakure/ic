@@ -276,8 +276,6 @@ export default function useQueryParams({
 
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
-
-        console.log('Message submitted with conversation state:', conversation);
       }
     })();
   }, [methods, submitMessage, conversation]);
@@ -335,7 +333,6 @@ export default function useQueryParams({
 
         setSearchParams(currentParams, { replace: true });
         processedRef.current = true;
-        console.log('Parameters processed successfully', paramString);
         clearInterval(intervalId);
 
         // Only clean URL if there's no pending submission
@@ -437,7 +434,6 @@ export default function useQueryParams({
           settingsTimeoutRef.current = null;
         }
 
-        console.log('Settings fully applied, processing submission');
         processSubmission();
       }
     }

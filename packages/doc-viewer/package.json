@@ -55,9 +55,9 @@
     "directory": "packages/doc-viewer"
   },
   "bugs": {
-    "url": "https://github.com/danny-avila/LibreChat/issues"
+    "url": ""
   },
-  "homepage": "https://librechat.ai",
+  "homepage": "https://www.librechat.ai",
   "dependencies": {
     "docx-preview": "^0.3.2",
     "dompurify": "^3.3.0",

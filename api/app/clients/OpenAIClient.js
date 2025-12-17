@@ -787,7 +787,7 @@ class OpenAIClient extends BaseClient {
 
       if (this.useOpenRouter) {
         opts.defaultHeaders = {
-          'HTTP-Referer': 'https://librechat.ai',
+          'HTTP-Referer': 'https://www.librechat.ai',
           'X-Title': 'LibreChat',
         };
       }

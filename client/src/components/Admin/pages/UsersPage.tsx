@@ -35,6 +35,7 @@ import {
 } from '@librechat/client';
 import { AdminDataTable, SortableHeader } from '../components/DataTable';
 import { usersApi, type User, type UserListParams } from '../services/adminApi';
+import { UsersPageSkeleton } from '../components/Skeletons';
 import { cn } from '~/utils';
 
 // Role options
@@ -70,6 +71,7 @@ function UsersPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [status, setStatus] = useState<string>(searchParams.get('status') || '');
   const [role, setRole] = useState(searchParams.get('role') || '');
+  const [groupFilter, setGroupFilter] = useState(searchParams.get('group') || '');
 
   // Dialogs
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -108,8 +110,10 @@ function UsersPage() {
         search,
         status: status as 'active' | 'banned' | '',
         role,
+        group: groupFilter, // Server-side group filtering for performance
       };
       const result = await usersApi.list(params);
+      
       setUsers(result.users);
       setPagination(result.pagination);
     } catch (error) {
@@ -117,7 +121,7 @@ function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search, status, role]);
+  }, [pagination.page, pagination.limit, search, status, role, groupFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -129,8 +133,9 @@ function UsersPage() {
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     if (role) params.set('role', role);
+    if (groupFilter) params.set('group', groupFilter);
     setSearchParams(params, { replace: true });
-  }, [search, status, role, setSearchParams]);
+  }, [search, status, role, groupFilter, setSearchParams]);
 
   // Actions
   const handleBanToggle = async () => {
@@ -421,66 +426,81 @@ function UsersPage() {
     [navigate]
   );
 
+  // Show skeleton on initial load
+  if (loading && users.length === 0) {
+    return <UsersPageSkeleton />;
+  }
+
   return (
-    <div className="space-y-6 p-6 md:p-8">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4 p-4 md:p-5">
+      {/* Page Header with Search */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Users</h1>
-          <p className="mt-1 text-sm text-text-secondary">
+          <h1 className="text-xl font-bold text-text-primary">Users</h1>
+          <p className="text-sm text-text-secondary">
             Manage user accounts, roles, and permissions
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-text-secondary">
-            {pagination.total} total users
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-48 rounded-lg border border-border-light bg-surface-primary py-1.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-[var(--surface-submit)] focus:outline-none"
+            />
+          </div>
+          {/* Filters */}
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="rounded-lg border border-border-light bg-surface-primary px-2 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)]"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="rounded-lg border border-border-light bg-surface-primary px-2 py-1.5 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)]"
+          >
+            <option value="">All Roles</option>
+            {ROLES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          {/* Group Filter Badge */}
+          {groupFilter && (
+            <div className="flex items-center gap-2 rounded-lg border border-purple-500/50 bg-purple-500/10 px-3 py-1.5">
+              <span className="text-xs text-purple-400">Group: {groupFilter}</span>
+              <button
+                onClick={() => setGroupFilter('')}
+                className="text-purple-400 hover:text-purple-300"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <span className="text-xs text-text-tertiary">
+            {pagination.total} users
           </span>
           <button
             onClick={fetchUsers}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-[var(--surface-submit)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            className="flex items-center justify-center rounded-lg border border-border-light bg-[var(--surface-submit)] p-2 text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            title="Refresh"
           >
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Refresh
           </button>
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border-medium bg-surface-primary py-2 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:border-[var(--surface-submit)] focus:outline-none"
-          />
-        </div>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)]"
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-sm text-text-primary focus:border-[var(--surface-submit)] focus:outline-none [&>option]:bg-[var(--surface-primary)] [&>option]:text-[var(--text-primary)]"
-        >
-          <option value="">All Roles</option>
-          {ROLES.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Data Table */}

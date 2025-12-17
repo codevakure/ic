@@ -132,7 +132,6 @@ export default function useSSE(
           setShowStopButton(false);
         }
         (startupConfig?.balance?.enabled ?? false) && balanceQuery.refetch();
-        console.log('final', data);
         return;
       } else if (data.created != null) {
         const runId = v4();
@@ -178,7 +177,6 @@ export default function useSSE(
 
     sse.addEventListener('open', () => {
       setAbortScroll(false);
-      console.log('connection is opened');
     });
 
     sse.addEventListener('cancel', async () => {
@@ -231,11 +229,8 @@ export default function useSSE(
           return;
         } catch (error) {
           /* token refresh failed, continue handling the original 401 */
-          console.log(error);
         }
       }
-
-      console.log('error in server stream.');
       (startupConfig?.balance?.enabled ?? false) && balanceQuery.refetch();
 
       let data: TResData | undefined = undefined;
@@ -243,7 +238,6 @@ export default function useSSE(
         data = JSON.parse(e.data) as TResData;
       } catch (error) {
         console.error(error);
-        console.log(e);
         setIsSubmitting(false);
       }
 

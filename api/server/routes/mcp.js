@@ -400,6 +400,83 @@ router.post('/:serverName/reinitialize', requireJwtAuth, async (req, res) => {
 });
 
 /**
+ * Direct tool call endpoint - bypasses LLM for UI-initiated actions
+ * This enables the embedded UI to call MCP tools directly without token costs
+ */
+router.post('/:serverName/tools/:toolName/call', requireJwtAuth, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { serverName, toolName } = req.params;
+    const { args = {} } = req.body;
+    const user = createSafeUser(req.user);
+
+    if (!user.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    logger.info(`[MCP Direct Call] ${serverName}/${toolName} for user ${user.id}`);
+    logger.debug(`[MCP Direct Call] Args:`, args);
+
+    const mcpManager = getMCPManager();
+    const flowsCache = getLogStores(CacheKeys.FLOWS);
+    const flowManager = getFlowStateManager(flowsCache);
+
+    // Get server config to check for custom user vars
+    const serverConfig = await mcpServersRegistry.getServerConfig(serverName, user.id);
+    if (!serverConfig) {
+      return res.status(404).json({
+        error: `MCP server '${serverName}' not found`,
+      });
+    }
+
+    // Get user auth map if needed
+    let userMCPAuthMap;
+    if (serverConfig.customUserVars && typeof serverConfig.customUserVars === 'object') {
+      userMCPAuthMap = await getUserMCPAuthMap({
+        userId: user.id,
+        servers: [serverName],
+        findPluginAuthsByKeys,
+      });
+    }
+
+    const customUserVars = userMCPAuthMap?.[`${Constants.mcp_prefix}${serverName}`];
+
+    // Call the tool directly
+    const result = await mcpManager.callTool({
+      user,
+      serverName,
+      toolName,
+      provider: 'openai', // Provider affects response formatting
+      toolArguments: args,
+      flowManager,
+      customUserVars,
+      tokenMethods: {
+        findToken,
+        updateToken,
+        createToken,
+        deleteTokens,
+      },
+    });
+
+    const elapsed = Date.now() - startTime;
+    logger.info(`[MCP Direct Call] ${serverName}/${toolName} completed in ${elapsed}ms`);
+
+    res.json({
+      success: true,
+      result,
+      elapsed,
+    });
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    logger.error(`[MCP Direct Call] Failed after ${elapsed}ms:`, error);
+    res.status(500).json({
+      error: error.message || 'Tool call failed',
+      code: error.code,
+    });
+  }
+});
+
+/**
  * Get connection status for all MCP servers
  * NEW: Token-based status checking - no connection pools, no network calls that can hang
  * Status is determined by checking OAuth tokens in database

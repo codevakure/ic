@@ -146,8 +146,34 @@ const userSchema = new Schema<IUser>(
       type: String,
       sparse: true,
     },
+    /** OIDC groups assigned to the user during authentication */
+    oidcGroups: {
+      type: [String],
+      default: [],
+    },
+    /** Whether the user is banned from the platform */
+    banned: {
+      type: Boolean,
+      default: false,
+    },
+    /** Reason for the ban, if applicable */
+    banReason: {
+      type: String,
+      default: '',
+    },
+    /** Timestamp when the user was banned */
+    bannedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
+
+// Admin dashboard indexes for efficient user queries
+userSchema.index({ role: 1, createdAt: -1 }); // For role filtering with date sort
+userSchema.index({ banned: 1, createdAt: -1 }); // For banned user filtering
+userSchema.index({ email: 1, name: 1, username: 1 }); // For search queries
+userSchema.index({ updatedAt: -1 }); // For active user queries
 
 export default userSchema;

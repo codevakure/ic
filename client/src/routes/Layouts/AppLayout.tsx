@@ -178,11 +178,10 @@ function AppLayoutInner() {
 
   const { mutateAsync } = useDeleteFilesMutation({
     onSuccess: () => {
-      console.log('Temporary Files deleted');
       setFilesToDelete({});
     },
     onError: (error) => {
-      console.log('Error deleting temporary files:', error);
+      console.error('Error deleting temporary files:', error);
     },
   });
 

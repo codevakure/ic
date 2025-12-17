@@ -35,7 +35,7 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
     // Initialize the Datadog tracer with LLM Observability
     tracer = ddTrace.init({
       // Service configuration
-      service: options.service || process.env.DD_SERVICE || 'ranger',
+      service: options.service || process.env.DD_SERVICE || 'librechat',
       env: options.env || process.env.DD_ENV || 'development',
       version: options.version || process.env.DD_VERSION || 'v1.0.0',
       
@@ -56,23 +56,23 @@ export function initializeDatadog(options: DatadogInitOptions = {}): any {
       plugins: {
         'openai': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'ranger',
+          service: options.service || process.env.DD_SERVICE || 'librechat',
         },
         'http': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'ranger',
+          service: options.service || process.env.DD_SERVICE || 'librechat',
         },
         'express': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'ranger',
+          service: options.service || process.env.DD_SERVICE || 'librechat',
         },
         'mongodb': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'ranger',
+          service: options.service || process.env.DD_SERVICE || 'librechat',
         },
         'redis': {
           enabled: true,
-          service: options.service || process.env.DD_SERVICE || 'ranger',
+          service: options.service || process.env.DD_SERVICE || 'librechat',
         }
       }
     });
@@ -179,8 +179,8 @@ export function traceOperation(operationName: string, options: any = {}, callbac
 
   const span = tracer.startSpan(operationName, {
     tags: {
-      'ranger.operation': operationName,
-      'service.name': process.env.DD_SERVICE || 'ranger',
+      'librechat.operation': operationName,
+      'service.name': process.env.DD_SERVICE || 'librechat',
       ...options.tags
     },
     resource: options.resource || operationName,

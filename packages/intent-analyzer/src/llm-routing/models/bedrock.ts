@@ -1,20 +1,15 @@
 /**
  * Bedrock Model Configurations
  * 
- * 4-TIER ROUTING SYSTEM (target distribution):
+ * 3-TIER ROUTING SYSTEM (target distribution):
  * =============================================
- * 1. Nova Micro   - $0.035/$0.14 per 1K tok  - SIMPLE   (~1%)  - Greetings, text-only simple responses
- * 2. Haiku 4.5    - $1/$5 per 1K tok         - MODERATE (~80%) - Most tasks, tool usage, standard code
- * 3. Sonnet 4.5   - $3/$15 per 1K tok        - COMPLEX  (~15%) - Debugging, detailed analysis
- * 4. Opus 4.5     - $5/$25 per 1K tok        - EXPERT   (~4%)  - Deep analysis, architecture, research
- *
- * Alternative Models:
- * - Nova Lite     - $0.06/$0.24 per 1K tok   - Multimodal (image/video) capable
- * - Nova Pro      - $0.80/$3.20 per 1K tok   - Multimodal with better quality
+ * 1. Nova Micro   - $0.035/$0.14 per 1K tok  - SIMPLE   (~5%)  - Greetings, text-only simple responses
+ * 2. Haiku 4.5    - $1/$5 per 1K tok         - MODERATE (~75%) - Most tasks, tool usage, standard code
+ * 3. Sonnet 4.5   - $3/$15 per 1K tok        - COMPLEX  (~20%) - Debugging, detailed analysis, deep reasoning
  *
  * ROUTING RULES:
  * - ANY tool usage (web_search, execute_code, file_search, artifacts) → Haiku 4.5 minimum
- * - Deep/comprehensive analysis requests → Opus 4.5
+ * - Deep/comprehensive analysis, debugging, architecture → Sonnet 4.5
  * - Text-only simple queries (greetings, yes/no) → Nova Micro
  *
  * Model ID Format: us.{provider}.{model}-v1:0 (US cross-region inference)
@@ -23,7 +18,8 @@
 import type { ModelConfig, ModelPair, BedrockPresetTier, ModelTier } from '../types';
 
 /**
- * Bedrock model configurations - 4 models for 4-tier routing
+ * Bedrock model configurations - 3 models for 3-tier routing
+ * Only: Nova Micro, Claude Haiku 4.5, Claude Sonnet 4.5
  */
 export const BedrockModels: Record<string, ModelConfig> = {
   // ============================================================================
@@ -55,54 +51,14 @@ export const BedrockModels: Record<string, ModelConfig> = {
   },
 
   // ============================================================================
-  // Nova Lite ($0.06/$0.24 per 1K tok) - Alternative cheap model
-  // ============================================================================
-  'us.amazon.nova-lite-v1:0': {
-    id: 'us.amazon.nova-lite-v1:0',
-    name: 'Amazon Nova Lite',
-    tier: 'simple',
-    costPer1kTokens: { input: 0.00006, output: 0.00024 },
-    maxTokens: 300000,
-    capabilities: ['general', 'fast', 'vision', 'video'],
-    provider: 'amazon',
-  },
-
-  // ============================================================================
-  // Nova Pro ($0.80/$3.20 per MTok) - Multimodal capable
-  // ============================================================================
-  'us.amazon.nova-pro-v1:0': {
-    id: 'us.amazon.nova-pro-v1:0',
-    name: 'Amazon Nova Pro',
-    tier: 'moderate',
-    costPer1kTokens: { input: 0.0008, output: 0.0032 },
-    maxTokens: 300000,
-    capabilities: ['general', 'coding', 'tools', 'vision', 'video'],
-    provider: 'amazon',
-  },
-
-  // ============================================================================
-  // COMPLEX TIER (~15%) - Sonnet 4.5 ($3/$15 per MTok)
-  // Debugging, code review, detailed analysis
+  // COMPLEX/EXPERT TIER (~20%) - Sonnet 4.5 ($3/$15 per MTok)
+  // Debugging, code review, detailed analysis, deep reasoning, architecture
   // ============================================================================
   'us.anthropic.claude-sonnet-4-5-20250929-v1:0': {
     id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     name: 'Claude Sonnet 4.5',
-    tier: 'complex',
+    tier: 'complex', // Also handles 'expert' tier routing
     costPer1kTokens: { input: 0.003, output: 0.015 },
-    maxTokens: 200000,
-    capabilities: ['reasoning', 'coding', 'analysis', 'vision', 'tools', 'extended-thinking'],
-    provider: 'anthropic',
-  },
-
-  // ============================================================================
-  // EXPERT TIER (~4%) - Opus 4.5 ($5/$25 per MTok) - MOST CAPABLE
-  // Deep analysis, system architecture, research
-  // ============================================================================
-  'global.anthropic.claude-opus-4-5-20251101-v1:0': {
-    id: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
-    name: 'Claude Opus 4.5',
-    tier: 'expert',
-    costPer1kTokens: { input: 0.005, output: 0.025 },
     maxTokens: 200000,
     capabilities: ['reasoning', 'coding', 'analysis', 'vision', 'tools', 'extended-thinking'],
     provider: 'anthropic',
@@ -110,24 +66,23 @@ export const BedrockModels: Record<string, ModelConfig> = {
 };
 
 /**
- * 4-TIER ROUTING PRESETS
+ * 3-TIER ROUTING PRESETS
  * ======================
  * 
- * Target Distribution: Simple ~1%, Moderate ~80%, Complex ~15%, Expert ~4%
+ * Target Distribution: Simple ~5%, Moderate ~75%, Complex/Expert ~20%
  * 
  * Score Range → Tier → Model
- * 0.85+ → expert   → Opus 4.5     ($15/$75)     - Deep analysis, architecture, research
- * 0.55+ → complex  → Sonnet 4.5   ($3/$15)      - Debugging, detailed analysis
- * 0.10+ → moderate → Haiku 4.5    ($1/$5)       - Most tasks, tool usage, standard code
- * 0.00+ → simple   → Nova Micro   ($0.035/$0.14) - Greetings, text-only simple responses
+ * 0.55+ → complex/expert → Sonnet 4.5   ($3/$15)       - Deep analysis, debugging, architecture
+ * 0.10+ → moderate       → Haiku 4.5    ($1/$5)        - Most tasks, tool usage, standard code
+ * 0.00+ → simple         → Nova Micro   ($0.035/$0.14) - Greetings, text-only simple responses
  */
 export const BedrockRoutingPairs: Record<BedrockPresetTier, ModelPair> = {
   /**
-   * Premium: Full 4-tier with Opus 4.5 at top
+   * Premium: Full 4-tier with Sonnet 4.5 at top
    * Best for: Production, customer-facing, quality-critical
    */
   premium: {
-    expert: 'global.anthropic.claude-opus-4-5-20251101-v1:0',
+    expert: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     complex: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     moderate: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
     simple: 'us.amazon.nova-micro-v1:0',

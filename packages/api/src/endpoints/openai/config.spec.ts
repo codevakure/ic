@@ -195,7 +195,7 @@ describe('getOpenAIConfig', () => {
 
     expect(result.configOptions?.baseURL).toBe(reverseProxyUrl);
     expect(result.configOptions?.defaultHeaders).toMatchObject({
-      'HTTP-Referer': 'https://librechat.ai',
+      'HTTP-Referer': 'https://www.librechat.ai',
       'X-Title': 'LibreChat',
     });
     expect(result.llmConfig.include_reasoning).toBe(true);
@@ -891,7 +891,7 @@ describe('getOpenAIConfig', () => {
       });
 
       expect(result.configOptions?.defaultHeaders).toEqual({
-        'HTTP-Referer': 'https://librechat.ai',
+        'HTTP-Referer': 'https://www.librechat.ai',
         'X-Title': 'LibreChat',
         'X-Custom-Header': 'custom-value',
         Authorization: 'Bearer custom-token',
@@ -1458,7 +1458,7 @@ describe('getOpenAIConfig', () => {
         const clientOptions = {
           reverseProxyUrl: baseURL,
           headers: {
-            'HTTP-Referer': 'https://librechat.ai',
+            'HTTP-Referer': 'https://www.librechat.ai',
             'X-Title': 'LibreChat',
             Authorization: `Bearer ${apiKey}`,
           },
@@ -1495,7 +1495,7 @@ describe('getOpenAIConfig', () => {
           repetition_penalty: 1.1,
         });
         expect(result.configOptions?.defaultHeaders).toMatchObject({
-          'HTTP-Referer': 'https://librechat.ai',
+          'HTTP-Referer': 'https://www.librechat.ai',
           'X-Title': 'LibreChat',
           Authorization: `Bearer ${apiKey}`,
         });

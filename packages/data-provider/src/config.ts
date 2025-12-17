@@ -700,6 +700,8 @@ export type TStartupConfig = {
   passwordResetEnabled: boolean;
   emailEnabled: boolean;
   showBirthdayIcon: boolean;
+  /** Enable holiday theme animations (snow, Santa, etc.) */
+  allowHolidayTheme: boolean;
   helpAndFaqURL: string;
   customFooter?: string;
   modelSpecs?: TSpecsConfig;
@@ -877,35 +879,48 @@ export type TMemoryConfig = DeepPartial<z.infer<typeof memorySchema>>;
 const customEndpointsSchema = z.array(endpointSchema.partial()).optional();
 
 // =============================================================================
-// Intent Analyzer Schema - Model Routing Only
+// Intent Analyzer Schema - Unified Tool Selection + Model Routing
 // Uses @librechat/intent-analyzer package
-// Tool selection is config-driven (toolsAutoEnabled in agents endpoint)
 // =============================================================================
 const intentAnalyzerEndpointSchema = z.object({
   /** Enable intent analyzer for this endpoint */
   enabled: z.boolean().optional().default(false),
+  /** 
+   * Model used for LLM classification when regex patterns don't match.
+   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
+   */
+  classifierModel: z.string().optional(),
 });
 
 export const intentAnalyzerSchema = z.object({
+  /** 
+   * Enable automatic tool selection based on query intent.
+   * When true: Tools are selected based on query analysis (smart selection)
+   * When false: toolsAutoEnabled tools are always included for every request
+   */
+  autoToolSelection: z.boolean().optional().default(false),
+  
   /**
-   * Enable 4-tier model routing based on query complexity.
+   * Enable 3-tier model routing based on query complexity.
    * Routes simple queries to cheap models, complex queries to powerful models.
-   * Uses regex patterns only - defaults to Haiku 4.5 if no pattern matches.
    * 
-   * Tiers: SIMPLE (Nova Micro) → MODERATE (Haiku 4.5) 
-   *        → COMPLEX (Sonnet 4.5) → EXPERT (Opus 4.5)
-   * 
-   * Tool selection is config-driven via toolsAutoEnabled in ranger.yaml
+   * Tiers: SIMPLE (Nova Micro) → MODERATE (Haiku 4.5) → COMPLEX/EXPERT (Sonnet 4.5)
    */
   modelRouting: z.boolean().optional().default(false),
   
   /** 
    * Preset determines the maximum model tier for routing:
-   * - 'premium': Routes up to Opus 4.5 (most capable, highest cost)
+   * - 'premium': Routes up to Sonnet 4.5 (most capable for routing)
    * - 'costOptimized': Routes up to Sonnet 4.5 (balanced)  
    * - 'ultraCheap': Routes up to Haiku 4.5 (cheapest)
    */
   preset: z.enum(['premium', 'costOptimized', 'ultraCheap']).optional().default('costOptimized'),
+  
+  /** 
+   * Model used for LLM classification fallback when regex patterns don't match.
+   * Can be any Bedrock model. Default: us.amazon.nova-micro-v1:0 (cheapest)
+   */
+  classifierModel: z.string().optional(),
   
   /** Enable verbose debug logging */
   debug: z.boolean().optional().default(false),
@@ -922,7 +937,7 @@ export const configSchema = z.object({
   ocr: ocrSchema.optional(),
   webSearch: webSearchSchema.optional(),
   memory: memorySchema.optional(),
-  /** Intent analyzer configuration (model routing only, tools are config-driven) */
+  /** Unified intent analyzer configuration (tool selection + model routing) */
   intentAnalyzer: intentAnalyzerSchema.optional(),
   secureImageLinks: z.boolean().optional(),
   imageOutputType: z.nativeEnum(EImageOutputType).default(EImageOutputType.PNG),
@@ -1709,7 +1724,7 @@ export enum TTSProviders {
 /** Enum for app-wide constants */
 export enum Constants {
   /** Key for the app's version. */
-  VERSION = 'v0.8.1-rc2',
+  VERSION = 'v1.0.0',
   /** Key for the Custom Config's version (librechat.yaml). */
   CONFIG_VERSION = '1.3.1',
   /** Standard value for the first message's `parentMessageId` value, to indicate no parent exists. */

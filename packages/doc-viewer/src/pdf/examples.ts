@@ -1,11 +1,11 @@
 /**
  * PDF Viewer Example Usage
  * 
- * This file demonstrates how to use the PDF viewer in Ranger
+ * This file demonstrates how to use the PDF viewer in LibreChat
  */
 
 import { PDF, PDFOptions } from './index';
-// import '@ranger/document-viewer/dist/office.css'; // Uncomment when using as installed package
+// import '@librechat/document-viewer/dist/office.css'; // Uncomment when using as installed package
 
 // Example 1: Basic PDF rendering
 async function basicPDFExample(pdfData: ArrayBuffer, container: HTMLElement) {
@@ -142,8 +142,8 @@ async function cleanupExample(pdfData: ArrayBuffer, container: HTMLElement) {
 // Example 8: React integration example
 /*
 import React, { useEffect, useRef, useState } from 'react';
-import { PDF } from '@ranger/document-viewer';
-import '@ranger/document-viewer/dist/office.css';
+import { PDF } from '@librechat/document-viewer';
+import '@librechat/document-viewer/dist/office.css';
 
 interface PDFViewerProps {
   data: ArrayBuffer;

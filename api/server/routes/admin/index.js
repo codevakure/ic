@@ -40,8 +40,14 @@ router.get('/dashboard/tokens', dashboardController.getTokenMetrics);
 // GET /api/admin/dashboard/models - Get model usage metrics
 router.get('/dashboard/models', dashboardController.getModelMetrics);
 
-// GET /api/admin/dashboard/agents - Get agent usage metrics
+// GET /api/admin/dashboard/agents - Get agent usage metrics (full)
 router.get('/dashboard/agents', dashboardController.getAgentMetrics);
+
+// GET /api/admin/dashboard/agents/all - Get all agents list (no date filter)
+router.get('/dashboard/agents/all', dashboardController.getAllAgents);
+
+// GET /api/admin/dashboard/agents/summary - Get agent summary only (fast)
+router.get('/dashboard/agents/summary', dashboardController.getAgentSummary);
 
 // GET /api/admin/dashboard/activity - Get activity timeline
 router.get('/dashboard/activity', dashboardController.getActivityTimeline);
@@ -58,11 +64,47 @@ router.get('/dashboard/costs', dashboardController.getCostsMetrics);
 // GET /api/admin/dashboard/traces - Get LLM traces for observability
 router.get('/dashboard/traces', dashboardController.getLLMTraces);
 
-// GET /api/admin/dashboard/tools - Get tool usage metrics
+// GET /api/admin/dashboard/tools - Get tool usage metrics (full)
 router.get('/dashboard/tools', dashboardController.getToolMetrics);
 
-// GET /api/admin/dashboard/guardrails - Get guardrails metrics
+// GET /api/admin/dashboard/tools/summary - Get tools summary only (fast)
+router.get('/dashboard/tools/summary', dashboardController.getToolSummary);
+
+// GET /api/admin/dashboard/guardrails - Get guardrails metrics (full)
 router.get('/dashboard/guardrails', dashboardController.getGuardrailsMetrics);
+
+// GET /api/admin/dashboard/guardrails/summary - Get guardrails summary only (fast)
+router.get('/dashboard/guardrails/summary', dashboardController.getGuardrailsSummary);
+
+/**
+ * Groups Management
+ */
+// GET /api/admin/groups - Get all groups
+router.get('/groups', dashboardController.getGroups);
+
+// POST /api/admin/groups - Create a new group
+router.post('/groups', dashboardController.createGroup);
+
+// PUT /api/admin/groups/:groupId - Update a group
+router.put('/groups/:groupId', dashboardController.updateGroup);
+
+// DELETE /api/admin/groups/:groupId - Delete a group
+router.delete('/groups/:groupId', dashboardController.deleteGroup);
+
+// GET /api/admin/agents/groups - Get agent-group associations
+router.get('/agents/groups', dashboardController.getAgentGroupAssociations);
+
+// GET /api/admin/agents/:agentId - Get agent details
+router.get('/agents/:agentId', dashboardController.getAgentDetail);
+
+// PUT /api/admin/agents/:agentId/access - Update agent access (groups and users)
+router.put('/agents/:agentId/access', dashboardController.updateAgentAccess);
+
+// GET /api/admin/agents/:agentId/conversations - Get agent conversations
+router.get('/agents/:agentId/conversations', dashboardController.getAgentConversations);
+
+// GET /api/admin/conversations/:conversationId/messages - Get conversation messages
+router.get('/conversations/:conversationId/messages', dashboardController.getConversationMessages);
 
 /**
  * User Management
@@ -70,8 +112,17 @@ router.get('/dashboard/guardrails', dashboardController.getGuardrailsMetrics);
 // GET /api/admin/users/active/sessions - Get live session data for active users page
 router.get('/users/active/sessions', usersController.getActiveSessions);
 
+// DELETE /api/admin/users/active/sessions - Clear all sessions (logout all users)
+router.delete('/users/active/sessions', usersController.clearAllSessions);
+
+// GET /api/admin/users/active/microsoft - Get Microsoft 365 OAuth sessions
+router.get('/users/active/microsoft', usersController.getMicrosoftSessions);
+
 // GET /api/admin/users/active - Get users with active sessions
 router.get('/users/active', usersController.getActiveUsers);
+
+// DELETE /api/admin/bans - Clear all bans (unban all users and clear ban logs)
+router.delete('/bans', usersController.clearAllBans);
 
 // GET /api/admin/users - List all users with pagination
 router.get('/users', usersController.listUsers);
@@ -88,6 +139,9 @@ router.put('/users/:userId/role', usersController.updateUserRole);
 // PUT /api/admin/users/:userId/ban - Ban/Unban user
 router.put('/users/:userId/ban', usersController.toggleUserBan);
 
+// PUT /api/admin/users/:userId/oidc-groups - Update user OIDC groups
+router.put('/users/:userId/oidc-groups', usersController.updateUserOidcGroups);
+
 // DELETE /api/admin/users/:userId - Delete user
 router.delete('/users/:userId', usersController.deleteUser);
 
@@ -96,6 +150,12 @@ router.get('/users/:userId/stats', usersController.getUserStats);
 
 // GET /api/admin/users/:userId/sessions - Get user sessions
 router.get('/users/:userId/sessions', usersController.getUserSessions);
+
+// DELETE /api/admin/users/:userId/sessions - Terminate all sessions for a user
+router.delete('/users/:userId/sessions', usersController.terminateAllUserSessions);
+
+// DELETE /api/admin/users/:userId/sessions/:sessionId - Terminate a specific session
+router.delete('/users/:userId/sessions/:sessionId', usersController.terminateSession);
 
 // GET /api/admin/users/:userId/transactions - Get user transactions
 router.get('/users/:userId/transactions', usersController.getUserTransactions);

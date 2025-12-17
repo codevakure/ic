@@ -8,7 +8,7 @@
  * - simple:   Nova Micro (~1%)   - Greetings only
  * - moderate: Haiku 4.5  (~80%)  - DEFAULT, most tasks
  * - complex:  Sonnet 4.5 (~15%)  - Debugging, analysis
- * - expert:   Opus 4.5   (~4%)   - Deep research
+ * - expert:   Sonnet 4.5 (~4%)   - Deep research (maps to complex)
  */
 
 // Types

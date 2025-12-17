@@ -166,10 +166,6 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   // MCP tools: Only when user selects in UI dropdown
   // No LLM classifier - let the LLM decide which tools to use
   
-  logger.info('='.repeat(60));
-  logger.info('[Router] ===== REQUEST START =====');
-  logger.info(`[Router] Query: "${queryText.slice(0, 80)}${queryText.length > 80 ? '...' : ''}"`);
-  
   /** @type {string[]} */
   const tools = [];
 
@@ -191,10 +187,8 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   for (const intent of uploadIntents) {
     if (intent === UploadIntent.CODE_INTERPRETER && !tools.includes(Tools.execute_code)) {
       tools.push(Tools.execute_code);
-      logger.debug('[Router] Added execute_code for file intent');
     } else if (intent === UploadIntent.FILE_SEARCH && !tools.includes(Tools.file_search)) {
       tools.push(Tools.file_search);
-      logger.debug('[Router] Added file_search for file intent');
     }
   }
 
@@ -226,11 +220,6 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
     addedMcpServers.add(mcpServer);
   }
 
-  logger.info(`[Router] Core tools (from config): ${JSON.stringify(toolsAutoEnabled)}`);
-  logger.info(`[Router] MCP servers (from UI): ${JSON.stringify([...mcpServers])}`);
-  logger.info(`[Router] Upload intents: ${JSON.stringify(uploadIntents)}`);
-  logger.info(`[Router] Final tools: ${JSON.stringify(tools)}`);
-
   // Build instructions from promptPrefix
   const instructions = req.body.promptPrefix || '';
 
@@ -241,12 +230,15 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   // ========== MODEL ROUTING (v2.0 - Complexity Based) ==========
   // Use query complexity to select model tier
   // No LLM classifier - pure pattern matching
+  // ALWAYS route - overrides user model selection to enforce cost optimization
   
   const intentAnalyzerConfig = req.config?.intentAnalyzer || {};
   const modelRoutingEnabled = intentAnalyzerConfig.modelRouting === true;
   
-  let finalModel = model || 'unknown';
-  let tier = 'default';
+  // Start with default model (Haiku 4.5) - routing will override if needed
+  let finalModel = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+  let tier = 'moderate';
+  const originalModel = model || 'unknown';
 
   if (modelRoutingEnabled) {
     try {
@@ -258,7 +250,7 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
         hasMcpTools: addedMcpServers.size > 0,
       });
       
-      // Only update if routingResult returned valid values
+      // Always use routed model (overrides user selection)
       if (routingResult?.model) {
         finalModel = routingResult.model;
       }
@@ -266,20 +258,24 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
         tier = routingResult.tier;
       }
       
-      // Update request for cost tracking
-      if (finalModel !== model && finalModel !== 'unknown') {
-        req.body.routedModel = true;
-        req.body.model = finalModel;
-        if (req.body.endpointOption?.model_parameters) {
-          req.body.endpointOption.model_parameters.model = finalModel;
-        }
-      }
+      // Log routing decision
+      logger.info(`[ModelRouting] Query: "${queryText.substring(0, 50)}..." | Tier: ${tier} | Model: ${finalModel} | Original: ${originalModel}`);
       
-      const modelShortLog = finalModel?.split('.').pop()?.replace('-v1:0', '') || finalModel;
-      logger.info(`[Router] Model routing: ${tier} → ${modelShortLog}`);
+      // Update request for cost tracking
+      req.body.routedModel = true;
+      req.body.model = finalModel;
+      req.body.originalModel = originalModel;
+      req.body.routedTier = tier;
+      if (req.body.endpointOption?.model_parameters) {
+        req.body.endpointOption.model_parameters.model = finalModel;
+      }
     } catch (routingError) {
-      logger.warn(`[Router] Model routing failed, using default model: ${routingError.message}`);
+      logger.warn(`[ModelRouting] Failed, using default Haiku 4.5: ${routingError.message}`);
     }
+  } else {
+    // Model routing disabled - use original model but log it
+    finalModel = model || finalModel;
+    logger.info(`[ModelRouting] DISABLED - Using original model: ${finalModel}`);
   }
 
   const result = {
@@ -295,15 +291,6 @@ const loadEphemeralAgent = async ({ req, spec, agent_id, endpoint, model_paramet
   if (hasArtifactsConfig || (artifactsMode != null && artifactsMode)) {
     result.artifacts = artifactsMode || 'default';
   }
-
-  // ========== FINAL SUMMARY ==========
-  const toolsStr = tools.join(', ') || 'none';
-  const artifactsStr = result.artifacts ? ` + Artifacts(${result.artifacts})` : '';
-  const modelShort = finalModel?.split('.').pop()?.replace('-v1:0', '') || finalModel || 'unknown';
-  
-  logger.info(`[Router] SUMMARY: Model=${modelShort} | Tier=${(tier || 'default').toUpperCase()} | Tools=[${toolsStr}]${artifactsStr}`);
-  logger.info('[Router] ===== REQUEST END =====');
-  logger.info('='.repeat(60));
 
   return result;
 };

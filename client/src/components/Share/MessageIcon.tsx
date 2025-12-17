@@ -32,7 +32,7 @@ export default function MessageIcon(
   let endpoint = messageSettings.endpoint;
   endpoint = getIconEndpoint({ endpointsConfig, iconURL, endpoint });
   
-  // Get the endpoint config iconURL (e.g., from ranger.yaml endpoints.agents.iconURL)
+  // Get the endpoint config iconURL (e.g., from librechat.yaml endpoints.agents.iconURL)
   const endpointIconURL = useMemo(
     () => getEndpointField(endpointsConfig, endpoint, 'iconURL') ?? '',
     [endpointsConfig, endpoint],

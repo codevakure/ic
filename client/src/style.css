@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Override Tailwind's default border color for dark mode */
+@layer base {
+  .dark *,
+  .dark ::before,
+  .dark ::after {
+    --tw-border-opacity: 1;
+    border-color: rgb(47 47 47 / var(--tw-border-opacity));
+  }
+}
+
 /* Custom Variables */
 :root {
   --white: #fff;

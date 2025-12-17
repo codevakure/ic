@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSetRecoilState } from 'recoil';
-import { Tools, Constants, LocalStorageKeys, AgentCapabilities } from 'librechat-data-provider';
+import { Tools, Constants, LocalStorageKeys, AgentCapabilities, defaultToolsAutoEnabled } from 'librechat-data-provider';
 import type { TAgentsEndpoint } from 'librechat-data-provider';
 import {
   useMCPServerManager,
@@ -23,6 +23,8 @@ interface BadgeRowContextType {
   codeApiKeyForm: ReturnType<typeof useCodeApiKeyForm>;
   searchApiKeyForm: ReturnType<typeof useSearchApiKeyForm>;
   mcpServerManager: ReturnType<typeof useMCPServerManager>;
+  /** Check if a capability is auto-enabled (handled by backend intent analyzer) */
+  isAutoEnabled: (capability: AgentCapabilities | string) => boolean;
 }
 
 const BadgeRowContext = createContext<BadgeRowContextType | undefined>(undefined);
@@ -48,10 +50,73 @@ export default function BadgeRowProvider({
 }: BadgeRowProviderProps) {
   const lastKeyRef = useRef<string>('');
   const hasInitializedRef = useRef(false);
+  const hasClearedAutoEnabledRef = useRef(false);
   const { agentsConfig } = useGetAgentsConfig();
   const key = conversationId ?? Constants.NEW_CONVO;
 
   const setEphemeralAgent = useSetRecoilState(ephemeralAgentByConvoId(key));
+
+  // Get auto-enabled tools from config (these are handled by backend intent analyzer)
+  const toolsAutoEnabled = useMemo(
+    () => (agentsConfig?.toolsAutoEnabled ?? defaultToolsAutoEnabled) as AgentCapabilities[],
+    [agentsConfig?.toolsAutoEnabled],
+  );
+
+  // Check if a capability is auto-enabled (handled by backend intent analyzer)
+  const isAutoEnabled = useCallback(
+    (capability: AgentCapabilities | string) => toolsAutoEnabled.includes(capability as AgentCapabilities),
+    [toolsAutoEnabled],
+  );
+
+  /**
+   * Clear cached state for auto-enabled tools when config is available.
+   * This ensures badges for auto-enabled tools don't appear even if user
+   * had them enabled in a previous session.
+   */
+  useEffect(() => {
+    if (hasClearedAutoEnabledRef.current || !agentsConfig) {
+      return;
+    }
+    hasClearedAutoEnabledRef.current = true;
+
+    const codeToggleKey = `${LocalStorageKeys.LAST_CODE_TOGGLE_}${key}`;
+    const webSearchToggleKey = `${LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_}${key}`;
+    const fileSearchToggleKey = `${LocalStorageKeys.LAST_FILE_SEARCH_TOGGLE_}${key}`;
+    const youtubeVideoToggleKey = `${LocalStorageKeys.LAST_YOUTUBE_VIDEO_TOGGLE_}${key}`;
+    const artifactsToggleKey = `${LocalStorageKeys.LAST_ARTIFACTS_TOGGLE_}${key}`;
+
+    // Clear localStorage and ephemeral state for auto-enabled tools
+    const toolsToClear: { capability: AgentCapabilities; storageKey: string; toolKey: string }[] = [
+      { capability: AgentCapabilities.execute_code, storageKey: codeToggleKey, toolKey: Tools.execute_code },
+      { capability: AgentCapabilities.web_search, storageKey: webSearchToggleKey, toolKey: Tools.web_search },
+      { capability: AgentCapabilities.file_search, storageKey: fileSearchToggleKey, toolKey: Tools.file_search },
+      { capability: AgentCapabilities.youtube_video, storageKey: youtubeVideoToggleKey, toolKey: Tools.youtube_video },
+      { capability: AgentCapabilities.artifacts, storageKey: artifactsToggleKey, toolKey: AgentCapabilities.artifacts },
+    ];
+
+    const clearedTools: Record<string, boolean> = {};
+    toolsToClear.forEach(({ capability, storageKey, toolKey }) => {
+      if (isAutoEnabled(capability)) {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(`${storageKey}_timestamp`);
+        clearedTools[toolKey] = false;
+      }
+    });
+
+    // Also clear the pinned state for auto-enabled tools
+    toolsToClear.forEach(({ capability, storageKey }) => {
+      if (isAutoEnabled(capability)) {
+        localStorage.removeItem(`${storageKey}pinned`);
+      }
+    });
+
+    if (Object.keys(clearedTools).length > 0) {
+      setEphemeralAgent((prev) => ({
+        ...(prev || {}),
+        ...clearedTools,
+      }));
+    }
+  }, [agentsConfig, key, isAutoEnabled, setEphemeralAgent]);
 
   /** Initialize ephemeralAgent from localStorage on mount and when conversation changes */
   useEffect(() => {
@@ -69,14 +134,17 @@ export default function BadgeRowProvider({
       const youtubeVideoToggleKey = `${LocalStorageKeys.LAST_YOUTUBE_VIDEO_TOGGLE_}${key}`;
       const artifactsToggleKey = `${LocalStorageKeys.LAST_ARTIFACTS_TOGGLE_}${key}`;
 
-      const codeToggleValue = getTimestampedValue(codeToggleKey);
-      const webSearchToggleValue = getTimestampedValue(webSearchToggleKey);
-      const fileSearchToggleValue = getTimestampedValue(fileSearchToggleKey);
-      const youtubeVideoToggleValue = getTimestampedValue(youtubeVideoToggleKey);
-      const artifactsToggleValue = getTimestampedValue(artifactsToggleKey);
+      // Only get cached values for tools that are NOT auto-enabled
+      // Auto-enabled tools are handled by backend intent analyzer, so we never show badges for them
+      const codeToggleValue = !isAutoEnabled(AgentCapabilities.execute_code) ? getTimestampedValue(codeToggleKey) : null;
+      const webSearchToggleValue = !isAutoEnabled(AgentCapabilities.web_search) ? getTimestampedValue(webSearchToggleKey) : null;
+      const fileSearchToggleValue = !isAutoEnabled(AgentCapabilities.file_search) ? getTimestampedValue(fileSearchToggleKey) : null;
+      const youtubeVideoToggleValue = !isAutoEnabled(AgentCapabilities.youtube_video) ? getTimestampedValue(youtubeVideoToggleKey) : null;
+      const artifactsToggleValue = !isAutoEnabled(AgentCapabilities.artifacts) ? getTimestampedValue(artifactsToggleKey) : null;
 
       const initialValues: Record<string, any> = {};
 
+      // Only load cached values for tools that are NOT auto-enabled
       if (codeToggleValue !== null) {
         try {
           initialValues[Tools.execute_code] = JSON.parse(codeToggleValue);
@@ -119,6 +187,7 @@ export default function BadgeRowProvider({
 
       /**
        * Always set values for all tools (use defaults if not in `localStorage`)
+       * Auto-enabled tools are always set to false (badges hidden)
        * If `ephemeralAgent` is `null`, create a new object with just our tool values
        */
       const finalValues = {
@@ -152,7 +221,7 @@ export default function BadgeRowProvider({
         }
       });
     }
-  }, [key, isSubmitting, setEphemeralAgent]);
+  }, [key, isSubmitting, setEphemeralAgent, isAutoEnabled]);
 
   /** CodeInterpreter hooks */
   const codeApiKeyForm = useCodeApiKeyForm({});
@@ -221,6 +290,7 @@ export default function BadgeRowProvider({
     codeInterpreter,
     searchApiKeyForm,
     mcpServerManager,
+    isAutoEnabled,
   };
 
   return <BadgeRowContext.Provider value={value}>{children}</BadgeRowContext.Provider>;

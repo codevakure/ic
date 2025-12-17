@@ -38,6 +38,14 @@ export interface IUser extends Document {
   updatedAt?: Date;
   /** Field for external source identification (for consistency with TPrincipal schema) */
   idOnTheSource?: string;
+  /** OIDC groups assigned to the user during authentication */
+  oidcGroups?: string[];
+  /** Whether the user is banned from the platform */
+  banned?: boolean;
+  /** Reason for the ban, if applicable */
+  banReason?: string;
+  /** Timestamp when the user was banned */
+  bannedAt?: Date | null;
 }
 
 export interface BalanceConfig {

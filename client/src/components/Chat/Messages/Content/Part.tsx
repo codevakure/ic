@@ -99,6 +99,7 @@ const Part = memo(
             output={toolCall.output ?? ''}
             initialProgress={toolCall.progress ?? 0.1}
             args={typeof toolCall.args === 'string' ? toolCall.args : ''}
+            isLast={isLast}
           />
         );
       } else if (
@@ -161,7 +162,7 @@ const Part = memo(
         toolCall.type === ToolCallTypes.FILE_SEARCH
       ) {
         return (
-          <RetrievalCall initialProgress={toolCall.progress ?? 0.1} isSubmitting={isSubmitting} />
+          <RetrievalCall initialProgress={toolCall.progress ?? 0.1} isSubmitting={isSubmitting} isLast={isLast} />
         );
       } else if (
         toolCall.type === ToolCallTypes.FUNCTION &&

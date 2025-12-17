@@ -77,6 +77,7 @@ export const agentCreateSchema = agentBaseSchema.extend({
   provider: z.string(),
   model: z.string().nullable(),
   tools: z.array(z.string()).optional().default([]),
+  tool_credentials: z.record(z.record(z.string())).optional().default({}),
 });
 
 /** Update schema extends base with all fields optional and additional update-only fields */
@@ -84,6 +85,7 @@ export const agentUpdateSchema = agentBaseSchema.extend({
   avatar: z.union([agentAvatarSchema, z.null()]).optional(),
   provider: z.string().optional(),
   model: z.string().nullable().optional(),
+  tool_credentials: z.record(z.record(z.string())).optional(),
   projectIds: z.array(z.string()).optional(),
   removeProjectIds: z.array(z.string()).optional(),
   isCollaborative: z.boolean().optional(),

@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Loader2, Menu, X } from 'lucide-react';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { SystemRoles } from 'librechat-data-provider';
 import { useLocalStorage } from '~/hooks';
+import { ThemeContext } from '@librechat/client';
 import AdminSidebar from './AdminSidebar';
 import { AdminStats } from './components/AdminStats';
 
@@ -57,6 +58,13 @@ export default function AdminLayout() {
     }
   }, [location.pathname, navigate]);
 
+  // Get theme for logo
+  const { theme } = useContext(ThemeContext);
+  const isDark = theme === 'dark';
+  const logoSrc = isDark 
+    ? '/assets/branding-logo-dark.svg' 
+    : '/assets/branding-logo-lite.svg';
+
   // Show loading state while auth is being determined
   if (isLoading) {
     return (
@@ -69,6 +77,9 @@ export default function AdminLayout() {
   if (!isAuthenticated || user?.role !== SystemRoles.ADMIN) {
     return null;
   }
+
+  // Show logo in header when sidebar is collapsed and mobile menu is closed
+  const showHeaderLogo = isCollapsed && !isMobileMenuOpen;
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -111,10 +122,14 @@ export default function AdminLayout() {
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          {/* Logo/Brand - visible when scrolled on desktop */}
-          <div className={`hidden md:flex items-center gap-3 transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0'}`}>
-            <span className="text-lg font-bold text-text-primary">Ranger</span>
-            <span className="text-xs text-text-tertiary">Admin</span>
+          {/* Logo/Brand - visible when sidebar is collapsed on desktop */}
+          <div className={`hidden md:flex items-center gap-2 transition-opacity duration-300 ${showHeaderLogo ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <img
+              src={logoSrc}
+              alt="LibreChat"
+              className="h-5 w-auto"
+            />
+            <span className="text-xs text-text-tertiary font-medium">Admin</span>
           </div>
 
           {/* Stats Ticker - hidden on mobile */}

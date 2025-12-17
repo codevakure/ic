@@ -4,11 +4,10 @@
  * Routes queries to the appropriate model tier based on complexity.
  * Uses regex patterns only - no LLM classifier.
  * 
- * 4-TIER SYSTEM (target distribution):
+ * 3-TIER SYSTEM (target distribution):
  * - Simple   (~1%)  - Nova Micro  - Greetings, text-only simple responses
  * - Moderate (~80%) - Haiku 4.5   - DEFAULT, most tasks, tool usage
- * - Complex  (~15%) - Sonnet 4.5  - Debugging, detailed analysis
- * - Expert   (~4%)  - Opus 4.5    - Deep analysis, architecture, research
+ * - Complex/Expert (~19%) - Sonnet 4.5  - Debugging, detailed analysis, architecture
  * 
  * If no pattern matches → Default to Haiku 4.5 (moderate)
  */

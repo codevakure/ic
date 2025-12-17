@@ -7,7 +7,7 @@ cd ${DIR}/../..
 TAG=$1
 
 if [[ -z "${TAG}" ]]; then
-  TAG=${LIBRE_CHAT_DOCKER_TAG}
+  TAG=${LIBRECHAT_CHAT_DOCKER_TAG}
 fi
 
 if [[ -z "${TAG}" ]]; then

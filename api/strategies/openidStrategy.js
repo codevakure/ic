@@ -6,7 +6,7 @@ const client = require('openid-client');
 const jwtDecode = require('jsonwebtoken/decode');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { hashToken, logger } = require('@librechat/data-schemas');
-const { CacheKeys, ErrorTypes } = require('librechat-data-provider');
+const { CacheKeys, ErrorTypes, SystemRoles } = require('librechat-data-provider');
 const { Strategy: OpenIDStrategy } = require('openid-client/passport');
 const {
   isEnabled,
@@ -384,6 +384,10 @@ async function setupOpenId() {
 
           const fullName = getFullName(userinfo);
 
+          // Initialize roles array for OIDC group storage
+          let roles = [];
+          let systemRole = SystemRoles.USER;
+
           if (requiredRole) {
             const requiredRoles = requiredRole
               .split(',')
@@ -396,7 +400,7 @@ async function setupOpenId() {
               decodedToken = jwtDecode(tokenset.id_token);
             }
 
-            let roles = get(decodedToken, requiredRoleParameterPath);
+            roles = get(decodedToken, requiredRoleParameterPath);
             if (!roles || (!Array.isArray(roles) && typeof roles !== 'string')) {
               logger.error(
                 `[openidStrategy] Key '${requiredRoleParameterPath}' not found or invalid type in ${requiredRoleTokenKind} token!`,
@@ -419,7 +423,21 @@ async function setupOpenId() {
                 message: `You must have ${rolesList} role to log in.`,
               });
             }
+
+            // Additional role mapping for system permissions
+            let userGroups = roles;
+
+            if (Array.isArray(userGroups)) {
+              if (userGroups.includes('LibreChatAdmin')) {
+                systemRole = SystemRoles.ADMIN;
+                logger.info(`[openidStrategy] Assigning ADMIN role to user with LibreChatAdmin group`);
+              } else if (userGroups.includes('LibreChatUser')) {
+                systemRole = SystemRoles.USER;
+                logger.info(`[openidStrategy] Assigning USER role to user with LibreChatUser group`);
+              }
+            }
           }
+          logger.info(`[openidStrategy] Final system role assigned: ${systemRole}`);
 
           let username = '';
           if (process.env.OPENID_USERNAME_CLAIM) {
@@ -439,8 +457,11 @@ async function setupOpenId() {
               emailVerified: userinfo.email_verified || false,
               name: fullName,
               idOnTheSource: userinfo.oid,
+              role: systemRole,
+              oidcGroups: (roles || []).map(role => typeof role === 'string' ? role.replace(/^"(.*)"$/, '$1') : role), // Store cleaned OIDC groups
             };
 
+            logger.info(`[openidStrategy] User logged in with OIDC groups:`, (roles || []).map(role => typeof role === 'string' ? role.replace(/^"(.*)"$/, '$1') : role));
             const balanceConfig = getBalanceConfig(appConfig);
             user = await createUser(user, balanceConfig, true, true);
           } else {
@@ -449,6 +470,9 @@ async function setupOpenId() {
             user.username = username;
             user.name = fullName;
             user.idOnTheSource = userinfo.oid;
+            user.role = systemRole;
+            user.oidcGroups = (roles || []).map(role => typeof role === 'string' ? role.replace(/^"(.*)"$/, '$1') : role); // Store cleaned OIDC groups
+            logger.info(`[openidStrategy] User logged in with OIDC groups:`, user.oidcGroups);
             if (email && email !== user.email) {
               user.email = email;
               user.emailVerified = userinfo.email_verified || false;

@@ -50,12 +50,13 @@ const SourcesPanel = memo(function SourcesPanel({
   onRenderChange,
 }: SourcesPanelProps) {
   const sourcesPanelRef = useRef<ImperativePanelHandle>(null);
-  const { isOpen, title, content, mode, headerActions, closePanel } = useSourcesPanel();
+  const { isOpen, title, displayTitle, content, mode, headerActions, closePanel } = useSourcesPanel();
   const [isVisible, setIsVisible] = useState(false);
 
   // Only use this panel for push mode on desktop
   const shouldShow = isOpen && mode === 'push';
 
+  // Handle panel open/close transitions
   useEffect(() => {
     if (shouldShow) {
       onRenderChange(true);
@@ -114,7 +115,7 @@ const SourcesPanel = memo(function SourcesPanel({
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{title}</h3>
+                <h3 className="max-w-[280px] truncate text-base font-medium text-text-primary">{displayTitle ?? title}</h3>
               </div>
               <div className="flex flex-shrink-0 items-center gap-1">
                 {headerActions}
@@ -129,7 +130,9 @@ const SourcesPanel = memo(function SourcesPanel({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto">{content}</div>
+            <div className="flex-1 overflow-y-auto">
+              {content}
+            </div>
           </div>
         </div>
       </ResizablePanel>

@@ -2,19 +2,19 @@
  * Admin Stats Ticker Component
  * 
  * Displays key metrics as badges in the admin top navigation.
- * Shows: Active Sessions, Total Users, Total Files, Total Cost, Input Tokens, Output Tokens
+ * Shows: Active Users, Total Users, Total Cost, Input Tokens, Output Tokens, M365 Logins
  */
 import React, { useEffect, useState } from 'react';
-import { Users, Activity, FileText, DollarSign, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
-import { dashboardApi } from '../services/adminApi';
+import { Users, Activity, DollarSign, ArrowUpCircle, ArrowDownCircle, Cloud } from 'lucide-react';
+import { dashboardApi, activeUsersApi } from '../services/adminApi';
 
 interface AdminStatsData {
-  activeSessions: number;
+  activeUsers: number;
   totalUsers: number;
-  totalFiles: number;
   totalCost: number;
   inputTokens: number;
   outputTokens: number;
+  m365Logins: number;
 }
 
 export function AdminStats() {
@@ -24,18 +24,30 @@ export function AdminStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const overview = await dashboardApi.getOverview();
+        // Get today's date for filtering costs
+        const today = new Date().toISOString().split('T')[0];
+        
+        const [overview, activeData, m365Data, costsToday] = await Promise.all([
+          dashboardApi.getOverview(),
+          activeUsersApi.getActiveUsers(),
+          activeUsersApi.getMicrosoftSessions(),
+          // Get today's costs - same as Costs page with "Today" filter
+          dashboardApi.getCostsMetrics({ startDate: today, endDate: today }),
+        ]);
 
-        // Use accurate cost from API (calculated on server with model-specific pricing)
-        const totalCost = overview.tokens?.totalCost || 0;
+        // Use today's cost from costs API - consistent with Costs page "Today" filter
+        const todayCost = costsToday?.summary?.totalCost || 0;
+        const todayInputTokens = costsToday?.summary?.totalInputTokens || 0;
+        const todayOutputTokens = costsToday?.summary?.totalOutputTokens || 0;
 
         setStats({
-          activeSessions: overview.activeSessions || 0,
+          // Use uniqueActiveUsers from active sessions API - same as ActiveUsersPage
+          activeUsers: activeData?.summary?.uniqueActiveUsers || 0,
           totalUsers: overview.users?.total || 0,
-          totalFiles: overview.totalFiles || 0,
-          totalCost: totalCost,
-          inputTokens: overview.tokens?.input || 0,
-          outputTokens: overview.tokens?.output || 0,
+          totalCost: todayCost,
+          inputTokens: todayInputTokens,
+          outputTokens: todayOutputTokens,
+          m365Logins: m365Data?.summary?.sessionsToday || 0,
         });
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);
@@ -61,13 +73,13 @@ export function AdminStats() {
   };
 
   const formatCost = (cost: number): string => {
-    return `$${cost.toFixed(2)}`;
+    return cost.toFixed(2);
   };
 
   const badges = [
     {
       label: 'Active',
-      value: stats.activeSessions,
+      value: stats.activeUsers,
       icon: Activity,
       color: 'text-green-400',
       bgColor: 'bg-green-500/20',
@@ -102,6 +114,13 @@ export function AdminStats() {
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/20',
       isFormatted: true,
+    },
+    {
+      label: 'M365',
+      value: stats.m365Logins,
+      icon: Cloud,
+      color: 'text-sky-400',
+      bgColor: 'bg-sky-500/20',
     },
   ];
 

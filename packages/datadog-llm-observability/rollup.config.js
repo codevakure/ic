@@ -37,5 +37,5 @@ export default {
   ],
   // Do not bundle these external dependencies
   // dd-trace must remain external as it needs to be loaded first and uses native modules
-  external: ['dd-trace', '@ranger/data-schemas', /node_modules/],
+  external: ['dd-trace', '@librechat/data-schemas', /node_modules/],
 };

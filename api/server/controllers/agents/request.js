@@ -22,9 +22,6 @@ try {
 
 function createCloseHandler(abortController) {
   return function (manual) {
-    if (!manual) {
-      logger.debug('[AgentController] Request closed');
-    }
     if (!abortController) {
       return;
     } else if (abortController.signal.aborted) {
@@ -34,7 +31,6 @@ function createCloseHandler(abortController) {
     }
 
     abortController.abort();
-    logger.debug('[AgentController] Request aborted on close');
   };
 }
 
@@ -90,7 +86,6 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
 
   // Create a function to handle final cleanup
   const performCleanup = () => {
-    logger.debug('[AgentController] Performing cleanup');
     if (Array.isArray(cleanupHandlers)) {
       for (const handler of cleanupHandlers) {
         try {
@@ -105,7 +100,6 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
 
     // Clean up abort controller
     if (abortKey) {
-      logger.debug('[AgentController] Cleaning up abort controller');
       cleanupAbortController(abortKey);
     }
 
@@ -128,7 +122,6 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
     if (requestDataMap.has(req)) {
       requestDataMap.delete(req);
     }
-    logger.debug('[AgentController] Cleanup completed');
   };
 
   try {
@@ -305,10 +298,6 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
     // Edge case: sendMessage completed but abort happened during sendCompletion
     // We need to ensure a final event is sent
     else if (!res.headersSent && !res.finished) {
-      logger.debug(
-        '[AgentController] Handling edge case: `sendMessage` completed but aborted during `sendCompletion`',
-      );
-
       const finalResponse = { ...response };
       finalResponse.error = true;
 
@@ -333,10 +322,6 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
           ...(userMessageToSave.metadata || {}),
           guardrailTracking: req.guardrailTracking.input
         };
-        logger.debug('[AgentController] Including guardrail tracking in user message', {
-          outcome: req.guardrailTracking.input.outcome,
-          actionApplied: req.guardrailTracking.input.actionApplied
-        });
       }
       // Don't await - save in background to not block UI
       saveMessage(req, userMessageToSave, {
@@ -353,14 +338,10 @@ const AgentController = async (req, res, next, initializeClient, addTitle) => {
         response: { ...response },
         client,
       })
-        .then(() => {
-          logger.debug('[AgentController] Title generation started');
-        })
         .catch((err) => {
           logger.error('[AgentController] Error in title generation', err);
         })
         .finally(() => {
-          logger.debug('[AgentController] Title generation completed');
           performCleanup();
         });
     } else {

@@ -3,6 +3,9 @@
  * 
  * Modern observability dashboard with real-time metrics, hourly activity charts,
  * and comprehensive LLM usage analytics. All data is from the database - no mocks.
+ * 
+ * Uses shared Recoil cache for Tools and Guardrails data - if user visits
+ * individual pages first, the data is reused here and vice versa.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,20 +32,27 @@ import {
   AdminAreaChart,
   AdminBarChart,
   AdminMultiBarChart,
+  AdminMultiAreaChart,
   CHART_COLORS,
 } from '../components/Charts';
 import {
   dashboardApi,
   systemApi,
+  usersApi,
   type DashboardOverview,
   type TokenMetrics,
   type HourlyActivity,
   type ConversationMetrics,
   type UserMetrics,
   type SystemHealth,
-  type ToolMetrics,
-  type GuardrailsMetrics,
 } from '../services/adminApi';
+import { useToolMetrics, useGuardrailsMetrics } from '../hooks/useAdminMetrics';
+import { 
+  DashboardPageSkeleton,
+  StatCardSkeleton,
+  ChartSkeleton,
+  StatsGridSkeleton,
+} from '../components/Skeletons';
 import { cn } from '~/utils';
 
 // Date range presets
@@ -68,9 +78,12 @@ const formatCurrency = (num: number): string => {
   return `$${num.toFixed(2)}`;
 };
 
-// Format date for input
+// Format date for input (using local time consistently)
 const formatDateForInput = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Metric card component
@@ -116,7 +129,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
           'mt-1 font-bold text-text-primary',
           size === 'large' ? 'text-3xl' : 'text-2xl'
         )}>
-          {loading ? '...' : typeof value === 'number' ? formatNumber(value) : value}
+          {loading ? (
+            <span className="inline-block h-7 w-16 animate-pulse rounded bg-surface-tertiary" />
+          ) : typeof value === 'number' ? formatNumber(value) : value}
         </p>
         {(subtitle || trend) && (
           <div className="mt-1 flex items-center gap-2">
@@ -154,20 +169,26 @@ function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<string>('today');
   
+  // Individual metric loading states for filter changes
+  const [metricsLoading, setMetricsLoading] = useState({
+    overview: true,
+    tokens: true,
+    conversations: true,
+    users: true,
+  });
+  
   // Custom date range
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showCustomPicker, setShowCustomPicker] = useState(false);
 
-  // Dashboard data
+  // Dashboard data (dashboard-specific only)
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [tokenMetrics, setTokenMetrics] = useState<TokenMetrics | null>(null);
   const [conversationMetrics, setConversationMetrics] = useState<ConversationMetrics | null>(null);
   const [userMetrics, setUserMetrics] = useState<UserMetrics | null>(null);
   const [hourlyActivity, setHourlyActivity] = useState<HourlyActivity | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
-  const [toolMetrics, setToolMetrics] = useState<ToolMetrics | null>(null);
-  const [guardrailsMetrics, setGuardrailsMetrics] = useState<GuardrailsMetrics | null>(null);
   const [bannedCount, setBannedCount] = useState<number>(0);
 
   // Calculate date range from preset
@@ -213,11 +234,44 @@ function DashboardPage() {
     };
   }, [datePreset, customStartDate, customEndDate]);
 
+  // Convert dateRange to the format hooks expect (YYYY-MM-DD strings)
+  const hookDateRange = useMemo(() => ({
+    startDate: dateRange.startDate.split('T')[0],
+    endDate: dateRange.endDate.split('T')[0],
+  }), [dateRange]);
+
+  // Use shared cached hooks for Tools and Guardrails
+  // These cache in Recoil - if user already visited ToolsPage or GuardrailsPage, data is reused
+  const {
+    summary: toolsSummary,
+    summaryLoading: toolsSummaryLoading,
+    trend: toolsTrend,
+    detailsLoading: toolsDetailsLoading,
+    refetch: refetchTools,
+  } = useToolMetrics(hookDateRange);
+
+  const {
+    summary: guardrailsSummary,
+    summaryLoading: guardrailsSummaryLoading,
+    trend: guardrailsTrend,
+    detailsLoading: guardrailsDetailsLoading,
+    refetch: refetchGuardrails,
+  } = useGuardrailsMetrics(hookDateRange);
+
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // Set loading states for metrics affected by date filter
+    setMetricsLoading(prev => ({
+      ...prev,
+      overview: true,
+      tokens: true,
+      conversations: true,
+      users: true,
+    }));
     setError(null);
 
     try {
+      // Fetch dashboard-specific data only
+      // Tools and Guardrails data comes from shared hooks (cached in Recoil)
       const [
         overviewRes, 
         tokensRes, 
@@ -225,8 +279,6 @@ function DashboardPage() {
         usersRes,
         healthRes, 
         hourlyRes,
-        toolsRes,
-        guardrailsRes
       ] = await Promise.allSettled([
         dashboardApi.getOverview(dateRange),
         dashboardApi.getTokenMetrics(dateRange),
@@ -234,26 +286,31 @@ function DashboardPage() {
         dashboardApi.getUserMetrics(dateRange),
         systemApi.getHealth(),
         dashboardApi.getHourlyActivity('America/Chicago'),
-        dashboardApi.getToolMetrics(dateRange),
-        dashboardApi.getGuardrailsMetrics(dateRange),
       ]);
 
-      if (overviewRes.status === 'fulfilled') setOverview(overviewRes.value);
-      if (tokensRes.status === 'fulfilled') setTokenMetrics(tokensRes.value);
-      if (conversationsRes.status === 'fulfilled') setConversationMetrics(conversationsRes.value);
-      if (usersRes.status === 'fulfilled') setUserMetrics(usersRes.value);
+      if (overviewRes.status === 'fulfilled') {
+        setOverview(overviewRes.value);
+        setMetricsLoading(prev => ({ ...prev, overview: false }));
+      }
+      if (tokensRes.status === 'fulfilled') {
+        setTokenMetrics(tokensRes.value);
+        setMetricsLoading(prev => ({ ...prev, tokens: false }));
+      }
+      if (conversationsRes.status === 'fulfilled') {
+        setConversationMetrics(conversationsRes.value);
+        setMetricsLoading(prev => ({ ...prev, conversations: false }));
+      }
+      if (usersRes.status === 'fulfilled') {
+        setUserMetrics(usersRes.value);
+        setMetricsLoading(prev => ({ ...prev, users: false }));
+      }
       if (healthRes.status === 'fulfilled') setSystemHealth(healthRes.value);
       if (hourlyRes.status === 'fulfilled') setHourlyActivity(hourlyRes.value);
-      if (toolsRes.status === 'fulfilled') setToolMetrics(toolsRes.value);
-      if (guardrailsRes.status === 'fulfilled') setGuardrailsMetrics(guardrailsRes.value);
 
-      // Fetch banned users count
+      // Fetch banned users count using proper API
       try {
-        const response = await fetch('/api/admin/users?status=banned&limit=1');
-        if (response.ok) {
-          const data = await response.json();
-          setBannedCount(data.pagination?.total || 0);
-        }
+        const bannedData = await usersApi.list({ status: 'banned', limit: 1 });
+        setBannedCount(bannedData.pagination?.total || 0);
       } catch {
         // Ignore error for banned count
       }
@@ -261,8 +318,16 @@ function DashboardPage() {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+      setMetricsLoading({ overview: false, tokens: false, conversations: false, users: false });
     }
   }, [dateRange]);
+
+  // Combined refresh that also refreshes tools and guardrails from hooks
+  const handleRefresh = useCallback(() => {
+    fetchData();
+    refetchTools();
+    refetchGuardrails();
+  }, [fetchData, refetchTools, refetchGuardrails]);
 
   useEffect(() => {
     fetchData();
@@ -270,9 +335,9 @@ function DashboardPage() {
 
   // Auto-refresh every 60 seconds
   useEffect(() => {
-    const interval = setInterval(fetchData, 60000);
+    const interval = setInterval(handleRefresh, 60000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [handleRefresh]);
 
   // Handle date preset change
   const handleDatePresetChange = (value: string) => {
@@ -289,14 +354,17 @@ function DashboardPage() {
     setDatePreset(value);
   };
 
-  // Transform hourly API data for chart - using real data only
+  // Transform hourly API data for chart - using real data only with separate series
   const hourlyData = useMemo(() => {
     if (!hourlyActivity?.hourlyData?.length) {
       return [];
     }
     return hourlyActivity.hourlyData.map(h => ({
       name: h.label,
-      value: h.conversations + h.messages + h.sessions,
+      conversations: h.conversations,
+      messages: h.messages,
+      sessions: h.sessions,
+      activeUsers: h.activeUsers,
     }));
   }, [hourlyActivity]);
 
@@ -353,25 +421,25 @@ function DashboardPage() {
     }));
   }, [conversationMetrics?.byModel]);
 
-  // Tools usage trend - real data
+  // Tools usage trend - from shared hook
   const toolsUsageData = useMemo(() => {
-    if (!toolMetrics?.trend?.length) return [];
-    return toolMetrics.trend.map(d => ({
+    if (!toolsTrend?.length) return [];
+    return toolsTrend.map(d => ({
       name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       value: d.count,
     }));
-  }, [toolMetrics?.trend]);
+  }, [toolsTrend]);
 
-  // Guardrails trend - real data with all 3 categories
+  // Guardrails trend - from shared hook with all 3 categories
   const guardrailsData = useMemo(() => {
-    if (!guardrailsMetrics?.trend?.length) return [];
-    return guardrailsMetrics.trend.map(d => ({
+    if (!guardrailsTrend?.length) return [];
+    return guardrailsTrend.map(d => ({
       name: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       blocked: d.blocked,
       intervened: d.intervened,
       anonymized: d.anonymized,
     }));
-  }, [guardrailsMetrics?.trend]);
+  }, [guardrailsTrend]);
 
   // Get display label for date range
   const dateRangeLabel = useMemo(() => {
@@ -381,15 +449,9 @@ function DashboardPage() {
     return DATE_PRESETS.find(p => p.value === datePreset)?.label || 'Today';
   }, [datePreset, customStartDate, customEndDate]);
 
+  // Show full skeleton on initial load
   if (loading && !overview) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="flex items-center gap-3 text-text-secondary">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
+    return <DashboardPageSkeleton />;
   }
 
   return (
@@ -470,11 +532,11 @@ function DashboardPage() {
           
           {/* Refresh Button */}
           <button
-            onClick={fetchData}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || toolsDetailsLoading || guardrailsDetailsLoading}
             className="flex items-center gap-2 rounded-lg bg-surface-tertiary px-3 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            <RefreshCw className={cn('h-4 w-4', (loading || toolsDetailsLoading || guardrailsDetailsLoading) && 'animate-spin')} />
           </button>
         </div>
       </div>
@@ -494,19 +556,24 @@ function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-text-primary">Activity (24h)</h3>
-              <p className="text-xs text-text-secondary">Conversations + Messages + Sessions (CST)</p>
+              <p className="text-xs text-text-secondary">Conversations, Messages & Sessions (CST)</p>
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-surface-tertiary px-2 py-1">
               <Clock className="h-3 w-3 text-text-tertiary" />
               <span className="text-xs font-medium text-text-secondary">Live</span>
             </div>
           </div>
-          {hourlyData.length > 0 ? (
-            <AdminAreaChart
+          {loading && !hourlyActivity ? (
+            <div className="h-[220px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : hourlyData.length > 0 ? (
+            <AdminMultiAreaChart
               data={hourlyData}
-              dataKey="value"
+              dataKeys={[
+                { key: 'conversations', color: CHART_COLORS.primary, name: 'Conversations' },
+                { key: 'messages', color: CHART_COLORS.success, name: 'Messages' },
+                { key: 'activeUsers', color: CHART_COLORS.orange, name: 'Active Users' },
+              ]}
               height={220}
-              color={CHART_COLORS.success}
               formatter={formatNumber}
             />
           ) : (
@@ -525,7 +592,7 @@ function DashboardPage() {
             icon={<MessageSquare className="h-4 w-4" />}
             iconColor="text-teal-600 dark:text-teal-400"
             iconBg="bg-teal-500/10"
-            loading={loading}
+            loading={metricsLoading.conversations}
             size="large"
           />
           <MetricCard
@@ -535,7 +602,7 @@ function DashboardPage() {
             icon={<Hash className="h-4 w-4" />}
             iconColor="text-cyan-600 dark:text-cyan-400"
             iconBg="bg-cyan-500/10"
-            loading={loading}
+            loading={metricsLoading.conversations}
             size="large"
           />
           <MetricCard
@@ -545,18 +612,18 @@ function DashboardPage() {
             icon={<Zap className="h-4 w-4" />}
             iconColor="text-yellow-600 dark:text-yellow-400"
             iconBg="bg-yellow-500/10"
-            loading={loading}
+            loading={metricsLoading.tokens}
             size="large"
           />
           <MetricCard
             title="Cost"
             value={formatCurrency(tokenMetrics?.summary?.totalCost ?? 0)}
-            subtitle={tokenMetrics?.summary?.cacheSavings ? `Saved ${formatCurrency(tokenMetrics.summary.cacheSavings)} from cache` : (datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`)}
+            subtitle={tokenMetrics?.summary?.totalCacheSavings ? `Saved ${formatCurrency(tokenMetrics.summary.totalCacheSavings)} from cache` : (datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`)}
             icon={<Coins className="h-4 w-4" />}
             iconColor="text-orange-600 dark:text-orange-400"
             iconBg="bg-orange-500/10"
             onClick={() => navigate('/admin/costs')}
-            loading={loading}
+            loading={metricsLoading.tokens}
             size="large"
           />
         </div>
@@ -571,16 +638,16 @@ function DashboardPage() {
           icon={<UserCheck className="h-4 w-4" />}
           iconColor="text-blue-600 dark:text-blue-400"
           iconBg="bg-blue-500/10"
-          loading={loading}
+          loading={metricsLoading.users}
         />
         <MetricCard
           title="New Users"
-          value={overview?.users?.today ?? 0}
-          subtitle={`${overview?.users?.thisWeek ?? 0} this week`}
+          value={overview?.users?.inRange ?? overview?.users?.today ?? 0}
+          subtitle={datePreset === 'today' ? 'Today' : `In ${dateRangeLabel}`}
           icon={<TrendingUp className="h-4 w-4" />}
           iconColor="text-emerald-600 dark:text-emerald-400"
           iconBg="bg-emerald-500/10"
-          loading={loading}
+          loading={metricsLoading.overview}
         />
         <MetricCard
           title="Transactions"
@@ -589,7 +656,7 @@ function DashboardPage() {
           icon={<Activity className="h-4 w-4" />}
           iconColor="text-violet-600 dark:text-violet-400"
           iconBg="bg-violet-500/10"
-          loading={loading}
+          loading={metricsLoading.tokens}
         />
         <MetricCard
           title="Avg Tokens/Conv"
@@ -598,7 +665,7 @@ function DashboardPage() {
           icon={<BarChart3 className="h-4 w-4" />}
           iconColor="text-rose-600 dark:text-rose-400"
           iconBg="bg-rose-500/10"
-          loading={loading}
+          loading={metricsLoading.conversations || metricsLoading.tokens}
         />
       </div>
 
@@ -613,7 +680,9 @@ function DashboardPage() {
             </div>
             <Zap className="h-4 w-4 text-text-tertiary" />
           </div>
-          {modelUsageData.length > 0 ? (
+          {loading && !tokenMetrics ? (
+            <div className="h-[200px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : modelUsageData.length > 0 ? (
             <AdminBarChart
               data={modelUsageData}
               height={200}
@@ -646,7 +715,9 @@ function DashboardPage() {
               </div>
             </div>
           </div>
-          {dailyLLMData.length > 0 ? (
+          {loading && !tokenMetrics ? (
+            <div className="h-[200px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : dailyLLMData.length > 0 ? (
             <AdminMultiBarChart
               data={dailyLLMData}
               dataKeys={[
@@ -676,7 +747,9 @@ function DashboardPage() {
             </div>
             <Activity className="h-4 w-4 text-text-tertiary" />
           </div>
-          {endpointData.length > 0 ? (
+          {loading && !conversationMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : endpointData.length > 0 ? (
             <AdminBarChart
               data={endpointData}
               height={160}
@@ -700,7 +773,9 @@ function DashboardPage() {
             </div>
             <Bot className="h-4 w-4 text-text-tertiary" />
           </div>
-          {conversationsByModelData.length > 0 ? (
+          {loading && !conversationMetrics ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : conversationsByModelData.length > 0 ? (
             <AdminBarChart
               data={conversationsByModelData}
               height={160}
@@ -727,12 +802,14 @@ function DashboardPage() {
             <div>
               <h3 className="text-sm font-semibold text-text-primary">Tools Usage</h3>
               <p className="text-xs text-text-secondary">
-                {toolMetrics?.summary?.totalInvocations ?? 0} invocations • {toolMetrics?.summary?.totalTools ?? 0} tools
+                {toolsSummary?.totalInvocations ?? 0} invocations • {toolsSummary?.totalTools ?? 0} tools
               </p>
             </div>
             <Wrench className="h-4 w-4 text-text-tertiary" />
           </div>
-          {toolsUsageData.length > 0 ? (
+          {toolsDetailsLoading ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : toolsUsageData.length > 0 ? (
             <AdminAreaChart
               data={toolsUsageData}
               dataKey="value"
@@ -756,12 +833,14 @@ function DashboardPage() {
             <div>
               <h3 className="text-sm font-semibold text-text-primary">Guardrails</h3>
               <p className="text-xs text-text-secondary">
-                {guardrailsMetrics?.summary?.totalEvents ?? 0} events • {guardrailsMetrics?.summary?.blocked ?? 0} blocked • {guardrailsMetrics?.summary?.anonymized ?? 0} anonymized
+                {guardrailsSummary?.totalEvents ?? 0} events • {guardrailsSummary?.blocked ?? 0} blocked • {guardrailsSummary?.anonymized ?? 0} anonymized
               </p>
             </div>
             <Shield className="h-4 w-4 text-text-tertiary" />
           </div>
-          {guardrailsData.length > 0 ? (
+          {guardrailsDetailsLoading ? (
+            <div className="h-[160px] w-full rounded bg-surface-tertiary animate-pulse" />
+          ) : guardrailsData.length > 0 ? (
             <AdminMultiBarChart
               data={guardrailsData}
               dataKeys={[
@@ -850,6 +929,7 @@ function DashboardPage() {
       {/* ROW 6: 4 Static Metrics (don't change with filter) */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <MetricCard
+          key="active-sessions"
           title="Active Sessions"
           value={overview?.activeSessions ?? 0}
           subtitle="Currently online"
@@ -859,6 +939,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-messages"
           title="Total Messages"
           value={overview?.messages.total ?? 0}
           subtitle={`${overview?.messages.today ?? 0} today`}
@@ -868,6 +949,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-users"
           title="Total Users"
           value={overview?.users.total ?? 0}
           subtitle={`${overview?.users.thisMonth ?? 0} this month`}
@@ -878,6 +960,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="total-conversations"
           title="Total Conversations"
           value={conversationMetrics?.summary?.total ?? overview?.conversations.total ?? 0}
           subtitle="All time"
@@ -887,6 +970,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="agents"
           title="Agents"
           value={overview?.agents?.total ?? 0}
           subtitle="Custom assistants"
@@ -896,6 +980,7 @@ function DashboardPage() {
           loading={loading}
         />
         <MetricCard
+          key="banned-users"
           title="Banned Users"
           value={bannedCount}
           subtitle="Access restricted"

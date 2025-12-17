@@ -71,7 +71,7 @@ const createErrorHandler = ({ req, res, getContext, originPath = '/assistants/ch
     } else if (error.message === 'Request closed' && completedRun) {
       return;
     } else if (error.message === 'Request closed') {
-      logger.debug(`[${originPath}] Request aborted on close`);
+      // Request aborted on close
     } else if (/Files.*are invalid/.test(error.message)) {
       const errorMessage = `Files are invalid, or may not have uploaded yet.${
         endpoint === 'azureAssistants'
@@ -101,7 +101,6 @@ const createErrorHandler = ({ req, res, getContext, originPath = '/assistants/ch
     try {
       const status = await cache.get(cacheKey);
       if (status === 'cancelled') {
-        logger.debug(`[${originPath}] Run already cancelled`);
         return res.end();
       }
       await cache.delete(cacheKey);

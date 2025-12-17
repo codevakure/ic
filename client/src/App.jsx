@@ -8,6 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Toast, ThemeProvider, ToastProvider } from '@librechat/client';
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 import { ScreenshotProvider, useApiErrorBoundary, useThemeColors } from './hooks';
+import { HolidayOverlay } from './components/HolidayEffects';
 import WakeLockManager from '~/components/System/WakeLockManager';
 import { getThemeFromEnv } from './utils/getThemeFromEnv';
 import { initializeFontSize } from '~/store/fontSize';
@@ -55,7 +56,7 @@ const App = () => {
                   2. Apply custom theme colors if envTheme is provided
                   3. Otherwise use stored theme preferences from localStorage
                   4. Fall back to default theme colors if nothing is stored
-                  ThemeColorsProvider applies primary color from ranger.yaml config */}
+                  ThemeColorsProvider applies primary color from librechat.yaml config */}
               <RadixToast.Provider>
                 <ToastProvider>
                   <DndProvider backend={HTML5Backend}>
@@ -77,6 +78,8 @@ const App = () => {
 
 export default () => (
   <ScreenshotProvider>
+    {/* Holiday animation - shows immediately, checks config internally */}
+    <HolidayOverlay duration={8000} particleCount={15} />
     <App />
     {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
     <audio

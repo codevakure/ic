@@ -91,43 +91,6 @@ class ModelEndHandler {
         usage.model = modelName;
       }
 
-      // === CACHE TOKEN EXTRACTION & NORMALIZATION ===
-      // Extract cache tokens from multiple possible sources:
-      // 1. LangChain normalized: input_token_details.cache_creation, input_token_details.cache_read
-      // 2. Anthropic direct API: cache_creation_input_tokens, cache_read_input_tokens
-      // 3. AWS Bedrock SDK (raw response): cacheWriteInputTokens, cacheReadInputTokens
-      // NOTE: LangChain AWS does NOT extract cache tokens from Bedrock, so we check response_metadata
-      const provider = agentContext?.provider || 'unknown';
-      const inputDetails = usage.input_token_details || {};
-      const responseMetadata = data?.output?.response_metadata || {};
-      const rawBedrockUsage = responseMetadata?.usage || responseMetadata?.metadata?.usage || {};
-      
-      const cacheRead = 
-        inputDetails.cache_read || 
-        inputDetails.cache_read_input_tokens || 
-        usage.cache_read_input_tokens || 
-        rawBedrockUsage.cacheReadInputTokens || 0;
-      const cacheCreation = 
-        inputDetails.cache_creation || 
-        inputDetails.cache_creation_input_tokens || 
-        usage.cache_creation_input_tokens || 
-        rawBedrockUsage.cacheWriteInputTokens || 0;
-      
-      // Normalize cache tokens into input_token_details for downstream database storage
-      // This ensures recordCollectedUsage() gets cache tokens in the expected format
-      if ((cacheRead > 0 || cacheCreation > 0) && !usage.input_token_details) {
-        usage.input_token_details = {
-          cache_read: cacheRead,
-          cache_creation: cacheCreation,
-        };
-      }
-      
-      // Log cache status
-      if (cacheRead > 0 || cacheCreation > 0) {
-        logger.info(`[Cache] ✅ ${provider}/${modelName} | read=${cacheRead} | write=${cacheCreation}`);
-      }
-      // === END CACHE TOKEN EXTRACTION ===
-
       this.collectedUsage.push(usage);
       if (!streamingDisabled) {
         return this.finalize(errorMessage);
@@ -315,29 +278,16 @@ function createToolEndCallback({ req, res, artifactPromises }) {
   /**
    * @type {ToolEndCallback}
    */
-  const toolEndCallback = (data, metadata) => {
-    const { output } = data;
-    logger.info('[ToolEndCallback] Called for tool:', output?.name || 'unknown');
-    
+  return async (data, metadata) => {
+    const output = data?.output;
     if (!output) {
       return;
     }
 
     if (!output.artifact) {
-      logger.debug('[ToolEndCallback] No artifact for tool:', output.name);
       return;
     }
-    
-    // Detailed logging for code execution artifacts
-    const artifactKeys = Object.keys(output.artifact);
-    logger.info('[ToolEndCallback] Processing tool with artifact:', { 
-      toolName: output.name, 
-      artifactKeys,
-      hasContent: !!output.artifact.content,
-      hasFiles: !!output.artifact.files,
-      hasSessionId: !!output.artifact.session_id,
-    });
-    
+
     if (output.artifact[Tools.file_search]) {
       artifactPromises.push(
         (async () => {
@@ -413,10 +363,6 @@ function createToolEndCallback({ req, res, artifactPromises }) {
     if (output.artifact.content) {
       /** @type {FormattedContent[]} */
       const content = output.artifact.content;
-      logger.info('[ToolEndCallback] Found artifact.content for image processing', { 
-        toolName: output.name, 
-        contentLength: content.length 
-      });
       for (let i = 0; i < content.length; i++) {
         const part = content[i];
         if (!part) {

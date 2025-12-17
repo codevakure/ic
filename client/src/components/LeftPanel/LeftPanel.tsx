@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMediaQuery, TooltipAnchor } from '@librechat/client';
 import { useLocalStorage, useLocalize } from '~/hooks';
 import LeftPanelNav from './LeftPanelNav';

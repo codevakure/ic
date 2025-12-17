@@ -27,6 +27,28 @@ export interface IContextBreakdown {
   toolContextDetail?: IToolContextBreakdown[];  // Individual tool context token counts
 }
 
+// Context analytics for observability
+export interface IContextAnalytics {
+  messageCount?: number;           // Total messages in context
+  totalTokens?: number;            // Total tokens in context
+  maxContextTokens?: number;       // Maximum allowed context tokens
+  instructionTokens?: number;      // Instruction/system tokens
+  utilizationPercent?: number;     // Context utilization (0-100)
+  breakdown?: Record<string, { tokens: number; percent: number }>;  // By message type
+  toonStats?: {
+    compressedCount?: number;      // Number of outputs TOON compressed
+    charactersSaved?: number;      // Characters saved
+    tokensSaved?: number;          // Estimated tokens saved
+    avgReductionPercent?: number;  // Average reduction %
+  };
+  cacheStats?: {
+    cacheReadTokens?: number;      // Cache read tokens
+    cacheCreationTokens?: number;  // Cache creation tokens
+  };
+  pruningApplied?: boolean;        // Whether pruning was applied
+  messagesPruned?: number;         // Messages pruned count
+}
+
 // @ts-ignore
 export interface ITransaction extends Document {
   user: Types.ObjectId;
@@ -42,6 +64,7 @@ export interface ITransaction extends Document {
   writeTokens?: number;
   readTokens?: number;
   contextBreakdown?: IContextBreakdown;  // Detailed breakdown of what's in the context
+  contextAnalytics?: IContextAnalytics;  // Context analytics for observability
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -100,10 +123,39 @@ const transactionSchema: Schema<ITransaction> = new Schema(
       },
       default: undefined,
     },
+    contextAnalytics: {
+      type: {
+        messageCount: Number,
+        totalTokens: Number,
+        maxContextTokens: Number,
+        instructionTokens: Number,
+        utilizationPercent: Number,
+        breakdown: Schema.Types.Mixed,  // { human: { tokens, percent }, ai: {...}, tool: {...} }
+        toonStats: {
+          compressedCount: Number,
+          charactersSaved: Number,
+          tokensSaved: Number,
+          avgReductionPercent: Number,
+        },
+        cacheStats: {
+          cacheReadTokens: Number,
+          cacheCreationTokens: Number,
+        },
+        pruningApplied: Boolean,
+        messagesPruned: Number,
+      },
+      default: undefined,
+    },
   },
   {
     timestamps: true,
   },
 );
+
+// Admin dashboard indexes for efficient metrics queries
+transactionSchema.index({ createdAt: 1 }); // For date range queries
+transactionSchema.index({ tokenType: 1, createdAt: 1 }); // For token type aggregations
+transactionSchema.index({ conversationId: 1, createdAt: 1 }); // For conversation cost lookups
+transactionSchema.index({ model: 1, tokenType: 1 }); // For model-specific aggregations
 
 export default transactionSchema;

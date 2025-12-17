@@ -12,16 +12,15 @@ This package provides intelligent routing for:
 
 All in **ONE call** with optional LLM fallback for edge cases.
 
-## 4-Tier Model Routing
+## 3-Tier Model Routing
 
 | Tier | Score Range | Model | Use Case |
-|------|-------------|-------|----------|
-| SIMPLE | 0.00-0.35 | Nova Pro | Basic Q&A, greetings, simple tools |
-| MODERATE | 0.35-0.60 | Haiku 4.5 | Explanations, standard coding |
-| COMPLEX | 0.60-0.80 | Sonnet 4.5 | Debugging, detailed analysis |
-| EXPERT | 0.80-1.00 | Opus 4.5 | System design, complex algorithms |
+|------|-------------|-------|---------|
+| SIMPLE | 0.00-0.10 | Nova Micro | Basic greetings, simple text-only responses |
+| MODERATE | 0.10-0.55 | Haiku 4.5 | Most tasks, tool usage, standard coding |
+| COMPLEX/EXPERT | 0.55+ | Sonnet 4.5 | Debugging, detailed analysis, architecture |
 
-> **Note**: Nova Micro is used only for `titleModel`/`classifierModel`, NOT for routing. This is because Nova Micro can't handle tools or conversation context properly.
+> **Note**: Nova Micro is used for simple tier AND `titleModel`/`classifierModel`. For any tool usage, Haiku 4.5 minimum is enforced.
 
 ## Installation
 
@@ -45,9 +44,9 @@ const result = await routeQuery('What are booming stocks today?', {
 });
 
 console.log(result.tools);  // ['web_search']
-console.log(result.model);  // 'us.amazon.nova-pro-v1:0'
-console.log(result.tier);   // 'simple'
-console.log(result.reason); // 'Query needs real-time data'
+console.log(result.model);  // 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+console.log(result.tier);   // 'moderate'
+console.log(result.reason); // 'Query needs real-time data with tool usage'
 ```
 
 ### With LLM Fallback
@@ -146,9 +145,9 @@ Get model ID for a specific tier.
 ```typescript
 import { getModelForTier } from '@librechat/intent-analyzer';
 
-getModelForTier('simple');              // 'us.amazon.nova-pro-v1:0'
-getModelForTier('expert', 'premium');   // 'global.anthropic.claude-opus-4-5-20251101-v1:0'
-getModelForTier('expert', 'costOptimized'); // 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+getModelForTier('simple');              // 'us.amazon.nova-micro-v1:0'
+getModelForTier('complex', 'premium');  // 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+getModelForTier('moderate');            // 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 ```
 
 ### Upload Intent
@@ -196,26 +195,26 @@ console.log(result.categories); // ['code', 'reasoning']
 
 ### Presets
 
-| Preset | Expert | Complex | Moderate | Simple |
-|--------|--------|---------|----------|--------|
-| `premium` | Opus 4.5 | Sonnet 4.5 | Haiku 4.5 | Nova Pro |
-| `costOptimized` | Sonnet 4.5 | Sonnet 4.5 | Haiku 4.5 | Nova Pro |
-| `ultraCheap` | Haiku 4.5 | Haiku 4.5 | Nova Pro | Nova Pro |
+| Preset | Expert/Complex | Moderate | Simple |
+|--------|----------------|----------|--------|
+| `premium` | Sonnet 4.5 | Haiku 4.5 | Nova Micro |
+| `costOptimized` | Sonnet 4.5 | Haiku 4.5 | Nova Micro |
+| `ultraCheap` | Haiku 4.5 | Haiku 4.5 | Nova Micro |
 
-> **Note**: Nova Micro is NOT in routing presets. It's only used for `classifierModel` (LLM fallback).
+> **Note**: Only 3 models are used: Nova Micro, Claude Haiku 4.5, and Claude Sonnet 4.5.
 
 ### librechat.yaml Configuration
 
 ```yaml
 intentAnalyzer:
   autoToolSelection: true   # Smart tool selection based on query
-  modelRouting: true        # 4-tier model routing based on complexity
+  modelRouting: true        # 3-tier model routing based on complexity
   preset: 'premium'         # or 'costOptimized' or 'ultraCheap'
   debug: true               # Enable detailed logging
   endpoints:
     bedrock:
       enabled: true
-      classifierModel: 'us.amazon.nova-micro-v1:0'  # Only for classification fallback
+      classifierModel: 'us.amazon.nova-micro-v1:0'  # For classification and simple tier
 ```
 
 ## Tools

@@ -34,6 +34,7 @@ export type AgentForm = {
   model: string | null;
   model_parameters: AgentModelParameters;
   tools?: string[];
+  tool_credentials?: Record<string, Record<string, string>>; // { toolName: { authField: "value" } }
   provider?: AgentProvider | OptionWithIcon;
   /** @deprecated Use edges instead */
   agent_ids?: string[];

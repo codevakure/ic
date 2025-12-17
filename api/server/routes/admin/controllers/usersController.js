@@ -22,6 +22,7 @@ const listUsers = async (req, res) => {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       status = '', // active, banned, all
+      group = '', // OIDC group filter
     } = req.query;
 
     const result = await userService.listUsers({
@@ -32,6 +33,7 @@ const listUsers = async (req, res) => {
       sortBy,
       sortOrder,
       status,
+      group,
     });
 
     res.status(200).json(result);
@@ -160,6 +162,40 @@ const toggleUserBan = async (req, res) => {
 };
 
 /**
+ * Update user OIDC groups
+ */
+const updateUserOidcGroups = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { oidcGroups } = req.body;
+
+    // Validate oidcGroups is an array
+    if (!Array.isArray(oidcGroups)) {
+      return res.status(400).json({ message: 'oidcGroups must be an array' });
+    }
+
+    // Validate all entries are strings
+    if (!oidcGroups.every(g => typeof g === 'string')) {
+      return res.status(400).json({ message: 'All OIDC groups must be strings' });
+    }
+
+    const user = await userService.updateUserOidcGroups(userId, oidcGroups);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ message: 'User OIDC groups updated successfully', user });
+  } catch (error) {
+    logger.error('[Admin] Error updating user OIDC groups:', error);
+    res.status(500).json({ 
+      message: 'Error updating user OIDC groups',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
  * Delete a user and their data
  */
 const deleteUser = async (req, res) => {
@@ -230,10 +266,12 @@ const getActiveUsers = async (req, res) => {
 
 /**
  * Get active sessions with full session data for live monitoring
+ * Supports date range filtering via query params
  */
 const getActiveSessions = async (req, res) => {
   try {
-    const result = await userService.getActiveSessions();
+    const { startDate, endDate } = req.query;
+    const result = await userService.getActiveSessions(startDate, endDate);
     res.status(200).json(result);
   } catch (error) {
     logger.error('[Admin] Error fetching active sessions:', error);
@@ -258,6 +296,29 @@ const getUserSessions = async (req, res) => {
     logger.error('[Admin] Error fetching user sessions:', error);
     res.status(500).json({ 
       message: 'Error fetching user sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Terminate a specific user session
+ */
+const terminateSession = async (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+
+    const result = await userService.terminateUserSession(userId, sessionId);
+
+    if (!result.success) {
+      return res.status(404).json({ message: result.message || 'Session not found' });
+    }
+
+    res.status(200).json({ message: 'Session terminated successfully' });
+  } catch (error) {
+    logger.error('[Admin] Error terminating session:', error);
+    res.status(500).json({ 
+      message: 'Error terminating session',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -331,18 +392,103 @@ const getUserConversations = async (req, res) => {
   }
 };
 
+/**
+ * Get Microsoft 365 OAuth sessions
+ * Returns users with active MCP OAuth tokens for MS365
+ * Supports date range filtering via query params
+ */
+const getMicrosoftSessions = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const result = await userService.getMicrosoftSessions(startDate, endDate);
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error('[Admin] Error fetching Microsoft 365 sessions:', error);
+    res.status(500).json({ 
+      message: 'Error fetching Microsoft 365 sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Clear all sessions from the system
+ * This will log out all users
+ */
+const clearAllSessions = async (req, res) => {
+  try {
+    const result = await userService.clearAllSessions();
+    res.status(200).json({ 
+      message: 'All sessions cleared successfully',
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    logger.error('[Admin] Error clearing all sessions:', error);
+    res.status(500).json({ 
+      message: 'Error clearing sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Terminate all sessions for a specific user
+ */
+const terminateAllUserSessions = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await userService.terminateAllUserSessions(userId);
+    res.status(200).json({ 
+      message: 'All user sessions terminated successfully',
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    logger.error('[Admin] Error terminating all user sessions:', error);
+    res.status(500).json({ 
+      message: 'Error terminating user sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Clear all bans from the system
+ * This will unban all users and clear ban logs
+ */
+const clearAllBans = async (req, res) => {
+  try {
+    const result = await userService.clearAllBans();
+    res.status(200).json({ 
+      message: 'All bans cleared successfully',
+      ...result,
+    });
+  } catch (error) {
+    logger.error('[Admin] Error clearing all bans:', error);
+    res.status(500).json({ 
+      message: 'Error clearing bans',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   listUsers,
   getUserDetails,
   updateUser,
   updateUserRole,
+  updateUserOidcGroups,
   toggleUserBan,
   deleteUser,
   getUserStats,
   getActiveUsers,
   getActiveSessions,
+  clearAllSessions,
+  terminateAllUserSessions,
+  clearAllBans,
   getUserSessions,
+  terminateSession,
   getUserTransactions,
   getUserUsage,
   getUserConversations,
+  getMicrosoftSessions,
 };

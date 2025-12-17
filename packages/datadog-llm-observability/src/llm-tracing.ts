@@ -107,7 +107,7 @@ export async function traceLLMCall(
       modelProvider: provider === 'bedrock' ? 'amazon_bedrock' : provider.toUpperCase(),
       sessionId: conversationId,
       userId: userId,
-      service: process.env.DD_SERVICE || 'ranger',
+      service: process.env.DD_SERVICE || 'librechat',
       tags: {
         'llm.operation_type': operationType,
         'llm.temperature': temperature,
@@ -389,7 +389,7 @@ export async function traceConversationWorkflow(
 
   try {
     return await tracer.trace(spanName, {
-      service: process.env.DD_SERVICE || 'ranger',
+      service: process.env.DD_SERVICE || 'librechat',
       resource: `conversation.${workflowType}`,
       type: 'workflow'
     }, async (span: any) => {
@@ -459,7 +459,7 @@ export async function traceUserSession(
   const spanName = `session.${activity}`;
 
   return await tracer.trace(spanName, {
-    service: process.env.DD_SERVICE || 'ranger',
+    service: process.env.DD_SERVICE || 'librechat',
     resource: `session.${activity}`,
     type: 'session'
   }, async (span: any) => {
@@ -591,7 +591,7 @@ async function traceLLMCallWithCorrelation(
   try {
     const wrapperSpanName = `${spanName}.wrapper`;
     const wrapperConfig = {
-      service: process.env.DD_SERVICE || 'ranger',
+      service: process.env.DD_SERVICE || 'librechat',
       resource: `${provider}.${model}`,
       type: 'llm_operation'
     };
@@ -662,7 +662,7 @@ async function traceLLMCallWithCorrelation(
           modelName: model || 'unknown',
           modelProvider: provider === 'bedrock' ? 'amazon_bedrock' : provider.toUpperCase(),
           sessionId: conversationId,
-          service: process.env.DD_SERVICE || 'ranger',
+          service: process.env.DD_SERVICE || 'librechat',
           tags: {
             // Model information for reference - use 'anthropic' for cost estimation
             'llm.model_name': model || 'unknown',
