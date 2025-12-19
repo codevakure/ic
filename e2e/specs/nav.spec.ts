@@ -9,27 +9,45 @@ test.describe('Navigation suite', () => {
     expect(navSettings).toBeTruthy();
   });
 
-  test('Settings modal', async ({ page }) => {
+  test('Profile page navigation', async ({ page }) => {
     await page.goto('http://localhost:3080/', { timeout: 5000 });
     await page.getByTestId('nav-user').click();
-    await page.getByText('Settings').click();
+    await page.getByRole('menuitem', { name: /Profile/i }).click();
 
-    const modal = await page.getByRole('dialog', { name: 'Settings' }).isVisible();
-    expect(modal).toBeTruthy();
+    // Wait for navigation to /profile page
+    await page.waitForURL('**/profile', { timeout: 5000 });
 
-    const modalTitle = await page.getByRole('heading', { name: 'Settings' }).textContent();
-    expect(modalTitle?.length).toBeGreaterThan(0);
-    expect(modalTitle).toEqual('Settings');
+    const profileHeader = await page.getByRole('heading', { name: /Profile/ }).isVisible();
+    expect(profileHeader).toBeTruthy();
 
-    const modalTabList = await page.getByRole('tablist', { name: 'Settings' }).isVisible();
-    expect(modalTabList).toBeTruthy();
+    // Check if sidebar tabs are visible
+    const profileTab = await page.getByRole('button', { name: /Profile/ }).isVisible();
+    expect(profileTab).toBeTruthy();
 
-    const generalTabPanel = await page.getByRole('tabpanel', { name: 'General' }).isVisible();
-    expect(generalTabPanel).toBeTruthy();
+    const generalTab = await page.getByRole('button', { name: /General/ }).isVisible();
+    expect(generalTab).toBeTruthy();
 
-    const modalClearConvos = await page.getByRole('button', { name: 'Clear' }).isVisible();
-    expect(modalClearConvos).toBeTruthy();
+    const chatTab = await page.getByRole('button', { name: /Chat/ }).isVisible();
+    expect(chatTab).toBeTruthy();
+  });
 
+  test('Settings tabs in profile page', async ({ page }) => {
+    await page.goto('http://localhost:3080/profile', { timeout: 5000 });
+
+    // Check if all settings tabs are present
+    const tabs = ['Profile', 'General', 'Chat', 'Commands', 'Speech', 'Shared links'];
+    
+    for (const tabName of tabs) {
+      const tab = await page.getByRole('button', { name: new RegExp(tabName, 'i') }).isVisible();
+      expect(tab).toBeTruthy();
+    }
+
+    // Click on General tab and verify it shows content
+    await page.getByRole('button', { name: /General/i }).click();
+    const generalContent = await page.getByText(/Customize your theme and appearance/i).isVisible();
+    expect(generalContent).toBeTruthy();
+
+    // Check theme selector exists
     const modalTheme = page.getByTestId('theme-selector');
     expect(modalTheme).toBeTruthy();
 

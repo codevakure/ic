@@ -19,11 +19,17 @@ const waitForServerStream = async (response: Response) => {
 async function clearConvos(page: Page) {
   await page.goto(initialUrl, { timeout: 5000 });
   await page.getByRole('button', { name: 'test' }).click();
-  await page.getByText('Settings').click();
+  await page.getByTestId('nav-user').click();
+  await page.getByRole('menuitem', { name: /Profile/i }).click();
+  await page.waitForURL('**/profile', { timeout: 5000 });
+  
+  // Click on Data controls tab to find clear conversations
+  await page.getByRole('button', { name: /Data controls/i }).click();
   await page.getByTestId('clear-convos-initial').click();
   await page.getByTestId('clear-convos-confirm').click();
   await page.waitForSelector('[data-testid="convo-icon"]', { state: 'detached' });
-  await page.getByRole('button', { name: 'Close' }).click();
+  // Close doesn't apply here since we're on a page, navigate away
+  await page.goto(initialUrl, { timeout: 5000 });
 }
 
 let beforeAfterAllContext: BrowserContext;

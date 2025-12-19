@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useSetRecoilState } from 'recoil';
 import { formatDistanceToNow } from 'date-fns';
 import { matchSorter } from 'match-sorter';
+import * as Tabs from '@radix-ui/react-tabs';
 // @ts-ignore - no type definitions available
 import AvatarEditor from 'react-avatar-editor';
 import {
@@ -10,13 +11,18 @@ import {
   Calendar,
   Camera,
   Upload,
-  RotateCw,
+  RotateCcw,
   ZoomIn,
   ZoomOut,
   Move,
   X,
   Plus,
   Search,
+  MessageSquare,
+  Command,
+  DollarSign,
+  User,
+  Link2,
 } from 'lucide-react';
 import {
   fileConfig as defaultFileConfig,
@@ -24,6 +30,7 @@ import {
   SystemRoles,
   PermissionTypes,
   Permissions,
+  SettingsTabValues,
 } from 'ranger-data-provider';
 import {
   Label,
@@ -43,6 +50,10 @@ import {
   OGDialogTemplate,
   useToastContext,
   Avatar as AvatarComponent,
+  GearIcon,
+  DataIcon,
+  SpeechIcon,
+  useMediaQuery,
 } from '@ranger/client';
 import type { TUser, TUserMemory } from 'ranger-data-provider';
 import {
@@ -52,11 +63,23 @@ import {
   useMemoriesQuery,
   useDeleteMemoryMutation,
   useUpdateMemoryPreferencesMutation,
+  useGetStartupConfig,
 } from '~/data-provider';
-import { useDocumentTitle, useLocalize, useAuthContext, useHasAccess } from '~/hooks';
+import { useDocumentTitle, useLocalize, useAuthContext, useHasAccess, TranslationKeys } from '~/hooks';
 import MemoryCreateDialog from '~/components/SidePanel/Memories/MemoryCreateDialog';
 import MemoryEditDialog from '~/components/SidePanel/Memories/MemoryEditDialog';
 import AdminSettings from '~/components/SidePanel/Memories/AdminSettings';
+import {
+  General,
+  Chat,
+  Commands,
+  Speech,
+  Data,
+  Balance,
+  Account,
+} from '~/components/Nav/SettingsTabs';
+import { PageContainer } from '~/components/Layout';
+import SharedLinksPage from '~/components/Nav/SettingsTabs/Data/SharedLinksPage';
 import { cn, formatBytes } from '~/utils';
 import store from '~/store';
 
@@ -496,16 +519,8 @@ const AvatarUploadSection: React.FC<{ user: TUser | undefined }> = ({ user }) =>
   );
 };
 
-/**
- * ProfilePage - User profile management page
- * 
- * Features:
- * - User information display (name, email, role, join date)
- * - Profile picture upload and reset
- * - Memory management (view, create, edit, delete)
- * - Admin settings (only visible to admins)
- */
-const ProfilePage: React.FC = () => {
+// Profile Content Component (separated for use in tabs)
+const ProfileContent: React.FC = () => {
   const localize = useLocalize();
   const { user, isAuthenticated } = useAuthContext();
   const { data: userData } = useGetUserQuery();
@@ -516,7 +531,8 @@ const ProfilePage: React.FC = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [referenceSavedMemories, setReferenceSavedMemories] = useState(true);
+  // Initialize to undefined to track whether we've loaded the initial value
+  const [referenceSavedMemories, setReferenceSavedMemories] = useState<boolean | undefined>(undefined);
   const pageSize = 10;
 
   const updateMemoryPreferencesMutation = useUpdateMemoryPreferencesMutation({
@@ -531,20 +547,22 @@ const ProfilePage: React.FC = () => {
         message: localize('com_ui_error_updating_preferences'),
         status: 'error',
       });
-      setReferenceSavedMemories((prev) => !prev);
+      // Revert to server value on error
+      setReferenceSavedMemories(userData?.personalization?.memories ?? false);
     },
   });
 
+  // Initialize state from user data - only set once when data first loads
   useEffect(() => {
-    if (userData?.personalization?.memories !== undefined) {
+    if (userData?.personalization?.memories !== undefined && referenceSavedMemories === undefined) {
       setReferenceSavedMemories(userData.personalization.memories);
     }
-  }, [userData?.personalization?.memories]);
+  }, [userData?.personalization?.memories, referenceSavedMemories]);
 
-  const handleMemoryToggle = (checked: boolean) => {
+  const handleMemoryToggle = useCallback((checked: boolean) => {
     setReferenceSavedMemories(checked);
     updateMemoryPreferencesMutation.mutate({ memories: checked });
-  };
+  }, [updateMemoryPreferencesMutation]);
 
   // Check if memories are accessible
   const hasMemoryAccess = useHasAccess({
@@ -591,8 +609,6 @@ const ProfilePage: React.FC = () => {
     return 'bg-green-500';
   };
 
-  useDocumentTitle('Profile | Ranger');
-
   if (!isAuthenticated) {
     return null;
   }
@@ -608,28 +624,10 @@ const ProfilePage: React.FC = () => {
     return user.role === SystemRoles.ADMIN ? 'Administrator' : 'User';
   }, [user?.role, localize]);
 
+  // ProfileContent just returns the content - wrapper is handled by ProfilePage
   return (
-    <div className="relative flex w-full grow overflow-hidden bg-presentation">
-      <main className="flex h-full w-full flex-col overflow-hidden" role="main">
-        <div className="scrollbar-gutter-stable relative flex h-full flex-col overflow-y-auto overflow-x-hidden">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-text-primary">
-                  {localize('com_nav_profile')}
-                </h1>
-                <p className="text-sm text-text-secondary">
-                  {localize('com_nav_profile_subtitle')}
-                </p>
-              </div>
-              {/* Admin Settings Icon - Only visible to admins */}
-              {user?.role === SystemRoles.ADMIN && hasMemoryAccess && (
-                <AdminSettings />
-              )}
-            </div>
-
-            {/* Top Row - User Info Card (Left) + Memory Usage Card (Right) */}
+    <div className="flex flex-col gap-6">
+      {/* Top Row - User Info Card (Left) + Memory Usage Card (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               {/* User Info Card - Takes 3 columns */}
               <div className="lg:col-span-3 rounded-2xl border border-border-medium p-6">
@@ -684,9 +682,9 @@ const ProfilePage: React.FC = () => {
                       <div className="flex items-center justify-center sm:justify-start gap-3 pt-2">
                         <span className="text-sm text-text-secondary">{localize('com_ui_use_memory')}</span>
                         <Switch
-                          checked={referenceSavedMemories}
+                          checked={referenceSavedMemories ?? false}
                           onCheckedChange={handleMemoryToggle}
-                          disabled={updateMemoryPreferencesMutation.isLoading}
+                          disabled={updateMemoryPreferencesMutation.isLoading || referenceSavedMemories === undefined}
                           aria-label={localize('com_ui_use_memory')}
                         />
                       </div>
@@ -849,10 +847,249 @@ const ProfilePage: React.FC = () => {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      </main>
     </div>
+  );
+};
+
+/**
+ * ProfilePage - User profile and settings management page
+ * 
+ * Features:
+ * - Left sidebar with settings tabs (Profile, General, Chat, Commands, Speech, Data, Account)
+ * - Profile tab as default landing page with user info and memory management
+ * - All settings integrated in one page instead of modal
+ */
+const ProfilePage: React.FC = () => {
+  const localize = useLocalize();
+  const { user, isAuthenticated } = useAuthContext();
+  const { data: startupConfig } = useGetStartupConfig();
+  const isSmallScreen = useMediaQuery('(max-width: 767px)');
+  
+  // Use 'profile' as default tab - profile is always landing page
+  const [activeTab, setActiveTab] = useState('profile');
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Check if memories are accessible for Profile tab
+  const hasMemoryAccess = useHasAccess({
+    permissionType: PermissionTypes.MEMORIES,
+    permission: Permissions.READ,
+  });
+
+  useDocumentTitle('Settings | Ranger');
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    const tabs = settingsTabs.map(t => t.value);
+    const currentIndex = tabs.indexOf(activeTab);
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setActiveTab(tabs[(currentIndex + 1) % tabs.length]);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setActiveTab(tabs[(currentIndex - 1 + tabs.length) % tabs.length]);
+        break;
+      case 'Home':
+        event.preventDefault();
+        setActiveTab(tabs[0]);
+        break;
+      case 'End':
+        event.preventDefault();
+        setActiveTab(tabs[tabs.length - 1]);
+        break;
+    }
+  };
+
+  // Check if user is admin
+  const isAdmin = user?.role === SystemRoles.ADMIN;
+
+  // Build tabs list - Profile first, then settings tabs
+  const settingsTabs: {
+    value: string;
+    icon: React.JSX.Element;
+    label: TranslationKeys;
+  }[] = useMemo(() => {
+    const tabs: { value: string; icon: React.JSX.Element; label: TranslationKeys }[] = [
+      {
+        value: 'profile',
+        icon: <User className="icon-sm" />,
+        label: 'com_nav_profile',
+      },
+      {
+        value: SettingsTabValues.GENERAL,
+        icon: <GearIcon />,
+        label: 'com_nav_setting_general',
+      },
+      {
+        value: SettingsTabValues.CHAT,
+        icon: <MessageSquare className="icon-sm" />,
+        label: 'com_nav_setting_chat',
+      },
+      {
+        value: SettingsTabValues.COMMANDS,
+        icon: <Command className="icon-sm" />,
+        label: 'com_nav_commands',
+      },
+      {
+        value: SettingsTabValues.SPEECH,
+        icon: <SpeechIcon className="icon-sm" />,
+        label: 'com_nav_setting_speech',
+      },
+      {
+        value: 'shared-links',
+        icon: <Link2 className="icon-sm" />,
+        label: 'com_nav_shared_links',
+      },
+    ];
+
+    // Add Data Controls tab only for admin users
+    if (isAdmin) {
+      tabs.push({
+        value: SettingsTabValues.DATA,
+        icon: <DataIcon />,
+        label: 'com_nav_setting_data',
+      });
+    }
+
+    // Add balance tab if enabled
+    if (startupConfig?.balance?.enabled) {
+      tabs.push({
+        value: SettingsTabValues.BALANCE,
+        icon: <DollarSign size={18} />,
+        label: 'com_nav_setting_balance' as TranslationKeys,
+      });
+    }
+
+    // Add account tab only for admin users
+    if (isAdmin) {
+      tabs.push({
+        value: SettingsTabValues.ACCOUNT,
+        icon: <User className="icon-sm" />,
+        label: 'com_nav_setting_account',
+      });
+    }
+
+    return tabs;
+  }, [startupConfig?.balance?.enabled, isAdmin]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Get page title based on active tab
+  const getPageTitle = () => {
+    if (activeTab === 'profile') return localize('com_nav_profile');
+    if (activeTab === 'shared-links') return localize('com_nav_shared_links');
+    return localize('com_nav_settings');
+  };
+
+  // Get page subtitle based on active tab
+  const getPageSubtitle = () => {
+    if (activeTab === 'profile') return localize('com_nav_profile_subtitle');
+    if (activeTab === 'shared-links') return 'Manage your shared conversation links';
+    return 'Customize your preferences and manage your account';
+  };
+
+  return (
+    <PageContainer>
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-text-primary">
+            {getPageTitle()}
+          </h2>
+          <p className="text-sm text-text-secondary">
+            {getPageSubtitle()}
+          </p>
+        </div>
+        {/* Admin Settings Icon - Only visible to admins on profile tab */}
+        {activeTab === 'profile' && user?.role === SystemRoles.ADMIN && hasMemoryAccess && (
+          <AdminSettings />
+        )}
+      </div>
+
+            {/* Main Content with Tabs */}
+            <Tabs.Root
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="flex flex-col gap-6 md:flex-row md:gap-10"
+              orientation="vertical"
+            >
+              {/* Left Sidebar - Settings Tabs */}
+              <Tabs.List
+                aria-label="Settings"
+                className={cn(
+                  'min-w-auto max-w-auto relative flex flex-shrink-0 flex-col flex-nowrap overflow-auto',
+                  isSmallScreen
+                    ? 'flex-row rounded-xl bg-surface-secondary p-1'
+                    : 'sticky top-0 h-fit min-w-[200px]',
+                )}
+                onKeyDown={handleKeyDown}
+              >
+                {settingsTabs.map(({ value, icon, label }) => (
+                  <Tabs.Trigger
+                    key={value}
+                    className={cn(
+                      'group relative z-10 flex items-center justify-start gap-2 rounded-xl px-3 py-2 transition-all duration-200 ease-in-out',
+                      isSmallScreen
+                        ? 'flex-1 justify-center text-nowrap px-3 text-sm text-text-secondary radix-state-active:bg-surface-hover radix-state-active:text-text-primary'
+                        : 'bg-transparent text-text-secondary hover:bg-surface-hover radix-state-active:bg-surface-tertiary radix-state-active:text-text-primary',
+                    )}
+                    value={value}
+                    ref={(el) => (tabRefs.current[value] = el)}
+                  >
+                    {icon}
+                    {localize(label)}
+                  </Tabs.Trigger>
+                ))}
+              </Tabs.List>
+
+              {/* Right Content Area */}
+              <div className="flex-1 overflow-auto">
+                {/* Profile Tab */}
+                <Tabs.Content value="profile" tabIndex={-1} className="outline-none">
+                  <ProfileContent />
+                </Tabs.Content>
+
+                {/* Settings Tabs */}
+                <Tabs.Content value={SettingsTabValues.GENERAL} tabIndex={-1}>
+                  <General />
+                </Tabs.Content>
+                <Tabs.Content value={SettingsTabValues.CHAT} tabIndex={-1}>
+                  <Chat />
+                </Tabs.Content>
+                <Tabs.Content value={SettingsTabValues.COMMANDS} tabIndex={-1}>
+                  <Commands />
+                </Tabs.Content>
+                <Tabs.Content value={SettingsTabValues.SPEECH} tabIndex={-1}>
+                  <Speech />
+                </Tabs.Content>
+                <Tabs.Content value="shared-links" tabIndex={-1}>
+                  <SharedLinksPage />
+                </Tabs.Content>
+                {isAdmin && (
+                  <Tabs.Content value={SettingsTabValues.DATA} tabIndex={-1}>
+                    <Data />
+                  </Tabs.Content>
+                )}
+                {startupConfig?.balance?.enabled && (
+                  <Tabs.Content value={SettingsTabValues.BALANCE} tabIndex={-1}>
+                    <Balance />
+                  </Tabs.Content>
+                )}
+                {isAdmin && (
+                  <Tabs.Content value={SettingsTabValues.ACCOUNT} tabIndex={-1}>
+                    <Account />
+                  </Tabs.Content>
+                )}
+              </div>
+            </Tabs.Root>
+    </PageContainer>
   );
 };
 

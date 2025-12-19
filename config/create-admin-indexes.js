@@ -18,7 +18,7 @@ const { MongoClient } = require('mongodb');
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/LibreChat';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/Ranger';
 
 // Indexes to create for Messages collection
 const MESSAGE_INDEXES = [

@@ -1,13 +1,12 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard, HelpCircle } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
-import { TooltipAnchor, LinkIcon, GearIcon, DropdownMenuSeparator, ThemeSelector, useAvatar } from '@ranger/client';
+import { TooltipAnchor, LinkIcon, DropdownMenuSeparator, ThemeSelector, useAvatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
-import Settings from '~/components/Nav/Settings';
 import { cn } from '~/utils';
 
 interface NavItem {
@@ -29,7 +28,6 @@ const LeftPanelNav = memo(() => {
   const balanceQuery = useGetUserBalance({
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
-  const [showSettings, setShowSettings] = useState(false);
   const avatarSrc = useAvatar(user);
 
   // Define navigation items
@@ -229,17 +227,6 @@ const LeftPanelNav = memo(() => {
               {localize('com_nav_help_faq')}
             </Select.SelectItem>
           )}
-          {/* Show Settings only for SystemRoles.ADMIN role */}
-          {user?.role === SystemRoles.ADMIN && (
-            <Select.SelectItem
-              value=""
-              onClick={() => setShowSettings(true)}
-              className="select-item text-sm"
-            >
-              <GearIcon className="icon-md" aria-hidden="true" />
-              {localize('com_nav_settings')}
-            </Select.SelectItem>
-          )}
           {user?.role === SystemRoles.ADMIN && (
             <>
               <DropdownMenuSeparator />
@@ -264,8 +251,7 @@ const LeftPanelNav = memo(() => {
             {localize('com_nav_log_out')}
           </Select.SelectItem>
         </Select.SelectPopover>
-        {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
-      </Select.SelectProvider>
+        </Select.SelectProvider>
       </div>
     </div>
   );

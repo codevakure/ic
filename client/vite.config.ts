@@ -11,6 +11,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 const backendPort = process.env.BACKEND_PORT && Number(process.env.BACKEND_PORT) || 3080;
 const backendURL = process.env.HOST ? `http://${process.env.HOST}:${backendPort}` : `http://localhost:${backendPort}`;
 
+// Allow toggling PWA for local development via env; defaults off in dev.
+const enablePWADev = process.env.VITE_ENABLE_PWA_DEV === 'true';
+
 export default defineConfig(({ command }) => ({
   base: '',
   server: {
@@ -39,7 +42,8 @@ export default defineConfig(({ command }) => ({
       injectRegister: 'auto', // 'auto' | 'manual' | 'disabled'
       registerType: 'autoUpdate', // 'prompt' | 'autoUpdate'
       devOptions: {
-        enabled: true, // enable service worker registration in development mode
+        // keep PWA off locally unless explicitly enabled
+        enabled: enablePWADev,
       },
       useCredentials: true,
       includeManifestIcons: false,

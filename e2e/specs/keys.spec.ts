@@ -69,9 +69,14 @@ test.describe('Key suite', () => {
 
     expect(submitButton.count()).toBeTruthy();
 
+    // Navigate to profile page instead of settings modal
     await page.getByRole('button', { name: 'test' }).click();
-    await page.getByText('Settings').click();
-    await page.getByRole('tab', { name: 'Data controls' }).click();
+    await page.getByTestId('nav-user').click();
+    await page.getByRole('menuitem', { name: /Profile/i }).click();
+    await page.waitForURL('**/profile', { timeout: 5000 });
+    
+    // Click on Data controls tab (only visible to admins)
+    await page.getByRole('button', { name: /Data controls/i }).click();
     await page.getByRole('button', { name: 'Revoke' }).click();
     await page.getByRole('button', { name: 'Confirm Action' }).click();
 

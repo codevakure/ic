@@ -1,14 +1,13 @@
-import { useState, memo } from 'react';
+import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Select from '@ariakit/react/select';
 import { FileText, LogOut, User, HelpCircle } from 'lucide-react';
-import { LinkIcon, GearIcon, DropdownMenuSeparator, Avatar } from '@ranger/client';
+import { LinkIcon, DropdownMenuSeparator, Avatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 // import FilesView from '~/components/Chat/Input/Files/FilesView';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useLocalize } from '~/hooks';
-import Settings from './Settings';
 // import store from '~/store';
 
 function AccountSettings() {
@@ -19,7 +18,6 @@ function AccountSettings() {
   const balanceQuery = useGetUserBalance({
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
   });
-  const [showSettings, setShowSettings] = useState(false);
   // const [showFiles, setShowFiles] = useRecoilState(store.showFiles);
 
   return (
@@ -97,17 +95,6 @@ function AccountSettings() {
             {localize('com_nav_help_faq')}
           </Select.SelectItem>
         )}
-        {/* Show Settings only for SystemRoles.ADMIN role */}
-        {user?.role === SystemRoles.ADMIN && (
-          <Select.SelectItem
-            value=""
-            onClick={() => setShowSettings(true)}
-            className="select-item text-sm"
-          >
-            <GearIcon className="icon-md" aria-hidden="true" />
-            {localize('com_nav_settings')}
-          </Select.SelectItem>
-        )}
         <DropdownMenuSeparator />
         <Select.SelectItem
           aria-selected={true}
@@ -121,7 +108,6 @@ function AccountSettings() {
       </Select.SelectPopover>
       {/* Files view moved to /files route */}
       {/* {showFiles && <FilesView open={showFiles} onOpenChange={setShowFiles} />} */}
-      {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
     </Select.SelectProvider>
   );
 }
