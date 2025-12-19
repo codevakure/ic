@@ -9,6 +9,7 @@ import {
   User, 
   MessageSquareQuote, 
   LayoutDashboard,
+  Plug,
   X,
 } from 'lucide-react';
 import { ThemeSelector, useAvatar } from '@ranger/client';
@@ -63,6 +64,7 @@ const MobileNavSheet = memo(({ isOpen, onToggle, onClose }: MobileNavSheetProps)
     { id: 'prompts', title: 'Prompts', icon: MessageSquareQuote, path: '/prompts' },
     { id: 'files', title: 'Files', icon: FileText, path: '/files' },
     { id: 'bookmarks', title: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
+    { id: 'connectors', title: 'Connectors', icon: Plug, path: '/connectors' },
   ];
 
   const isActive = (path: string) => {

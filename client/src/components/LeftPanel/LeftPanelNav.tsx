@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard, HelpCircle } from 'lucide-react';
+import { MessageSquare, FileText, LogOut, Bookmark, Bot, User, MessageSquareQuote, LayoutDashboard, HelpCircle, Plug } from 'lucide-react';
 import * as Select from '@ariakit/react/select';
 import { TooltipAnchor, LinkIcon, DropdownMenuSeparator, ThemeSelector, useAvatar } from '@ranger/client';
 import { SystemRoles } from 'ranger-data-provider';
@@ -62,6 +62,12 @@ const LeftPanelNav = memo(() => {
       icon: Bookmark,
       path: '/bookmarks',
     },
+    {
+      id: 'connectors',
+      title: 'Connectors',
+      icon: Plug,
+      path: '/connectors',
+    },
   ];
 
   const isActive = (path: string) => {
@@ -76,6 +82,10 @@ const LeftPanelNav = memo(() => {
     if (path === '/prompts') {
       // Prompts is active for /prompts, /prompts/:promptId, and legacy /d/prompts routes
       return location.pathname.startsWith('/prompts') || location.pathname.startsWith('/d/prompts');
+    }
+    if (path === '/connectors') {
+      // Connectors is active for /connectors route
+      return location.pathname.startsWith('/connectors');
     }
     return location.pathname === path;
   };

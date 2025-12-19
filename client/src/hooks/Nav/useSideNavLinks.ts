@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Blocks, MCPIcon } from '@ranger/client';
+import { Blocks } from '@ranger/client';
 import { ArrowRightToLine } from 'lucide-react';
 import {
   Permissions,
@@ -11,8 +11,6 @@ import type { TInterfaceConfig, TEndpointsConfig } from 'ranger-data-provider';
 import type { NavLink } from '~/common';
 import AgentPanelSwitch from '~/components/SidePanel/Agents/AgentPanelSwitch';
 import PanelSwitch from '~/components/SidePanel/Builder/PanelSwitch';
-import MCPPanel from '~/components/SidePanel/MCP/MCPPanel';
-import { useGetStartupConfig } from '~/data-provider';
 import { useHasAccess } from '~/hooks';
 
 export default function useSideNavLinks({
@@ -38,7 +36,6 @@ export default function useSideNavLinks({
     permissionType: PermissionTypes.AGENTS,
     permission: Permissions.CREATE,
   });
-  const { data: startupConfig } = useGetStartupConfig();
 
   const Links = useMemo(() => {
     const links: NavLink[] = [];
@@ -77,24 +74,7 @@ export default function useSideNavLinks({
     }
 
     // Parameters moved to top nav (ParametersMenu in Header.tsx)
-
-    if (
-      startupConfig?.mcpServers &&
-      Object.values(startupConfig.mcpServers).some(
-        (server: any) =>
-          (server.customUserVars && Object.keys(server.customUserVars).length > 0) ||
-          server.isOAuth ||
-          server.startup === false,
-      )
-    ) {
-      links.push({
-        title: 'com_nav_setting_mcp',
-        label: '',
-        icon: MCPIcon,
-        id: 'mcp-settings',
-        Component: MCPPanel,
-      });
-    }
+    // MCP Connector Settings moved to left sidebar (/connectors)
 
     links.push({
       title: 'com_sidepanel_hide_panel',
@@ -112,7 +92,6 @@ export default function useSideNavLinks({
     hasAccessToAgents,
     hasAccessToCreateAgents,
     hidePanel,
-    startupConfig,
   ]);
 
   return Links;

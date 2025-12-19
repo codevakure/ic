@@ -11,6 +11,7 @@ import {
 import AgentMarketplace from '~/components/Agents/Marketplace';
 import ConversationHistoryPage from '~/components/Conversations/ConversationHistoryPage';
 import BookmarksPage from '~/components/Bookmarks/BookmarksPage';
+import { ConnectorsPage } from '~/components/Connectors';
 import ProfilePage from '~/components/Profile/ProfilePage';
 import { PromptsPage } from '~/components/Prompts';
 import { PlaceholderPage } from '~/components/Placeholder';
@@ -129,6 +130,10 @@ export const router = createBrowserRouter(
                 {
                   path: 'bookmarks',
                   element: <BookmarksPage />,
+                },
+                {
+                  path: 'connectors',
+                  element: <ConnectorsPage />,
                 },
                 {
                   path: 'files',
