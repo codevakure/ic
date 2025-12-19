@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { getEndpointField } from 'ranger-data-provider';
 import type * as t from 'ranger-data-provider';
-import { getIconKey, getEntity, getIconEndpoint } from '~/utils';
+import { getIconKey, getEntity, getIconEndpoint, getAgentAvatarUrl } from '~/utils';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';
 import { icons } from '~/hooks/Endpoint/Icons';
 
@@ -41,8 +41,9 @@ export default function ConvoIcon({
   );
 
   const name = entity?.name ?? '';
+  // Use getAgentAvatarUrl utility for agents to handle both string and object avatar formats
   const avatar = isAgent
-    ? (entity as t.Agent | undefined)?.avatar?.filepath
+    ? getAgentAvatarUrl(entity as t.Agent | undefined)
     : ((entity as t.Assistant | undefined)?.metadata?.avatar as string);
 
   const endpointIconURL = getEndpointField(endpointsConfig, endpoint, 'iconURL');

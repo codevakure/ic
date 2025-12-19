@@ -10,7 +10,8 @@ import {
 } from 'ranger-data-provider';
 import type { TConversation } from 'ranger-data-provider';
 import { useGetFileConfig, useGetEndpointsQuery } from '~/data-provider';
-import AttachFileMenu from './AttachFileMenu';
+// Note: AttachFileMenu is still available if a menu-based approach is needed in the future
+// import AttachFileMenu from './AttachFileMenu';
 import AttachFile from './AttachFile';
 
 function AttachFileChat({
@@ -55,22 +56,12 @@ function AttachFileChat({
     [disableInputs, endpointFileConfig?.disabled],
   );
 
-  // Agents: Show menu with Code Interpreter / File Search options
-  if (isAgents) {
-    return (
-      <AttachFileMenu
-        endpoint={endpoint}
-        disabled={disableInputs}
-        endpointType={endpointType}
-        conversationId={conversationId}
-        agentId={conversation?.agent_id}
-        endpointFileConfig={endpointFileConfig}
-      />
-    );
-  }
-  
-  // All other endpoints (including Assistants): Direct file picker
-  if (endpointSupportsFiles && !isUploadDisabled) {
+  // All endpoints (including Agents): Direct file picker
+  // Files are automatically routed based on their type by the intent analyzer:
+  // - Images → Image upload (vision)
+  // - Spreadsheets/Code → Code Interpreter  
+  // - Documents → File Search (RAG)
+  if ((isAgents || endpointSupportsFiles) && !isUploadDisabled) {
     return <AttachFile disabled={disableInputs} />;
   }
   

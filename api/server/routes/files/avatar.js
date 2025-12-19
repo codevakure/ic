@@ -5,8 +5,32 @@ const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
 const { getFileStrategy } = require('~/server/utils/getFileStrategy');
 const { filterFile } = require('~/server/services/Files/process');
+const { updateUser } = require('~/models');
 
 const router = express.Router();
+
+/**
+ * DELETE /files/images/avatar - Reset avatar to default (initials)
+ * Removes the user's custom avatar and resets to null (which triggers initials display)
+ */
+router.delete('/', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      throw new Error('User ID is undefined');
+    }
+
+    // Set avatar to null to reset to initials
+    await updateUser(userId, { avatar: null });
+
+    res.json({ url: null, message: 'Avatar reset to default' });
+  } catch (error) {
+    const message = 'An error occurred while resetting the profile picture';
+    logger.error(message, error);
+    res.status(500).json({ message });
+  }
+});
 
 router.post('/', async (req, res) => {
   try {

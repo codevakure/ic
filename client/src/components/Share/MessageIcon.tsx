@@ -6,7 +6,7 @@ import type { TMessageProps } from '~/common';
 import MessageEndpointIcon from '../Endpoints/MessageEndpointIcon';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';
 import { useGetEndpointsQuery } from '~/data-provider';
-import { getIconEndpoint, logger } from '~/utils';
+import { getIconEndpoint, getAgentAvatarUrl, logger } from '~/utils';
 
 export default function MessageIcon(
   props: Pick<TMessageProps, 'message' | 'conversation'> & {
@@ -41,7 +41,8 @@ export default function MessageIcon(
   const assistantName = (assistant ? assistant.name : '') ?? '';
   const assistantAvatar = (assistant ? assistant.metadata?.avatar : '') ?? '';
   const agentName = (agent ? agent.name : '') ?? '';
-  const agentAvatar = (agent ? agent?.avatar?.filepath : '') ?? '';
+  // Use getAgentAvatarUrl to handle both string and object avatar formats
+  const agentAvatar = getAgentAvatarUrl(agent || null) ?? '';
   const avatarURL = useMemo(() => {
     let result = '';
     if (assistant) {

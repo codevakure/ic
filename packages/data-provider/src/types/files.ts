@@ -173,6 +173,12 @@ export type UploadAvatarOptions = {
   onError?: (error: unknown, variables: FormData, context?: unknown) => void;
 };
 
+export type ResetAvatarOptions = {
+  onSuccess?: (data: AvatarUploadResponse, variables: void, context?: unknown) => void;
+  onMutate?: () => void | Promise<unknown>;
+  onError?: (error: unknown, variables: void, context?: unknown) => void;
+};
+
 export type SpeechToTextOptions = {
   onSuccess?: (data: SpeechToTextResponse, variables: FormData, context?: unknown) => void;
   onMutate?: (variables: FormData) => void | Promise<unknown>;

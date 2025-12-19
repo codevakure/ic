@@ -744,6 +744,10 @@ export const uploadAvatar = (data: FormData): Promise<f.AvatarUploadResponse> =>
   return request.postMultiPart(endpoints.avatar(), data);
 };
 
+export const resetAvatar = (): Promise<f.AvatarUploadResponse> => {
+  return request.delete(endpoints.avatar());
+};
+
 export const uploadAssistantAvatar = (data: m.AssistantAvatarVariables): Promise<a.Assistant> => {
   return request.postMultiPart(
     endpoints.assistants({

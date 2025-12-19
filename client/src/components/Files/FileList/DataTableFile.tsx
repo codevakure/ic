@@ -183,6 +183,11 @@ export default function DataTableFile<TData, TValue>({
                     style.width = '50%';
                     style.minWidth = '300px';
                   }
+                  if (header.id === 'embedded') {
+                    style.width = '100px';
+                    style.maxWidth = '100px';
+                    style.minWidth = '80px';
+                  }
 
                   if (index === 0 && header.id === 'select') {
                     style.width = '25px';

@@ -1,4 +1,3 @@
-import { GripVertical } from 'lucide-react';
 import * as ResizablePrimitive from 'react-resizable-panels';
 
 import { cn } from '~/utils';
@@ -30,8 +29,12 @@ const ResizableHandle = ({
     {...props}
   >
     {withHandle && (
-      <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
-        <GripVertical className="h-2.5 w-2.5" />
+      <div className="z-10 flex h-12 w-3.5 items-center justify-center rounded-full border border-border-medium bg-surface-secondary shadow-sm transition-all duration-200 hover:h-16 hover:bg-surface-tertiary hover:shadow-md active:bg-surface-hover">
+        <div className="flex flex-col gap-1">
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+        </div>
       </div>
     )}
   </ResizablePrimitive.PanelResizeHandle>
@@ -52,8 +55,12 @@ const ResizableHandleAlt = ({
     {...props}
   >
     {withHandle && (
-      <div className="invisible z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border group-hover:visible group-active:visible group-data-[resize-handle-active]:visible">
-        <GripVertical className="h-2.5 w-2.5" />
+      <div className="invisible z-10 flex h-12 w-3.5 items-center justify-center rounded-full border border-border-medium bg-surface-secondary shadow-sm transition-all duration-200 group-hover:visible group-hover:h-16 group-hover:bg-surface-tertiary group-hover:shadow-md group-active:visible group-active:bg-surface-hover group-data-[resize-handle-active]:visible">
+        <div className="flex flex-col gap-1">
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+          <div className="h-1 w-1 rounded-full bg-text-tertiary" />
+        </div>
       </div>
     )}
   </ResizablePrimitive.PanelResizeHandle>

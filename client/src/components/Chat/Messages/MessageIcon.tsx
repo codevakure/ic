@@ -4,7 +4,7 @@ import type { Assistant, Agent } from 'ranger-data-provider';
 import type { TMessageIcon } from '~/common';
 import ConvoIconURL from '~/components/Endpoints/ConvoIconURL';
 import { useGetEndpointsQuery } from '~/data-provider';
-import { getIconEndpoint, logger } from '~/utils';
+import { getIconEndpoint, getAgentAvatarUrl, logger } from '~/utils';
 import Icon from '~/components/Endpoints/Icon';
 
 const MessageIcon = memo(
@@ -21,7 +21,8 @@ const MessageIcon = memo(
     const { data: endpointsConfig } = useGetEndpointsQuery();
 
     const agentName = useMemo(() => agent?.name ?? '', [agent]);
-    const agentAvatar = useMemo(() => agent?.avatar?.filepath ?? '', [agent]);
+    // Use getAgentAvatarUrl to handle both string and object avatar formats
+    const agentAvatar = useMemo(() => getAgentAvatarUrl(agent) ?? '', [agent]);
     const assistantName = useMemo(() => assistant?.name ?? '', [assistant]);
     const assistantAvatar = useMemo(() => assistant?.metadata?.avatar ?? '', [assistant]);
 

@@ -704,6 +704,21 @@ export const useUploadAvatarMutation = (
   });
 };
 
+/* Avatar reset - resets to default initials */
+export const useResetAvatarMutation = (
+  options?: t.ResetAvatarOptions,
+): UseMutationResult<
+  t.AvatarUploadResponse, // response data
+  unknown, // error
+  void, // request
+  unknown // context
+> => {
+  return useMutation([MutationKeys.avatarReset], {
+    mutationFn: () => dataService.resetAvatar(),
+    ...(options || {}),
+  });
+};
+
 /* Speech to text */
 export const useSpeechToTextMutation = (
   options?: t.SpeechToTextOptions,

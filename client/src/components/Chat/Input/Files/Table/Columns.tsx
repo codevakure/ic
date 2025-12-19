@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { ArrowUpDown, Database } from 'lucide-react';
+import { ArrowUpDown, Database, CheckCircle2, XCircle, Loader2, MinusCircle } from 'lucide-react';
 import { FileSources, FileContext } from 'ranger-data-provider';
 import {
   Button,
@@ -189,6 +189,95 @@ export const columns: ColumnDef<TFile>[] = [
       return (
         <div className="flex flex-wrap items-center gap-2 text-text-primary">
           {localize(contextMap[context ?? FileContext.unknown])}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'embedded',
+    header: () => {
+      const localize = useLocalize();
+      return (
+        <span className="px-2 py-0 text-xs sm:px-2 sm:py-2 sm:text-sm">
+          {localize('com_ui_embeddings')}
+        </span>
+      );
+    },
+    cell: ({ row }) => {
+      const file = row.original;
+      const localize = useLocalize();
+      const toolResource = file.metadata?.tool_resource;
+      const ragStatus = file.metadata?.ragStatus;
+      const embedded = file.embedded;
+
+      // Code Executor files - N/A (not applicable for embeddings)
+      if (toolResource === 'execute_code' || file.source === FileSources.execute_code) {
+        return (
+          <div className="flex items-center gap-1.5 text-text-secondary">
+            <MinusCircle className="h-4 w-4" />
+            <span className="text-xs">{localize('com_ui_not_applicable')}</span>
+          </div>
+        );
+      }
+
+      // Images - N/A
+      if (file.type?.startsWith('image')) {
+        return (
+          <div className="flex items-center gap-1.5 text-text-secondary">
+            <MinusCircle className="h-4 w-4" />
+            <span className="text-xs">{localize('com_ui_not_applicable')}</span>
+          </div>
+        );
+      }
+
+      // Check RAG status if available
+      if (ragStatus) {
+        if (ragStatus === 'completed') {
+          return (
+            <div className="flex items-center gap-1.5 text-green-600">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-xs">{localize('com_ui_true')}</span>
+            </div>
+          );
+        } else if (ragStatus === 'processing' || ragStatus === 'pending') {
+          return (
+            <div className="flex items-center gap-1.5 text-amber-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-xs">{localize('com_ui_processing')}</span>
+            </div>
+          );
+        } else if (ragStatus === 'failed') {
+          return (
+            <div className="flex items-center gap-1.5 text-red-500">
+              <XCircle className="h-4 w-4" />
+              <span className="text-xs">{localize('com_ui_failed')}</span>
+            </div>
+          );
+        }
+      }
+
+      // Fallback to embedded boolean field
+      if (embedded === true) {
+        return (
+          <div className="flex items-center gap-1.5 text-green-600">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-xs">{localize('com_ui_true')}</span>
+          </div>
+        );
+      } else if (embedded === false) {
+        return (
+          <div className="flex items-center gap-1.5 text-red-500">
+            <XCircle className="h-4 w-4" />
+            <span className="text-xs">{localize('com_ui_false')}</span>
+          </div>
+        );
+      }
+
+      // Unknown/pending state
+      return (
+        <div className="flex items-center gap-1.5 text-text-secondary">
+          <MinusCircle className="h-4 w-4" />
+          <span className="text-xs">-</span>
         </div>
       );
     },
