@@ -3,20 +3,24 @@ import Cookies from 'js-cookie';
 import { useRecoilState } from 'recoil';
 import { useParams } from 'react-router-dom';
 import { buildTree } from 'ranger-data-provider';
-import { CalendarDays, Settings } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
+// Developer note: Settings modal temporarily disabled for cleaner shared view
+// import { Settings } from 'lucide-react';
 import { useGetSharedMessages } from 'ranger-data-provider/react-query';
 import {
   Spinner,
-  Button,
-  OGDialog,
+  // Developer note: Dialog components commented out for Settings modal
+  // Button,
+  // OGDialog,
   ThemeContext,
-  OGDialogTitle,
-  useMediaQuery,
-  OGDialogHeader,
-  OGDialogContent,
-  OGDialogTrigger,
+  // OGDialogTitle,
+  // useMediaQuery,
+  // OGDialogHeader,
+  // OGDialogContent,
+  // OGDialogTrigger,
 } from '@ranger/client';
-import { ThemeSelector, LangSelector } from '~/components/Nav/SettingsTabs/General/General';
+// Developer note: Theme/Lang selectors commented out for Settings modal
+// import { ThemeSelector, LangSelector } from '~/components/Nav/SettingsTabs/General/General';
 import { ShareArtifactsContainer } from './ShareArtifacts';
 import { useLocalize, useDocumentTitle } from '~/hooks';
 import { useGetStartupConfig } from '~/data-provider';
@@ -63,32 +67,33 @@ function SharedView() {
         })
       : null;
 
-  const handleThemeChange = useCallback(
-    (value: string) => {
-      setTheme(value);
-    },
-    [setTheme],
-  );
+  // Developer note: Settings modal handlers commented out (can be re-enabled if needed)
+  // const handleThemeChange = useCallback(
+  //   (value: string) => {
+  //     setTheme(value);
+  //   },
+  //   [setTheme],
+  // );
 
-  const handleLangChange = useCallback(
-    (value: string) => {
-      let userLang = value;
-      if (value === 'auto') {
-        userLang =
-          (typeof navigator !== 'undefined'
-            ? navigator.language || navigator.languages?.[0]
-            : null) ?? 'en-US';
-      }
+  // const handleLangChange = useCallback(
+  //   (value: string) => {
+  //     let userLang = value;
+  //     if (value === 'auto') {
+  //       userLang =
+  //         (typeof navigator !== 'undefined'
+  //           ? navigator.language || navigator.languages?.[0]
+  //           : null) ?? 'en-US';
+  //     }
 
-      requestAnimationFrame(() => {
-        document.documentElement.lang = userLang;
-      });
+  //     requestAnimationFrame(() => {
+  //       document.documentElement.lang = userLang;
+  //     });
 
-      setLangcode(userLang);
-      Cookies.set('lang', userLang, { expires: 365 });
-    },
-    [setLangcode],
-  );
+  //     setLangcode(userLang);
+  //     Cookies.set('lang', userLang, { expires: 365 });
+  //   },
+  //   [setLangcode],
+  // );
 
   let content: JSX.Element;
   if (isLoading) {
@@ -103,11 +108,6 @@ function SharedView() {
         <ShareHeader
           title={data.title}
           formattedDate={formattedDate}
-          theme={theme}
-          langcode={langcode}
-          onThemeChange={handleThemeChange}
-          onLangChange={handleLangChange}
-          settingsLabel={localize('com_nav_settings')}
         />
         <ShareMessagesProvider messages={data.messages}>
           <MessagesView messagesTree={messagesTree} conversationId={data.conversationId} />
@@ -122,17 +122,17 @@ function SharedView() {
     );
   }
 
-  const footer = (
-    <div className="w-full border-t-0 pl-0 pt-2 md:w-[calc(100%-.5rem)] md:border-t-0 md:border-transparent md:pl-0 md:pt-0 md:dark:border-transparent">
-      <Footer className="relative mx-auto mt-4 flex max-w-[55rem] flex-wrap items-center justify-center gap-2 px-3 pb-4 pt-2 text-center text-xs text-text-secondary" />
-    </div>
-  );
+  // Developer note: Footer removed for cleaner shared view (can be re-enabled if needed)
+  // const footer = (
+  //   <div className="w-full border-t-0 pl-0 pt-2 md:w-[calc(100%-.5rem)] md:border-t-0 md:border-transparent md:pl-0 md:pt-0 md:dark:border-transparent">
+  //     <Footer className="relative mx-auto mt-4 flex max-w-[55rem] flex-wrap items-center justify-center gap-2 px-3 pb-4 pt-2 text-center text-xs text-text-secondary" />
+  //   </div>
+  // );
 
   const mainContent = (
     <div className="transition-width relative flex h-full w-full flex-1 flex-col items-stretch overflow-hidden pt-0 dark:bg-surface-secondary">
       <div className="flex h-full flex-col text-text-primary" role="presentation">
         {content}
-        {footer}
       </div>
     </div>
   );
@@ -162,46 +162,50 @@ function SharedView() {
 interface ShareHeaderProps {
   title?: string;
   formattedDate: string | null;
-  theme: string;
-  langcode: string;
-  settingsLabel: string;
-  onThemeChange: (value: string) => void;
-  onLangChange: (value: string) => void;
+  // Developer note: Settings modal props commented out (can be re-enabled if needed)
+  // theme: string;
+  // langcode: string;
+  // settingsLabel: string;
+  // onThemeChange: (value: string) => void;
+  // onLangChange: (value: string) => void;
 }
 
 function ShareHeader({
   title,
   formattedDate,
-  theme,
-  langcode,
-  settingsLabel,
-  onThemeChange,
-  onLangChange,
+  // Developer note: Settings modal props commented out
+  // theme,
+  // langcode,
+  // settingsLabel,
+  // onThemeChange,
+  // onLangChange,
 }: ShareHeaderProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 767px)');
+  // Developer note: Settings modal state and handlers commented out
+  // const [settingsOpen, setSettingsOpen] = useState(false);
+  // const isMobile = useMediaQuery('(max-width: 767px)');
 
-  const handleDialogOutside = useCallback((event: Event) => {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest('[data-dialog-ignore="true"]')) {
-      event.preventDefault();
-    }
-  }, []);
+  // const handleDialogOutside = useCallback((event: Event) => {
+  //   const target = event.target as HTMLElement | null;
+  //   if (target?.closest('[data-dialog-ignore="true"]')) {
+  //     event.preventDefault();
+  //   }
+  // }, []);
 
   return (
-    <section className="mx-auto w-full px-3 pb-4 pt-6 md:px-5">
-      <div className="bg-surface-primary/80 relative mx-auto flex w-full max-w-[60rem] flex-col gap-4 rounded-3xl border border-border-light px-6 py-5 shadow-xl backdrop-blur">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-semibold text-text-primary">{title}</h1>
+    <section className="mx-auto w-full px-3 pb-3 pt-4 md:px-5">
+      <div className="bg-surface-primary/80 relative mx-auto flex w-full max-w-[60rem] flex-col gap-2 rounded-2xl border border-border-light px-5 py-3 shadow-lg backdrop-blur">
+        <div className="flex flex-col gap-2">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>
             {formattedDate && (
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <CalendarDays className="size-4" aria-hidden="true" />
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <CalendarDays className="size-3.5" aria-hidden="true" />
                 <span>{formattedDate}</span>
               </div>
             )}
           </div>
 
+          {/* Developer note: Settings button and modal commented out for cleaner shared view
           <OGDialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <OGDialogTrigger asChild>
               <Button
@@ -240,6 +244,7 @@ function ShareHeader({
               </div>
             </OGDialogContent>
           </OGDialog>
+          */}
         </div>
       </div>
     </section>
