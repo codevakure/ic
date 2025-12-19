@@ -1,10 +1,9 @@
+import { Info } from 'lucide-react';
 import { OptionTypes } from 'ranger-data-provider';
 import type { DynamicSettingProps } from 'ranger-data-provider';
 import { useLocalize, useDebouncedInput, useParameterEffects, TranslationKeys } from '~/hooks';
-import { Label, TextareaAutosize, HoverCard, HoverCardTrigger } from '@ranger/client';
+import { Label, TextareaAutosize, TooltipAnchor } from '@ranger/client';
 import { useChatContext } from '~/Providers';
-import OptionHover from './OptionHover';
-import { ESide } from '~/common';
 import { cn } from '~/utils';
 
 function DynamicTextarea({
@@ -45,59 +44,49 @@ function DynamicTextarea({
     setInputValue: setLocalValue,
   });
 
+  const placeholderText = placeholderCode
+    ? localize(placeholder as TranslationKeys) || placeholder
+    : placeholder;
+
+  const descriptionText = descriptionCode
+    ? localize(description as TranslationKeys) || description
+    : description;
+
   return (
     <div
-      className={`flex flex-col items-center justify-start gap-6 ${
-        columnSpan != null ? `col-span-${columnSpan}` : 'col-span-full'
-      }`}
+      className={cn(
+        'flex flex-col items-start justify-start gap-1.5',
+        columnSpan != null ? `col-span-${columnSpan}` : 'col-span-full',
+      )}
     >
-      <HoverCard openDelay={300}>
-        <HoverCardTrigger className="grid w-full items-center gap-2">
-          <div className="flex w-full justify-between">
-            <Label
-              htmlFor={`${settingKey}-dynamic-textarea`}
-              className="text-left text-sm font-medium"
-            >
-              {labelCode ? (localize(label as TranslationKeys) ?? label) : label || settingKey}{' '}
-              {showDefault && (
-                <small className="opacity-40">
-                  (
-                  {typeof defaultValue === 'undefined' || !(defaultValue as string).length
-                    ? localize('com_endpoint_default_blank')
-                    : `${localize('com_endpoint_default')}: ${defaultValue}`}
-                  )
-                </small>
-              )}
-            </Label>
-          </div>
-          <TextareaAutosize
-            id={`${settingKey}-dynamic-textarea`}
-            disabled={readonly}
-            value={inputValue ?? ''}
-            onChange={setInputValue}
-            aria-label={localize(label as TranslationKeys)}
-            placeholder={
-              placeholderCode
-                ? (localize(placeholder as TranslationKeys) ?? placeholder)
-                : placeholder
-            }
-            className={cn(
-              // TODO: configurable max height
-              'flex max-h-[138px] min-h-[100px] w-full resize-none rounded-lg bg-surface-secondary px-3 py-2 focus:outline-none',
-            )}
-          />
-        </HoverCardTrigger>
+      <div className="flex items-center gap-1">
+        <Label
+          htmlFor={`${settingKey}-dynamic-textarea`}
+          className="text-left text-xs font-medium text-text-secondary"
+        >
+          {labelCode ? (localize(label as TranslationKeys) ?? label) : label || settingKey}
+        </Label>
         {description && (
-          <OptionHover
-            description={
-              descriptionCode
-                ? (localize(description as TranslationKeys) ?? description)
-                : description
-            }
-            side={ESide.Left}
-          />
+          <TooltipAnchor
+            description={descriptionText}
+            side="top"
+            className="flex h-4 w-4 items-center justify-center text-text-tertiary transition-colors hover:text-text-secondary"
+          >
+            <Info size={12} />
+          </TooltipAnchor>
         )}
-      </HoverCard>
+      </div>
+      <TextareaAutosize
+        id={`${settingKey}-dynamic-textarea`}
+        disabled={readonly}
+        value={inputValue ?? ''}
+        onChange={setInputValue}
+        aria-label={localize(label as TranslationKeys)}
+        placeholder={placeholderText}
+        className={cn(
+          'flex max-h-[100px] min-h-[60px] w-full resize-none rounded-md border border-border-light bg-surface-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-border-heavy focus:outline-none',
+        )}
+      />
     </div>
   );
 }

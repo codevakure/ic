@@ -18,6 +18,10 @@ function useParameterEffects<T = unknown>({
 }) {
   const idRef = useRef<string | null>(null);
   const presetIdRef = useRef<string | null>(null);
+  const lastConversationValueRef = useRef<T | undefined>(undefined);
+
+  // Get the current conversation value for this setting
+  const conversationValue = conversation?.[settingKey] as T | undefined;
 
   /** Updates the local state inputValue if global (conversation) is updated elsewhere */
   useEffect(() => {
@@ -25,15 +29,21 @@ function useParameterEffects<T = unknown>({
       return;
     }
 
+    // Only sync if the conversation value actually changed from external source
+    // Skip if the values are already equal or if this is the same value we last saw
+    if (conversationValue === inputValue || conversationValue === lastConversationValueRef.current) {
+      return;
+    }
+
+    // Track that we're processing this conversation value
+    lastConversationValueRef.current = conversationValue;
+
     const timeout = setTimeout(() => {
-      if (conversation?.[settingKey] === inputValue) {
-        return;
-      }
-      setInputValue(conversation?.[settingKey]);
+      setInputValue(conversationValue as T);
     }, defaultDebouncedDelay * 1.25);
 
     return () => clearTimeout(timeout);
-  }, [setInputValue, preventDelayedUpdate, conversation, inputValue, settingKey]);
+  }, [setInputValue, preventDelayedUpdate, conversationValue, inputValue, settingKey]);
 
   /** Resets the local state if conversationId changed */
   useEffect(() => {

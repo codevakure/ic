@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import keyBy from 'lodash/keyBy';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Save } from 'lucide-react';
 import {
   excludedKeys,
   paramSettings,
@@ -15,9 +15,13 @@ import { useSetIndexOptions, useLocalize } from '~/hooks';
 import { useGetEndpointsQuery } from '~/data-provider';
 import { componentMapping } from './components';
 import { useChatContext } from '~/Providers';
-import { logger } from '~/utils';
+import { cn, logger } from '~/utils';
 
-export default function Parameters() {
+interface ParametersProps {
+  compact?: boolean;
+}
+
+export default function Parameters({ compact = false }: ParametersProps) {
   const localize = useLocalize();
   const { conversation, setConversation } = useChatContext();
   const { setOption } = useSetIndexOptions();
@@ -142,11 +146,8 @@ export default function Parameters() {
   }
 
   return (
-    <div className="h-auto max-w-full overflow-x-hidden p-3">
-      <div className="grid grid-cols-2 gap-4">
-        {' '}
-        {/* This is the parent element containing all settings */}
-        {/* Below is an example of an applied dynamic setting, each be contained by a div with the column span specified */}
+    <div className={cn('h-auto max-w-full overflow-x-hidden', compact ? 'p-3' : 'p-3')}>
+      <div className={cn('grid gap-3', compact ? 'grid-cols-2' : 'grid-cols-2 gap-4')}>
         {parameters.map((setting) => {
           const Component = componentMapping[setting.component];
           if (!Component) {
@@ -166,28 +167,50 @@ export default function Parameters() {
               {...rest}
               setOption={setOption}
               conversation={conversation}
+              compact={compact}
             />
           );
         })}
       </div>
-      <div className="mt-4 flex justify-center">
-        <button
-          type="button"
-          onClick={resetParameters}
-          className="btn btn-neutral flex w-full items-center justify-center gap-2 px-4 py-2 text-sm"
-        >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          {localize('com_ui_reset_var', { 0: localize('com_ui_model_parameters') })}
-        </button>
-      </div>
-      <div className="mt-2 flex justify-center">
-        <button
-          onClick={openDialog}
-          className="btn btn-primary focus:shadow-outline flex w-full items-center justify-center px-4 py-2 font-semibold text-white"
-          type="button"
-        >
-          {localize('com_endpoint_save_as_preset')}
-        </button>
+      <div className={cn('flex gap-2', compact ? 'mt-3' : 'mt-4 flex-col')}>
+        {compact ? (
+          <>
+            <button
+              type="button"
+              onClick={resetParameters}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border-medium bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden="true" />
+              {localize('com_ui_reset')}
+            </button>
+            <button
+              onClick={openDialog}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-submit px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-surface-submit-hover"
+              type="button"
+            >
+              <Save className="h-3 w-3" aria-hidden="true" />
+              {localize('com_ui_save')}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={resetParameters}
+              className="btn btn-neutral flex w-full items-center justify-center gap-2 px-4 py-2 text-sm"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              {localize('com_ui_reset_var', { 0: localize('com_ui_model_parameters') })}
+            </button>
+            <button
+              onClick={openDialog}
+              className="btn btn-primary focus:shadow-outline mt-2 flex w-full items-center justify-center px-4 py-2 font-semibold text-white"
+              type="button"
+            >
+              {localize('com_endpoint_save_as_preset')}
+            </button>
+          </>
+        )}
       </div>
       {preset && (
         <SaveAsPresetDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} preset={preset} />

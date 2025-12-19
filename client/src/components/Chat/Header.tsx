@@ -4,7 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import { getConfigDefaults, PermissionTypes, Permissions } from 'ranger-data-provider';
 import type { ContextType } from '~/common';
 import ModelSelector from './Menus/Endpoints/ModelSelector';
-import { PresetsMenu, HeaderNewChat, OpenSidebar, FilesButton } from './Menus';
+import { PresetsMenu, HeaderNewChat, OpenSidebar, FilesButton, ParametersMenu } from './Menus';
 // TODO: [Work/Web Toggle] - Uncomment when ready to implement Work/Web mode switching
 // import WorkWebToggle from './WorkWebToggle';
 import { useGetStartupConfig } from '~/data-provider';
@@ -82,6 +82,7 @@ export default function Header() {
             {hasAccessToMultiConvo === true && <AddMultiConvo />}
             {isSmallScreen && (
               <>
+                <ParametersMenu interfaceConfig={interfaceConfig} />
                 <FilesButton />
                 <ExportAndShareMenu
                   isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}
@@ -120,6 +121,7 @@ export default function Header() {
 
         {!isSmallScreen && (
           <div className="flex items-center gap-1">
+            <ParametersMenu interfaceConfig={interfaceConfig} />
             <FilesButton />
             <ExportAndShareMenu
               isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}

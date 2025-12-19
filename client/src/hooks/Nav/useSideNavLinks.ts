@@ -1,19 +1,16 @@
 import { useMemo } from 'react';
 import { Blocks, MCPIcon } from '@ranger/client';
-import { Settings2, ArrowRightToLine } from 'lucide-react';
+import { ArrowRightToLine } from 'lucide-react';
 import {
   Permissions,
   EModelEndpoint,
   PermissionTypes,
-  isParamEndpoint,
-  isAgentsEndpoint,
   isAssistantsEndpoint,
 } from 'ranger-data-provider';
 import type { TInterfaceConfig, TEndpointsConfig } from 'ranger-data-provider';
 import type { NavLink } from '~/common';
 import AgentPanelSwitch from '~/components/SidePanel/Agents/AgentPanelSwitch';
 import PanelSwitch from '~/components/SidePanel/Builder/PanelSwitch';
-import Parameters from '~/components/SidePanel/Parameters/Panel';
 import MCPPanel from '~/components/SidePanel/MCP/MCPPanel';
 import { useGetStartupConfig } from '~/data-provider';
 import { useHasAccess } from '~/hooks';
@@ -79,20 +76,7 @@ export default function useSideNavLinks({
       });
     }
 
-    if (
-      interfaceConfig.parameters === true &&
-      isParamEndpoint(endpoint ?? '', endpointType ?? '') === true &&
-      !isAgentsEndpoint(endpoint) &&
-      keyProvided
-    ) {
-      links.push({
-        title: 'com_sidepanel_parameters',
-        label: '',
-        icon: Settings2,
-        id: 'parameters',
-        Component: Parameters,
-      });
-    }
+    // Parameters moved to top nav (ParametersMenu in Header.tsx)
 
     if (
       startupConfig?.mcpServers &&
@@ -123,9 +107,7 @@ export default function useSideNavLinks({
     return links;
   }, [
     endpointsConfig,
-    interfaceConfig.parameters,
     keyProvided,
-    endpointType,
     endpoint,
     hasAccessToAgents,
     hasAccessToCreateAgents,
